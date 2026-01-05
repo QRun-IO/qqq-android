@@ -1,5 +1,7 @@
 # qqq-android
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 Android client library for QQQ applications.
 
 **For:** Developers building native Android apps that connect to QQQ backends  
@@ -117,4 +119,4 @@ Experimental. Core functionality is being developed.
 
 ## License
 
-AGPL-3.0 - Kingsrook, LLC
+Apache-2.0 - See [LICENSE](LICENSE) for details.
