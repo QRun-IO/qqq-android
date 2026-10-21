@@ -10,7 +10,7 @@ publishing {
    repositories {
       maven {
          name = "githubQqqMavenRegistry"
-         url = uri("https://maven.pkg.github.com/Kingsrook/qqq-maven-registry")
+         url = uri("https://maven.pkg.github.com/QRun-IO/qqq-maven-registry")
          // username and password (a personal Github access token) should be specified as
          // `githubPackagesUsername` and `githubPackagesPassword` Gradle properties
          credentials(PasswordCredentials::class)
