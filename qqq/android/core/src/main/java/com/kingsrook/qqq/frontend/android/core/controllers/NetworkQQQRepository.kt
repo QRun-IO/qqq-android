@@ -31,23 +31,24 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.Man
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.ManageSessionResponse
 import com.kingsrook.qqq.frontend.android.core.model.processes.ProcessStepResult
 import kotlinx.serialization.json.Json
-import okhttp3.Interceptor
+import okhttp3.Credentials
+import okhttp3.Cookie
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
-import okhttp3.Response
 import org.json.JSONObject
 import retrofit2.Retrofit
-import java.io.IOException
 import java.util.TimeZone
+import java.util.concurrent.ConcurrentHashMap
 
 
 /***************************************************************************
  **
  ***************************************************************************/
-class NetworkQQQRepository(private var baseUrl: String) : QQQRepository
+class NetworkQQQRepository(private var baseUrl: String, private val additionalHeaders: (String) -> Map<String, String> = { emptyMap() }) : QQQRepository
 {
+   private val sessionUUIDs = ConcurrentHashMap<String, String>()
    private val retroJson = Json { ignoreUnknownKeys = true }
 
    private val qqqApiServiceMap: MutableMap<String, QQQApiService> = mutableMapOf()
@@ -79,7 +80,24 @@ class NetworkQQQRepository(private var baseUrl: String) : QQQRepository
          .addConverterFactory(retroJson.asConverterFactory("application/json".toMediaType()))
          .client(
             OkHttpClient.Builder()
-               .addInterceptor(QQQInterceptor)
+               .followRedirects(false)
+               .followSslRedirects(false)
+               .addInterceptor { chain ->
+                  val request = chain.request().newBuilder()
+                  sessionUUIDs[baseUrl]?.takeIf { it.isNotBlank() }?.let { request.header("Cookie", "sessionUUID=$it") }
+                  additionalHeaders(baseUrl).forEach { (name, value) -> request.header(name, value) }
+                  request.header("X-QQQ-UserTimezone", TimeZone.getDefault().toZoneId().toString())
+                  val response = chain.proceed(request.build())
+                  response.headers("Set-Cookie").forEach { header ->
+                     Cookie.parse(response.request.url, header)?.let { cookie ->
+                        if(cookie.name == "sessionUUID" && cookie.matches(response.request.url))
+                        {
+                           sessionUUIDs[baseUrl] = cookie.value
+                        }
+                     }
+                  }
+                  response
+               }
                .build()
          )
          .baseUrl(baseUrl)
@@ -91,7 +109,7 @@ class NetworkQQQRepository(private var baseUrl: String) : QQQRepository
     ***************************************************************************/
    override fun setSessionUUID(sessionUUID: String)
    {
-      QQQInterceptor.sessionUUID = sessionUUID
+      sessionUUIDs[baseUrl] = sessionUUID
    }
 
    /***************************************************************************
@@ -108,7 +126,26 @@ class NetworkQQQRepository(private var baseUrl: String) : QQQRepository
     ***************************************************************************/
    override suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse
    {
-      return qqqApiServiceMap[baseUrl]!!.manageSession(body)
+      return resolveSession(qqqApiServiceMap[baseUrl]!!.manageSession(body))
+   }
+
+   /** Send credentials only to the session endpoint, never to subsequent requests. */
+   override suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse =
+      resolveSession(qqqApiServiceMap[baseUrl]!!.loginWithPassword(Credentials.basic(username, password, Charsets.UTF_8), emptyMap()))
+
+   /** Modern QQQ deliberately omits the UUID body field and returns an HttpOnly session cookie. */
+   private fun resolveSession(response: ManageSessionResponse): ManageSessionResponse
+   {
+      val session = response.uuid?.takeIf { it.isNotBlank() } ?: sessionUUIDs[baseUrl]?.takeIf { it.isNotBlank() }
+         ?: throw IllegalStateException("Sign-in response did not establish a session")
+      return response.copy(uuid = session)
+   }
+
+   /** Preserve the cookie until the server has received the revocation request. */
+   override suspend fun logout()
+   {
+      qqqApiServiceMap[baseUrl]!!.logout().close()
+      sessionUUIDs.remove(baseUrl)
    }
 
    /***************************************************************************
@@ -214,27 +251,4 @@ class NetworkQQQRepository(private var baseUrl: String) : QQQRepository
    /***************************************************************************
     **
     ***************************************************************************/
-   companion object QQQInterceptor : Interceptor
-   {
-      private var sessionUUID: String? = null
-
-      @Throws(IOException::class)
-      override fun intercept(chain: Interceptor.Chain): Response
-      {
-         val requestBuilder = chain.request().newBuilder()
-
-         sessionUUID?.let()
-         {
-            requestBuilder.addHeader("Cookie", "sessionUUID=${it}")
-         }
-
-         val timeZone = TimeZone.getDefault()
-         requestBuilder.addHeader("X-QQQ-UserTimezone", timeZone.toZoneId().toString())
-
-         val response: Response = chain.proceed(requestBuilder.build())
-
-         return response
-      }
-   }
-
 }

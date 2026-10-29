@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.Auth0AuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.BaseAuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.FullyAnonymousAuthenticationMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.TableBasedAuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullSizedAllCenteredColumn
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
@@ -50,7 +51,7 @@ fun QLogoutForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticati
          QAuth0Logout(qViewModel, modifier)
       }
 
-      is FullyAnonymousAuthenticationMetaData ->
+      is FullyAnonymousAuthenticationMetaData, is TableBasedAuthenticationMetaData ->
       {
          LaunchedEffect(true)
          {
@@ -62,9 +63,9 @@ fun QLogoutForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticati
 
          FullSizedAllCenteredColumn()
          {
-            Text("Logout Successful.", modifier = Modifier.padding(bottom = 16.dp))
+            Text(qViewModel.logoutMessage.ifEmpty { "Signing out…" }, modifier = Modifier.padding(bottom = 16.dp))
 
-            Button(onClick = { qViewModel.requestLogin() })
+            Button(enabled = !qViewModel.logoutInProgress, onClick = { qViewModel.requestLogin() })
             {
                Text("Log back in")
             }

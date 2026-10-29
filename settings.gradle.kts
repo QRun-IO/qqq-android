@@ -23,3 +23,4 @@ rootProject.name = "QQQ Android"
 include(":qqq:android:core")
 include(":qqq:android:mobileapp")
 include(":qqqsampleandroidmobileapp")
+include(":scanner-host")

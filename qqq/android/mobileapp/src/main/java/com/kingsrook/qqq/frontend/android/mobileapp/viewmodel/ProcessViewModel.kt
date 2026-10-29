@@ -44,6 +44,7 @@ import com.kingsrook.qqq.frontend.android.core.model.processes.QJobStarted
 import com.kingsrook.qqq.frontend.android.core.model.widgets.WidgetBlock
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancelChildren
 import java.time.LocalDateTime
 
 
@@ -208,6 +209,8 @@ open class ProcessViewModel : ViewModel()
     ***************************************************************************/
    fun reset()
    {
+      viewModelScope.coroutineContext.cancelChildren()
+      pendingStepValues = null
       processMetaDataLoadState = LoadState.Loading(Unit)
       processMetaData = null
       initLoadState = LoadState.Loading(Unit)
@@ -249,6 +252,7 @@ open class ProcessViewModel : ViewModel()
 
             LoadState.Success(processMetaData)
          }
+         catch(e: kotlinx.coroutines.CancellationException) { throw e }
          catch(e: Exception)
          {
             Log.w(TAG, "Error loading ProcessMetaData", e)
@@ -272,6 +276,7 @@ open class ProcessViewModel : ViewModel()
             val value = qqqRepository.processInit(processName, emptyMap())
             evaluateProcessResult(value)
          }
+         catch(e: kotlinx.coroutines.CancellationException) { throw e }
          catch(e: Exception)
          {
             Log.w(TAG, "Error initing process", e)
@@ -293,6 +298,7 @@ open class ProcessViewModel : ViewModel()
     ***************************************************************************/
    fun runStep(eventValues: Map<String, Any?> = emptyMap())
    {
+      if(waitingOnBackend) return
       val localProcessUUID = processUUID
       val localActiveStepName = activeStepName
 
@@ -321,6 +327,9 @@ open class ProcessViewModel : ViewModel()
          valuesToSubmit[entry.key] = entry.value
       }
 
+      pendingStepValues = if(valuesToSubmit["eventId"] is String) valuesToSubmit.toMap() else null
+      topLevelErrorState = LoadState.Success(Unit)
+
       /////////////////////////////////////////
       // set state to show we're loading now //
       /////////////////////////////////////////
@@ -337,12 +346,32 @@ open class ProcessViewModel : ViewModel()
             val value = qqqRepository.processStep(processName, localProcessUUID, localActiveStepName, valuesToSubmit, stepTimeoutMillis = 1000)
             evaluateProcessResult(value)
          }
+         catch(e: kotlinx.coroutines.CancellationException) { throw e }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error running process step", e)
-            setTopLevelError("Error running process step:  ${e.message}")
+            waitingOnBackend = false
+            setTopLevelError(if(e is retrofit2.HttpException && e.code() in listOf(401, 403))
+               "Access denied. Your session may have expired or device approval may have been revoked. Sign in again or contact your administrator."
+               else "The server did not confirm this request. Retry the same request when connected.")
          }
       }
+   }
+
+   /** Retain only the current request in memory so an uncertain response can be retried safely. */
+   var pendingStepValues: Map<String, Any?>? = null
+      private set
+
+   /** Explicit retries preserve the scan event ID; no background queue is created. */
+   fun retryPendingStep()
+   {
+      if(pendingStepValues == null) return
+      if(activeJobUUID.isNotEmpty())
+      {
+         topLevelErrorState = LoadState.Success(Unit)
+         waitingOnBackend = true
+         checkIn()
+      }
+      else pendingStepValues?.let { runStep(it) }
    }
 
    /***************************************************************************
@@ -373,6 +402,7 @@ open class ProcessViewModel : ViewModel()
          is QJobError ->
          {
             waitingOnBackend = false
+            activeJobUUID = ""
             setTopLevelError(value.userFacingError ?: value.error)
          }
 
@@ -418,6 +448,15 @@ open class ProcessViewModel : ViewModel()
     ***************************************************************************/
    private fun processJobCompleteResult(value: QJobComplete)
    {
+      val pendingEventId = pendingStepValues?.get("eventId")
+      if(pendingEventId == null || pendingEventId == value.values["acknowledgedEventId"])
+      {
+         pendingStepValues = null
+      }
+      else
+      {
+         setTopLevelError("The server did not acknowledge this scan. Retry the same request when connected.")
+      }
       updateActiveStepName(value.nextStep)
       stepInstanceCounter++
 
@@ -485,10 +524,11 @@ open class ProcessViewModel : ViewModel()
             val value = qqqRepository.processJobStatus(processName, localProcessUUID, localJobUUID)
             evaluateProcessResult(value)
          }
+         catch(e: kotlinx.coroutines.CancellationException) { throw e }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error checking running process step status", e)
-            setTopLevelError("Error checking running process step status:  ${e.message}")
+            waitingOnBackend = false
+            setTopLevelError("The server did not confirm the running request. Retry to check the same request again.")
          }
       }
    }
@@ -672,6 +712,7 @@ open class ProcessViewModel : ViewModel()
             {
                controlCallbacks[controlCallbackName]?.invoke()
             }
+            catch(e: kotlinx.coroutines.CancellationException) { throw e }
             catch(e: Exception)
             {
                Log.w(TAG, "Error calling control callback for [${controlCallbackName}]", e)

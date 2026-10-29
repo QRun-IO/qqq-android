@@ -1,0 +1,287 @@
+{
+  "appTree": [{
+    "children": [{
+      "name": "mobileScanCapture",
+      "label": "Scan Capture",
+      "type": "PROCESS"
+    }],
+    "name": "mobileScanApp",
+    "icon": {"name": "qr_code_scanner"},
+    "label": "Scan Capture",
+    "type": "APP"
+  }],
+  "processes": {
+    "mobileDeviceCredential.bulkDelete": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "mobileDeviceCredential.bulkDelete",
+      "label": "Device Credentials Bulk Delete",
+      "tableName": "mobileDeviceCredential",
+      "isHidden": true
+    },
+    "mobileDeviceCredential.bulkEdit": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "mobileDeviceCredential.bulkEdit",
+      "label": "Device Credentials Bulk Edit",
+      "tableName": "mobileDeviceCredential",
+      "isHidden": true
+    },
+    "mobileScan.bulkEditWithFile": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "mobileScan.bulkEditWithFile",
+      "label": "Barcode Scans Bulk Edit With File",
+      "tableName": "mobileScan",
+      "isHidden": true
+    },
+    "demoUser.bulkDelete": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "demoUser.bulkDelete",
+      "label": "Demo User Bulk Delete",
+      "tableName": "demoUser",
+      "isHidden": true
+    },
+    "demoSession.bulkEditWithFile": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "demoSession.bulkEditWithFile",
+      "label": "Demo Session Bulk Edit With File",
+      "tableName": "demoSession",
+      "isHidden": true
+    },
+    "demoUser.bulkInsert": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "iconName": "library_add",
+      "hasPermission": false,
+      "name": "demoUser.bulkInsert",
+      "icon": {
+        "semanticName": "library-add",
+        "name": "library_add"
+      },
+      "label": "Demo User Bulk Insert",
+      "iconSemanticName": "library-add",
+      "tableName": "demoUser",
+      "isHidden": true
+    },
+    "demoSession.bulkInsert": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "iconName": "library_add",
+      "hasPermission": false,
+      "name": "demoSession.bulkInsert",
+      "icon": {
+        "semanticName": "library-add",
+        "name": "library_add"
+      },
+      "label": "Demo Session Bulk Insert",
+      "iconSemanticName": "library-add",
+      "tableName": "demoSession",
+      "isHidden": true
+    },
+    "demoUser.bulkEditWithFile": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "demoUser.bulkEditWithFile",
+      "label": "Demo User Bulk Edit With File",
+      "tableName": "demoUser",
+      "isHidden": true
+    },
+    "mobileScanCapture": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": true,
+      "name": "mobileScanCapture",
+      "label": "Scan Capture",
+      "isHidden": false
+    },
+    "mobileDevice.bulkInsert": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "iconName": "library_add",
+      "hasPermission": false,
+      "name": "mobileDevice.bulkInsert",
+      "icon": {
+        "semanticName": "library-add",
+        "name": "library_add"
+      },
+      "label": "Mobile Devices Bulk Insert",
+      "iconSemanticName": "library-add",
+      "tableName": "mobileDevice",
+      "isHidden": true
+    },
+    "mobileDeviceCredential.bulkInsert": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "iconName": "library_add",
+      "hasPermission": false,
+      "name": "mobileDeviceCredential.bulkInsert",
+      "icon": {
+        "semanticName": "library-add",
+        "name": "library_add"
+      },
+      "label": "Device Credentials Bulk Insert",
+      "iconSemanticName": "library-add",
+      "tableName": "mobileDeviceCredential",
+      "isHidden": true
+    },
+    "mobileScan.bulkEdit": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "mobileScan.bulkEdit",
+      "label": "Barcode Scans Bulk Edit",
+      "tableName": "mobileScan",
+      "isHidden": true
+    },
+    "mobileDevice.bulkDelete": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "mobileDevice.bulkDelete",
+      "label": "Mobile Devices Bulk Delete",
+      "tableName": "mobileDevice",
+      "isHidden": true
+    },
+    "mobileDevice.bulkEditWithFile": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "mobileDevice.bulkEditWithFile",
+      "label": "Mobile Devices Bulk Edit With File",
+      "tableName": "mobileDevice",
+      "isHidden": true
+    },
+    "mobileScan.bulkInsert": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "iconName": "library_add",
+      "hasPermission": false,
+      "name": "mobileScan.bulkInsert",
+      "icon": {
+        "semanticName": "library-add",
+        "name": "library_add"
+      },
+      "label": "Barcode Scans Bulk Insert",
+      "iconSemanticName": "library-add",
+      "tableName": "mobileScan",
+      "isHidden": true
+    },
+    "mobileScan.bulkDelete": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "mobileScan.bulkDelete",
+      "label": "Barcode Scans Bulk Delete",
+      "tableName": "mobileScan",
+      "isHidden": true
+    },
+    "demoSession.bulkEdit": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "demoSession.bulkEdit",
+      "label": "Demo Session Bulk Edit",
+      "tableName": "demoSession",
+      "isHidden": true
+    },
+    "demoSession.bulkDelete": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "demoSession.bulkDelete",
+      "label": "Demo Session Bulk Delete",
+      "tableName": "demoSession",
+      "isHidden": true
+    },
+    "mobileDevice.bulkEdit": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "mobileDevice.bulkEdit",
+      "label": "Mobile Devices Bulk Edit",
+      "tableName": "mobileDevice",
+      "isHidden": true
+    },
+    "mobileDeviceCredential.bulkEditWithFile": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "mobileDeviceCredential.bulkEditWithFile",
+      "label": "Device Credentials Bulk Edit With File",
+      "tableName": "mobileDeviceCredential",
+      "isHidden": true
+    },
+    "demoUser.bulkEdit": {
+      "durableJobAlways": false,
+      "stepFlow": "LINEAR",
+      "durableJobEligible": false,
+      "hasPermission": false,
+      "name": "demoUser.bulkEdit",
+      "label": "Demo User Bulk Edit",
+      "tableName": "demoUser",
+      "isHidden": true
+    }
+  },
+  "metaDataGeneration": 0,
+  "widgets": {"mobileScanner": {
+    "showReloadButton": true,
+    "hasPermission": true,
+    "name": "mobileScanner",
+    "storeDropdownSelections": false,
+    "isCard": false,
+    "label": "Scan a barcode",
+    "showExportButton": false,
+    "type": "composite"
+  }},
+  "apps": {"mobileScanApp": {
+    "children": [{
+      "name": "mobileScanCapture",
+      "label": "Scan Capture",
+      "type": "PROCESS"
+    }],
+    "name": "mobileScanApp",
+    "icon": {"name": "qr_code_scanner"},
+    "childMap": {"mobileScanCapture": {
+      "name": "mobileScanCapture",
+      "label": "Scan Capture",
+      "type": "PROCESS"
+    }},
+    "label": "Scan Capture",
+    "sections": [{
+      "processes": ["mobileScanCapture"],
+      "role": "PRIMARY",
+      "name": "scan",
+      "label": "Scanning",
+      "collapsedByDefault": false
+    }]
+  }}
+}

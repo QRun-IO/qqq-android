@@ -40,6 +40,7 @@ object AuthenticationSerializer : JsonContentPolymorphicSerializer<BaseAuthentic
    {
       Auth0AuthenticationMetaData.TYPE -> Auth0AuthenticationMetaData.serializer()
       FullyAnonymousAuthenticationMetaData.TYPE -> FullyAnonymousAuthenticationMetaData.serializer()
+      TableBasedAuthenticationMetaData.TYPE, "tableBased" -> TableBasedAuthenticationMetaData.serializer()
       else -> throw SerializationException("Unknown type: $type")
    }
 }

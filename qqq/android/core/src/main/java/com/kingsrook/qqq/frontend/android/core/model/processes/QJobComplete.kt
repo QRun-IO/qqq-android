@@ -10,6 +10,6 @@ import kotlinx.serialization.Serializable
 data class QJobComplete(
    override val processUUID: String,
    val values: MapOfStringAny = emptyMap(),
-   val nextStep: String,
+   val nextStep: String = "",
    val processMetaDataAdjustment: ProcessMetaDataAdjustment? = null,
 ) : ProcessStepResult()

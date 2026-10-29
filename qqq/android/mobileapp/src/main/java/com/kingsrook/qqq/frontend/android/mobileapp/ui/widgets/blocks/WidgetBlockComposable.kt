@@ -25,6 +25,7 @@ package com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalCustomWidgetRenderer
 
 /***************************************************************************
  ** Composable that takes a widget-block, switches based on the type, and
@@ -42,6 +43,9 @@ fun WidgetBlockComposable(params: WidgetBlockParameters, modifier: Modifier = Mo
       "IMAGE" -> ImageWidgetBlock(params, modifier)
       "INPUT_FIELD" -> InputFieldWidgetBlock(params, modifier, disableControls)
       "TEXT" -> TextWidgetBlock(params, modifier)
-      else -> Text("Unsupported block type: ${params.widgetBlock.blockType}")
+      else -> if(!LocalCustomWidgetRenderer.current(params, modifier, disableControls))
+      {
+         Text("Unsupported block type: ${params.widgetBlock.blockType}")
+      }
    }
 }

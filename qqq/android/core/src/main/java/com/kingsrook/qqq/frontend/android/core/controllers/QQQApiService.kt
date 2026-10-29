@@ -29,8 +29,10 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.Man
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.ManageSessionResponse
 import com.kingsrook.qqq.frontend.android.core.model.processes.ProcessStepResult
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -51,6 +53,12 @@ interface QQQApiService
 
    @POST(BASE_PATH + "manageSession")
    suspend fun manageSession(@Body body: ManageSessionRequest): ManageSessionResponse
+
+   @POST(BASE_PATH + "manageSession")
+   suspend fun loginWithPassword(@Header("Authorization") authorization: String, @Body body: Map<String, String>): ManageSessionResponse
+
+   @POST(BASE_PATH + "logout")
+   suspend fun logout(): ResponseBody
 
    ///////////////////
    // qqq meta data //

@@ -122,6 +122,8 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
       LoadStateView(
          loadStates,
          modifier = Modifier,
+         reloader = if(processViewModel.pendingStepValues != null)
+            com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Reloader("Retry same request", { processViewModel.retryPendingStep() }) else null,
          loadingText = "Loading Process"
       )
       {

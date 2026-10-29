@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.BaseAuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalAuthenticatedContent
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.QApplicationWrapper
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.LoadStateView
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Reloader
@@ -61,7 +62,7 @@ fun QAuthenticationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier
          }
          else if(isAuthenticated)
          {
-            QApplicationWrapper(qViewModel, Modifier, qNavigator)
+            LocalAuthenticatedContent.current(qViewModel) { QApplicationWrapper(qViewModel, Modifier, qNavigator) }
          }
          else
          {

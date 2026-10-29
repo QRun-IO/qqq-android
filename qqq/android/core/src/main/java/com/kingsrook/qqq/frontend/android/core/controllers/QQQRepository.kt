@@ -43,6 +43,13 @@ interface QQQRepository
 
    suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse
 
+   /** Authenticate table-backed users without retaining their password. */
+   suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse =
+      throw UnsupportedOperationException("Password authentication is unavailable")
+
+   /** End the server session before discarding local credentials. */
+   suspend fun logout() { }
+
    suspend fun getMetaData(frontendName: String, frontendVersion: String, applicationName: String, applicationVersion: String): QInstance
 
    suspend fun getProcessMetaData(processName: String): QProcessMetaData

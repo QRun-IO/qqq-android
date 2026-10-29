@@ -78,6 +78,12 @@ open class QViewModel(
    var isLogoutRequested: Boolean by mutableStateOf(false)
       private set
 
+   var logoutInProgress: Boolean by mutableStateOf(false)
+      private set
+
+   var logoutMessage: String by mutableStateOf("")
+      private set
+
    var sessionUUID: String by mutableStateOf("")
       private set
 
@@ -183,6 +189,7 @@ open class QViewModel(
       manageSessionLoadState = LoadState.Loading(Unit)
       qInstanceLoadState = LoadState.Loading(Unit)
       topBarStatusText = ""
+      activeProcessViewModel?.reset()
       activeProcessViewModel = null
    }
 
@@ -215,10 +222,8 @@ open class QViewModel(
       {
          try
          {
-            Log.d(TAG, "managing session with an access token from login flow: ${accessToken.firstN(8)}")
-
             val manageSessionLoadState = LoadState.Success(qqqRepository.manageSession(ManageSessionRequest(accessToken = accessToken, uuid = null)))
-            sessionUUID = manageSessionLoadState.value.uuid
+            sessionUUID = requireNotNull(manageSessionLoadState.value.uuid)
             qqqRepository.setSessionUUID(sessionUUID)
             loadQInstance()
             logInSuccessful()
@@ -333,14 +338,14 @@ open class QViewModel(
                            else -> "Unknown"
                         }
 
-                        Log.d(TAG, "qInstanceLoadState was success (${qInstanceLoadState}).  marking login success!")
+                        Log.d(TAG, "Stored session accepted")
                         logInSuccessful()
                      }
 
                      else ->
                      {
                         qInstanceLoadState = LoadState.Loading(Unit)
-                        Log.d(TAG, "qInstanceLoadState was not success (${qInstanceLoadState}).  marking login failed.")
+                        Log.d(TAG, "Stored session rejected")
                         logInFailed()
                      }
                   }
@@ -352,7 +357,7 @@ open class QViewModel(
                ///////////
                // noop. //
                ///////////
-               Log.d(TAG, "loadStoredSessionUUID was not success (${storedSessionUUIDLoadState}).  ending dance")
+               Log.d(TAG, "No stored session available")
             }
          }
 
@@ -432,8 +437,8 @@ open class QViewModel(
       qNavigator.goHome()
       viewModelScope.launch()
       {
-         activateEnvironment(environment).join()
          logOut().join()
+         activateEnvironment(environment).join()
          loadAuthenticationMetaData().join()
          postSwitchCallback.invoke()
       }
@@ -465,7 +470,6 @@ open class QViewModel(
    {
       viewModelScope.launch()
       {
-         Log.d(TAG, "Storing session UUID: [${value}]")
          settingsRepository.setSessionUUID(value)
       }
    }
@@ -491,29 +495,35 @@ open class QViewModel(
       {
          val capturedIsLogoutRequested = isLogoutRequested
          val capturedAuthLoadState = authenticationMetaDataLoadState
-
-         viewModelScope.launch()
+         activeProcessViewModel?.reset()
+         logoutInProgress = true
+         logoutMessage = "Signing out…"
+         var serverConfirmed = false
+         try
          {
-            isAuthenticated = false
-            sessionUUID = ""
-            qqqRepository.setSessionUUID(sessionUUID)
-            settingsRepository.setSessionUUID(sessionUUID)
-         }.join()
-
-         clearAll()
-
-         ////////////////////////////////////////
-         // restore these 2 after the clear... //
-         ////////////////////////////////////////
-         isLogoutRequested = capturedIsLogoutRequested
-         authenticationMetaDataLoadState = capturedAuthLoadState
+            qqqRepository.logout()
+            serverConfirmed = true
+         }
+         catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
+         catch(exception: Exception) { /* Local sign-out still completes when the network is unavailable. */ }
+         finally
+         {
+            clearAll()
+            qqqRepository.setSessionUUID("")
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { settingsRepository.setSessionUUID("") }
+            isLogoutRequested = capturedIsLogoutRequested
+            authenticationMetaDataLoadState = capturedAuthLoadState
+            logoutInProgress = false
+            logoutMessage = if(serverConfirmed) "Signed out."
+               else "Signed out on this device. Server sign-out could not be confirmed."
+         }
       }
    }
 
    /***************************************************************************
     **
     ***************************************************************************/
-   private fun loadQInstance(): Job
+   fun loadQInstance(): Job
    {
       return viewModelScope.launch()
       {
@@ -527,6 +537,30 @@ open class QViewModel(
          {
             Log.w(TAG, "Error loading QInstance", e)
             LoadState.Error(e,"Error loading QInstance")
+         }
+      }
+   }
+
+   /** Password remains in this request only; the returned session drives the existing host. */
+   fun loginWithPassword(username: String, password: String)
+   {
+      manageSessionLoadState = LoadState.Loading(Unit)
+      viewModelScope.launch()
+      {
+         try
+         {
+            val response = qqqRepository.loginWithPassword(username, password)
+            sessionUUID = requireNotNull(response.uuid)
+            qqqRepository.setSessionUUID(sessionUUID)
+            doSetSessionUserFullName(username)
+            manageSessionLoadState = LoadState.Success(response)
+            logInSuccessful()
+            loadQInstance()
+         }
+         catch(e: kotlinx.coroutines.CancellationException) { throw e }
+         catch(e: Exception)
+         {
+            manageSessionLoadState = LoadState.Error("Sign-in failed. Check your credentials and connection.")
          }
       }
    }

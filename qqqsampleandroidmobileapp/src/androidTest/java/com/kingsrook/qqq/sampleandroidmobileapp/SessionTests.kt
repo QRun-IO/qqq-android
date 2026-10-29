@@ -186,7 +186,7 @@ class SessionTests : BaseTest()
          .performClick()
 
       composeTestRule
-         .onNodeWithText("Logout Successful.")
+         .onNodeWithText("Signed out.")
          .assertIsDisplayed()
 
       composeTestRule

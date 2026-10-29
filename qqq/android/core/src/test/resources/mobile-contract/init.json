@@ -1,0 +1,27 @@
+{
+  "values": {"mobileScanner": {
+    "footerHTML": null,
+    "dropdownLabelList": null,
+    "dropdownNeedsSelectedText": null,
+    "blockType": "COMPOSITE",
+    "dropdownNameList": null,
+    "subBlocks": [{
+      "blockId": "barcodeScanner",
+      "blockType": "SCANNER",
+      "values": {
+        "instructions": "Scan with the trigger or enter a barcode. Saved scans appear in Mobile Scanner Administration.",
+        "title": "Scan a barcode"
+      }
+    }],
+    "label": null,
+    "type": "composite",
+    "sublabel": null,
+    "dropdownDefaultValueList": null,
+    "csvData": null,
+    "hasPermission": null,
+    "dropdownDataList": null
+  }},
+  "processUUID": "00000000-0000-4000-8000-000000000001",
+  "nextStep": "scan",
+  "type": "COMPLETE"
+}

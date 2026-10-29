@@ -1,0 +1,108 @@
+name: Scanner Android
+
+on:
+  push:
+    branches: [main, 'feature/**', 'fix/**', 'release/**', 'hotfix/**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      emulator:
+        description: Run native UI tests and scanner launch smoke on an Android emulator
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scanner-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Tests, lint, and debug APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Install required Android SDK packages
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;34.0.0" "build-tools;35.0.0" "platform-tools"
+      - name: Verify shared libraries and scanner host
+        run: >-
+          ./gradlew --no-daemon --console=plain
+          :qqq:android:core:testDebugUnitTest
+          :qqq:android:mobileapp:testDebugUnitTest
+          :scanner-host:testDebugUnitTest
+          :scanner-host:lintDebug
+          :scanner-host:assembleDebug
+      - name: Hash debug APK
+        run: sha256sum scanner-host/build/outputs/apk/debug/scanner-host-debug.apk > scanner-host/build/outputs/apk/debug/SHA256SUMS
+      - name: Upload installable development APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scanner-debug-${{ github.sha }}
+          path: scanner-host/build/outputs/apk/debug/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload test and lint evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scanner-checks-${{ github.sha }}
+          path: |
+            qqq/android/core/build/test-results/
+            qqq/android/mobileapp/build/test-results/
+            scanner-host/build/test-results/
+            scanner-host/build/reports/
+          retention-days: 14
+
+  emulator:
+    name: Native UI and scanner launch
+    if: github.event_name == 'workflow_dispatch' && inputs.emulator
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: Enable hosted-runner hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run emulator checks
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            ./gradlew --no-daemon --console=plain :qqqsampleandroidmobileapp:connectedDebugAndroidTest :scanner-host:assembleDebug
+            bash scripts/ci/emulator-smoke.sh
+      - name: Upload emulator evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scanner-emulator-${{ github.sha }}
+          path: |
+            qqqsampleandroidmobileapp/build/reports/androidTests/
+            qqqsampleandroidmobileapp/build/outputs/androidTest-results/
+            scanner-host/build/emulator-smoke/
+          retention-days: 14

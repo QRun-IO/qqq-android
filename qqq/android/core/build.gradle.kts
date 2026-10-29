@@ -51,6 +51,7 @@ dependencies {
    implementation(libs.material)
 
    testImplementation(libs.junit)
+   testImplementation("com.squareup.okhttp3:mockwebserver:4.11.0")
    testImplementation(libs.junit.jupiter)
    androidTestImplementation(libs.androidx.junit)
    androidTestImplementation(libs.androidx.espresso.core)

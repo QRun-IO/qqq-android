@@ -79,7 +79,7 @@ fun QAuth0Login(qViewModel: QViewModel, modifier: Modifier = Modifier)
        ***************************************************************************/
       override fun onSuccess(result: Credentials)
       {
-         Log.d(TAG, "Auth0 Called back success, accessToken: ${result.accessToken.firstN(8)}")
+         Log.d(TAG, "Auth0 sign-in succeeded")
          auth0Success.value = true
 
          qViewModel.doSetSessionUserFullName(result.user.nickname ?: "Unknown")

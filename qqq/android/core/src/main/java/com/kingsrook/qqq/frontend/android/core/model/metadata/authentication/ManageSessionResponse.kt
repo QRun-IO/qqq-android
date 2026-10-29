@@ -29,7 +29,7 @@ import kotlinx.serialization.Serializable
  ***************************************************************************/
 @Serializable
 data class ManageSessionResponse(
-   val uuid: String,
+   val uuid: String? = null,
    val values: MapOfStringAny = emptyMap(),
 )
 {

@@ -79,5 +79,6 @@ dependencies {
    implementation(libs.coil.svg)
 
    implementation(project(":qqq:android:core"))
+   implementation("com.squareup.retrofit2:retrofit:2.9.0")
    implementation(libs.auth0)
 }
