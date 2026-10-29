@@ -2,6 +2,27 @@
 
 An Android emulator verifies login, enrollment, native navigation, manual barcode submission, and intent handling. It does not reproduce Zebra's scan engine, physical trigger, or DataWedge profile management.
 
+## Prepared Windows workstation
+
+The `QQQ_Mobile_API35` virtual device is already installed under `%LOCALAPPDATA%/Android/Avd`, with Android 15/API35 and WHPX acceleration. To reopen it in PowerShell:
+
+```powershell
+$env:ANDROID_AVD_HOME = Join-Path $env:LOCALAPPDATA 'Android/Avd'
+& "$env:LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd QQQ_Mobile_API35
+```
+
+The local demo uses port57832 on this workstation because other services occupy the conventional ports. Start it from the sibling `qbit-mobile-scanners` directory in another terminal, then forward the emulator port:
+
+```powershell
+pwsh -File scripts/Start-Demo.ps1 -SkipBuild -Port 57832
+```
+
+```powershell
+& "$env:LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" -s emulator-5554 reverse tcp:8080 tcp:57832
+```
+
+Keep the Android server URL `http://127.0.0.1:8080/`. The browser administration URL is <http://127.0.0.1:57832/>. The demo's [local guide](https://github.com/QRun-IO/qbit-mobile-scanners/blob/develop/docs/LOCAL-DEMO.md) explains the `scanner`/`admin` accounts and password-copy helper. Open **QQQ Mobile** in the emulator. Tap the connection footer to view or copy diagnostics; it distinguishes server reachability from login and approval.
+
 ## Local interactive test
 
 1. Create/start an API35 Android emulator in Android Studio, or use the SDK emulator installed on the development machine.
@@ -22,7 +43,7 @@ This validates intent parsing only; the server treats source/symbology as client
 
 ## Automated checks
 
-The GitHub **Scanner Android** workflow always runs JVM tests, lint, and APK assembly. On **Run workflow**, leave **emulator** enabled to run the existing native Compose authentication/process tests and `scripts/ci/emulator-smoke.sh` on a disposable API35 emulator. Reports, the setup-screen screenshot, and UI hierarchy are uploaded as workflow artifacts.
+The GitHub **Scanner Android** workflow always runs JVM tests, lint, and APK assembly. Once its pull request is merged to the default branch, **Run workflow** becomes available; leave **emulator** enabled to run the existing native Compose authentication/process tests and `scripts/ci/emulator-smoke.sh` on a disposable API35 emulator. Reports, the setup-screen screenshot, and UI hierarchy are uploaded as workflow artifacts.
 
 The smoke script refuses physical devices, installs the debug APK, clears the emulator's scanner application data, launches the real activity, and checks that **Connect QQQ Mobile** appears. It does not need a QQQ server. Full operator/device-approval/scan testing uses the companion demo as described above.
 

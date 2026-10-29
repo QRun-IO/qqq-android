@@ -1,7 +1,8 @@
 # TODO
 
 - [x] Add runtime server branding and a foreground connection footer with bounded sanitized diagnostics.
-- [ ] Verify customer logo/theme and connection transitions on the emulator and physical TC22.
+- [x] Verify customer header/theme, diagnostics and connection loss/recovery on the emulator.
+- [ ] Verify customer-specific logo assets and physical TC22 appearance.
 
 - [x] Complete Gradle unit tests, debug APK, signature, and lint verification (26 tests; zero lint errors).
 - [ ] Run physical TC22 acceptance: DataWedge trigger, rotation/background lifecycle, duplicate retry, revoked device, bad credentials, sign-out and re-login.
@@ -12,4 +13,5 @@
 Offline queue/background synchronization is deliberately outside version one.
 - [x] Verify remote Scanner Android workflow after publication.
 - [ ] Run the optional hosted emulator lane after its workflow is merged to the default branch.
-- [ ] Run the native sample instrumentation suite and full interactive scanner demo on an emulator.
+- [x] Run the native sample instrumentation suite (six passed on API35).
+- [ ] Complete the interactive operator login/approval/scan walkthrough on the emulator; it is left ready for user sign-in.
