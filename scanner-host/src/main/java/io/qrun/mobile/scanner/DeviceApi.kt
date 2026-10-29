@@ -2,6 +2,8 @@
 package io.qrun.mobile.scanner
 
 import android.os.Build
+import com.kingsrook.qqq.frontend.android.core.controllers.RequestOutcome
+import com.kingsrook.qqq.frontend.android.core.controllers.RequestOutcomeInterceptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -14,9 +16,10 @@ import org.json.JSONObject
 class EnrollmentConflict : IllegalStateException("Registration already exists but its credentials were not received. Start a new registration and ask the administrator to approve it.")
 
 /** The native QQQ session also authenticates device management. */
-class DeviceApi(private val server: String, private val credentials: DeviceCredentials)
+class DeviceApi(private val server: String, private val credentials: DeviceCredentials, onRequestOutcome: (RequestOutcome) -> Unit = {})
 {
-   private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false).build()
+   private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+      .addInterceptor(RequestOutcomeInterceptor(onRequestOutcome)).build()
 
    /** Check enrollment on demand; approval remains a server-side decision. */
    suspend fun status(session: String, displayName: String): String = withContext(Dispatchers.IO)

@@ -28,7 +28,7 @@ fun QPasswordLogin(viewModel: QViewModel, modifier: Modifier = Modifier)
    val busy = submitted && viewModel.manageSessionLoadState is LoadState.Loading
    Column(modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp))
    {
-      Text("Sign in to QQQ")
+      Text("Sign in")
       OutlinedTextField(username, { username = it }, label = { Text("Username") }, singleLine = true, enabled = !busy)
       OutlinedTextField(password, { password = it }, label = { Text("Password") }, singleLine = true,
          visualTransformation = PasswordVisualTransformation(), enabled = !busy)

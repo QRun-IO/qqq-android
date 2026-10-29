@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,12 +85,16 @@ fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android App
    }
 
    val connectivityManager = getSystemService(LocalContext.current, ConnectivityManager::class.java) as ConnectivityManager
-   connectivityManager.requestNetwork(networkRequest, networkCallback)
+   DisposableEffect(connectivityManager)
+   {
+      connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+      onDispose { connectivityManager.unregisterNetworkCallback(networkCallback) }
+   }
 
    TopAppBar(
       colors = TopAppBarDefaults.topAppBarColors(
          containerColor = MaterialTheme.colorScheme.primaryContainer,
-         titleContentColor = MaterialTheme.colorScheme.primary,
+         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
       ),
       title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("topAppBar.title")) },
       navigationIcon =

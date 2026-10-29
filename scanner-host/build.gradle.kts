@@ -37,6 +37,10 @@ dependencies {
    implementation(platform(libs.androidx.compose.bom))
    implementation(libs.androidx.material3)
    implementation(libs.androidx.ui)
+   implementation(libs.kotlinx.serialization.json)
+   implementation(libs.coil.compose)
+   implementation(libs.coil.svg)
    implementation("com.squareup.okhttp3:okhttp:4.11.0")
    testImplementation(libs.junit)
+   testImplementation("com.squareup.okhttp3:mockwebserver:4.11.0")
 }

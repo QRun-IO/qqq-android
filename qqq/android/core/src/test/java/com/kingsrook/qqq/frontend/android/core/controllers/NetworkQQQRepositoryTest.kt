@@ -7,11 +7,49 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /** Modern servers return HttpOnly session cookies; both credentials and redirects remain origin-scoped. */
 class NetworkQQQRepositoryTest
 {
+   @Test
+   fun reportsOnlyStatusAndTimingAndObserverFailuresCannotBreakRequests() = runBlocking()
+   {
+      MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody("{}"))
+         server.enqueue(MockResponse().setResponseCode(503).setBody("private-response-barcode"))
+         val outcomes = mutableListOf<RequestOutcome>()
+         val origin = server.url("/").toString()
+         val repository = NetworkQQQRepository(origin, requestObserver = { outcomes.add(it); error("observer failed") })
+         repository.setEnvironment(Environment("test", origin))
+         repository.setSessionUUID("private-cookie")
+         repository.getMetaData("private-query", "1", "test", "1")
+         assertTrue(runCatching { repository.getMetaData("test", "1", "test", "1") }.isFailure)
+         assertEquals(listOf(200, 503), outcomes.map { it.httpStatus })
+         assertTrue(outcomes.all { it.elapsedMillis >= 0 })
+         assertFalse(outcomes.toString().contains("private"))
+         assertFalse(outcomes.toString().contains("http:"))
+      }
+   }
+
+   @Test
+   fun transportFailureReportsNullStatusWithoutExceptionMessage() = runBlocking()
+   {
+      val server = MockWebServer()
+      server.start()
+      val origin = server.url("/").toString()
+      server.shutdown()
+      val outcomes = mutableListOf<RequestOutcome>()
+      val repository = NetworkQQQRepository(origin, requestObserver = { outcomes.add(it) })
+      repository.setEnvironment(Environment("test", origin))
+      assertTrue(runCatching { repository.getMetaData("test", "1", "test", "1") }.isFailure)
+      assertEquals(1, outcomes.size)
+      assertNull(outcomes.single().httpStatus)
+      assertFalse(outcomes.toString().contains("localhost"))
+   }
+
    @Test
    fun logoutRevokesServerSessionBeforeDroppingTheCookie() = runBlocking()
    {

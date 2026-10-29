@@ -46,7 +46,7 @@ import java.util.concurrent.ConcurrentHashMap
 /***************************************************************************
  **
  ***************************************************************************/
-class NetworkQQQRepository(private var baseUrl: String, private val additionalHeaders: (String) -> Map<String, String> = { emptyMap() }) : QQQRepository
+class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObserver: (RequestOutcome) -> Unit = {}, private val additionalHeaders: (String) -> Map<String, String> = { emptyMap() }) : QQQRepository
 {
    private val sessionUUIDs = ConcurrentHashMap<String, String>()
    private val retroJson = Json { ignoreUnknownKeys = true }
@@ -82,6 +82,7 @@ class NetworkQQQRepository(private var baseUrl: String, private val additionalHe
             OkHttpClient.Builder()
                .followRedirects(false)
                .followSslRedirects(false)
+               .addInterceptor(RequestOutcomeInterceptor { requestObserver(it) })
                .addInterceptor { chain ->
                   val request = chain.request().newBuilder()
                   sessionUUIDs[baseUrl]?.takeIf { it.isNotBlank() }?.let { request.header("Cookie", "sessionUUID=$it") }

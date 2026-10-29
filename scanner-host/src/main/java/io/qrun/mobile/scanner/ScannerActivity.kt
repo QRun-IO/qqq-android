@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -18,6 +21,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -63,7 +68,7 @@ class ScannerActivity : ComponentActivity()
       {
          MaterialTheme()
          {
-            Surface()
+            Surface(Modifier.windowInsetsPadding(WindowInsets.safeDrawing))
             {
                var server by remember { mutableStateOf(preferences.getString("server", null)) }
                val currentServer = server
@@ -73,10 +78,10 @@ class ScannerActivity : ComponentActivity()
                }
                else
                {
-                  Column()
+                  key(currentServer)
                   {
-                     TextButton(onClick = { preferences.edit().remove("server").apply(); server = null }) { Text("Change server") }
-                     Box(Modifier.weight(1f)) { ScannerHost(currentServer) }
+                     HostChrome(currentServer, onChangeServer = { preferences.edit().remove("server").apply(); server = null })
+                     { brand, diagnostics -> ScannerHost(currentServer, brand, diagnostics) }
                   }
                }
             }
@@ -86,7 +91,7 @@ class ScannerActivity : ComponentActivity()
 
    /** Server-scoped stores ensure switching installations cannot reuse a credential accidentally. */
    @Composable
-   private fun ScannerHost(server: String)
+   private fun ScannerHost(server: String, brand: HostBrand, diagnostics: DiagnosticLog)
    {
       val credentialsResult = remember(server) { runCatching { credentialsByServer.getOrPut(server) { DeviceCredentials(applicationContext, server) } } }
       val credentials = credentialsResult.getOrNull()
@@ -106,7 +111,7 @@ class ScannerActivity : ComponentActivity()
             {
                val hash = MessageDigest.getInstance("SHA-256").digest(server.toByteArray()).joinToString("") { "%02x".format(it) }
                val dataStore = storesByServer.getOrPut(server) { PreferenceDataStoreFactory.create { File(noBackupFilesDir, "session-$hash.preferences_pb") } }
-               val repository = NetworkQQQRepository(server) { requestedServer ->
+               val repository = NetworkQQQRepository(server, requestObserver = diagnostics::nativeRequest) { requestedServer ->
                   if(requestedServer == server) credentials.headers() else emptyMap()
                }
                @Suppress("UNCHECKED_CAST")
@@ -115,6 +120,8 @@ class ScannerActivity : ComponentActivity()
          }
       }
       val qViewModel: QViewModel = viewModel(key = server, factory = factory)
+      // A retained per-server ViewModel must write into this visit's fresh diagnostics log.
+      SideEffect { (qViewModel.qqqRepository as NetworkQQQRepository).requestObserver = diagnostics::nativeRequest }
       qViewModel.setNavController(rememberNavController())
       val authentication = qViewModel.authenticationMetaDataLoadState
       if(authentication is LoadState.Success && authentication.value !is TableBasedAuthenticationMetaData)
@@ -122,7 +129,7 @@ class ScannerActivity : ComponentActivity()
          Text("This build supports username/password sign-in. This server uses another sign-in provider. Configure that provider for this app or choose another server.", Modifier.padding(24.dp))
          return
       }
-      val api = remember(server) { DeviceApi(server, credentials) }
+      val api = remember(server, diagnostics) { DeviceApi(server, credentials, diagnostics::deviceRequest) }
       CompositionLocalProvider(
          LocalAuthenticatedContent provides { model, content -> DeviceGate(model, api, credentials, content) },
          LocalCustomWidgetRenderer provides { parameters, modifier, disabled ->
@@ -135,7 +142,7 @@ class ScannerActivity : ComponentActivity()
          }
       )
       {
-         QMobileAppMain(qViewModel, title = "QQQ Mobile", splashImage = null)
+         QMobileAppMain(qViewModel, title = brand.displayName, splashImage = null)
       }
    }
 }
