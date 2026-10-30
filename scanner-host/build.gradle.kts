@@ -12,9 +12,18 @@ android {
       targetSdk = 35
       versionCode = 1
       versionName = "0.1.0"
+      testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
       manifestPlaceholders["auth0Domain"] = "unused.invalid"
       manifestPlaceholders["auth0Scheme"] = "io.qrun.mobile.scanner"
    }
+   buildTypes {
+      create("e2e") {
+         initWith(getByName("debug"))
+         applicationIdSuffix = ".e2e"
+         matchingFallbacks += "debug"
+      }
+   }
+   testBuildType = "e2e"
    buildFeatures { compose = true; buildConfig = true }
    composeOptions { kotlinCompilerExtensionVersion = "1.5.1" }
    compileOptions {
@@ -43,4 +52,8 @@ dependencies {
    implementation("com.squareup.okhttp3:okhttp:4.11.0")
    testImplementation(libs.junit)
    testImplementation("com.squareup.okhttp3:mockwebserver:4.11.0")
+   androidTestImplementation(libs.androidx.junit)
+   androidTestImplementation(libs.androidx.espresso.core)
+   androidTestImplementation(platform(libs.androidx.compose.bom))
+   androidTestImplementation(libs.androidx.ui.test.junit4)
 }

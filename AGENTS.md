@@ -12,6 +12,8 @@ Use the included Gradle wrapper, Java21, and Android SDK35. `local.properties`, 
 
 Run `:qqqsampleandroidmobileapp:connectedDebugAndroidTest` on an emulator for changes to native authentication/navigation/process rendering. `scripts/ci/emulator-smoke.sh` deliberately refuses physical devices and clears only the disposable emulator's scanner application data. Physical TC22 tests remain necessary for DataWedge integration.
 
+All mobile processes require end-to-end coverage. For scanner flow changes, build `:scanner-host:assembleE2e :scanner-host:assembleE2eAndroidTest` and run `node scripts/ci/scanner-e2e.mjs ../qbit-mobile-scanners` against an emulator after building the companion demo/classpath as documented in `docs/EMULATOR.md`. This drives the real host and real server in the separate `io.qrun.mobile.scanner.e2e` application with a temporary database; never clear the operator's normal scanner application to run it. Server record actions must also be covered through both single-record and selected-bulk UI paths in the companion qbit's browser suite.
+
 ## Design and safety
 
 Reuse the existing `core` and `mobileapp` libraries and native QQQ metadata/process contracts. The scanner host adds enrollment and scanner widgets; do not introduce a competing screen engine. Preserve raw barcode strings, event identity across retries, server acknowledgments, and server-side device authorization.

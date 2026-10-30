@@ -45,9 +45,23 @@ This validates intent parsing only; the server treats source/symbology as client
 
 ## Automated checks
 
-The GitHub **Scanner Android** workflow always runs JVM tests, lint, and APK assembly. Once its pull request is merged to the default branch, **Run workflow** becomes available; leave **emulator** enabled to run the existing native Compose authentication/process tests and `scripts/ci/emulator-smoke.sh` on a disposable API35 emulator. Reports, the setup-screen screenshot, and UI hierarchy are uploaded as workflow artifacts.
+The GitHub **Scanner Android** workflow runs JVM tests, lint, APK assembly, the six shared native UI tests, and the real-server scanner E2E on pushes and pull requests. The emulator job checks out a pinned companion qbit revision, builds it, and starts a fresh isolated demo database. Sanitized instrumentation results are uploaded as workflow artifacts. Hosted execution is verified separately from a local run.
 
-The smoke script refuses physical devices, installs the debug APK, clears the emulator's scanner application data, launches the real activity, and checks that **Connect QQQ Mobile** appears. It does not need a QQQ server. Full operator/device-approval/scan testing uses the companion demo as described above.
+The scanner E2E installs **QQQ Mobile E2E**, a separate application (`io.qrun.mobile.scanner.e2e`). It drives server selection, username/password login, pending enrollment, approval, app selection, Scan Capture, manual barcode submission, server acknowledgment, independent persisted-record verification, and revocation of an already-open scan process. Administrative setup uses the real QQQ process endpoints; the companion qbit's browser suite covers their single-record and selected-bulk UI entry points. No repository or server mocks are used. Random test credentials travel through standard input into the test application's private files, are removed after reading, and are redacted from reports. The runner preserves the normal scanner package and its port forwarding.
+
+To reproduce with Node 22+ and Java 21, first prepare the sibling server:
+
+```powershell
+Push-Location ../qbit-mobile-scanners
+./mvnw.cmd -B verify install
+./mvnw.cmd -B -f demo/pom.xml verify dependency:build-classpath '-Dmdep.outputFile=target/e2e-classpath.txt'
+Pop-Location
+./gradlew.bat :scanner-host:assembleE2e :scanner-host:assembleE2eAndroidTest
+$env:ANDROID_SERIAL = 'emulator-5554'
+node scripts/ci/scanner-e2e.mjs ../qbit-mobile-scanners
+```
+
+Set `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) if `adb` is not on PATH. Linux/macOS use `./mvnw`, `./gradlew`, and their shell's environment assignment syntax. The runner refuses physical devices, uses a free local port and temporary database, and cleans up its server, forwarding and both isolated test APKs. The older setup-only `scripts/ci/emulator-smoke.sh` is retained for disposable-emulator troubleshooting; it clears the normal scanner package and should not be used on your interactive demo emulator.
 
 ## Physical acceptance still required
 

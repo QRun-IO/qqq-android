@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       emulator:
-        description: Run native UI tests and scanner launch smoke on an Android emulator
+        description: Run native UI and real-server scanner end-to-end tests
         type: boolean
         default: true
 
@@ -67,8 +67,8 @@ jobs:
           retention-days: 14
 
   emulator:
-    name: Native UI and scanner launch
-    if: github.event_name == 'workflow_dispatch' && inputs.emulator
+    name: Native UI and real-server scanner E2E
+    if: github.event_name != 'workflow_dispatch' || inputs.emulator
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -81,6 +81,18 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: Check out the pinned real QQQ demo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: QRun-IO/qbit-mobile-scanners
+          ref: 69ada88621a639f684bd705b9bde6dd24c9fa5d0
+          path: .e2e-server
+          persist-credentials: false
+      - name: Build the isolated server fixture
+        working-directory: .e2e-server
+        run: |
+          ./mvnw --batch-mode --no-transfer-progress verify install
+          ./mvnw --batch-mode --no-transfer-progress -f demo/pom.xml verify dependency:build-classpath -Dmdep.outputFile=target/e2e-classpath.txt
       - name: Enable hosted-runner hardware acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -94,8 +106,8 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
-            ./gradlew --no-daemon --console=plain :qqqsampleandroidmobileapp:connectedDebugAndroidTest :scanner-host:assembleDebug
-            bash scripts/ci/emulator-smoke.sh
+            ./gradlew --no-daemon --console=plain :qqqsampleandroidmobileapp:connectedDebugAndroidTest :scanner-host:assembleE2e :scanner-host:assembleE2eAndroidTest
+            node scripts/ci/scanner-e2e.mjs .e2e-server
       - name: Upload emulator evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -104,5 +116,5 @@ jobs:
           path: |
             qqqsampleandroidmobileapp/build/reports/androidTests/
             qqqsampleandroidmobileapp/build/outputs/androidTest-results/
-            scanner-host/build/emulator-smoke/
+            scanner-host/build/native-e2e/
           retention-days: 14
