@@ -8,8 +8,10 @@ The `QQQ_Mobile_API35` virtual device is already installed under `%LOCALAPPDATA%
 
 ```powershell
 $env:ANDROID_AVD_HOME = Join-Path $env:LOCALAPPDATA 'Android/Avd'
-& "$env:LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd QQQ_Mobile_API35
+& "$env:LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd QQQ_Mobile_API35 -gpu host -no-snapshot
 ```
+
+This workstation uses the NVIDIA GPU with WHPX CPU acceleration. The AVD also has `hw.gpu.enabled=yes` and `hw.gpu.mode=host` persisted. A cold start avoids restoring old graphics state; `-no-snapshot` preserves installed apps and their data. The [Android acceleration guide](https://developer.android.com/studio/run/emulator-acceleration) documents graphics and VM acceleration separately. If graphics fail on another computer, select a supported renderer for that machine rather than copying the workstation setting blindly.
 
 The local demo uses port57832 on this workstation because other services occupy the conventional ports. Start it from the sibling `qbit-mobile-scanners` directory in another terminal, then forward the emulator port:
 

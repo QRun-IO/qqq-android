@@ -142,7 +142,8 @@ class ScannerActivity : ComponentActivity()
          }
       )
       {
-         QMobileAppMain(qViewModel, title = brand.displayName, splashImage = null)
+         // HostChrome checks the actual server; an INTERNET network is not required for local USB forwarding.
+         QMobileAppMain(qViewModel, title = brand.displayName, splashImage = null, showNetworkDialog = false)
       }
    }
 }

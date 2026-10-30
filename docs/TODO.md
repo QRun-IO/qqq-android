@@ -1,5 +1,8 @@
 # TODO
 
+- [x] Correct false legacy network blocking while the scanner's server is reachable; preserve multi-network connectivity for shared clients.
+- [x] Persist workstation host-GPU configuration and document cold-start commands.
+
 - [x] Add runtime server branding and a foreground connection footer with bounded sanitized diagnostics.
 - [x] Verify customer header/theme, diagnostics and connection loss/recovery on the emulator.
 - [ ] Verify customer-specific logo assets and physical TC22 appearance.

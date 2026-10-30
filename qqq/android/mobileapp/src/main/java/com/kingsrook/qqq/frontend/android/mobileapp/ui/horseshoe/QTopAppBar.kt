@@ -57,39 +57,11 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
  ***************************************************************************/
 @OptIn(ExperimentalMaterial3Api::class) // needed for TopAppBar
 @Composable
-fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android Application", navMenuCallback: (() -> Unit)? = null, qNavigator: QNavigator? = null)
+fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android Application", navMenuCallback: (() -> Unit)? = null, qNavigator: QNavigator? = null, showNetworkDialog: Boolean = true)
 {
    val isMenuDialogOpen = remember { mutableStateOf(false) }
 
    val title = if(qNavigator?.titleStack?.isEmpty() == false) qNavigator.titleStack.get(qNavigator.titleStack.size - 1) ?: defaultTitle else defaultTitle
-
-   val networkRequest = NetworkRequest.Builder()
-      .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-      .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-      .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
-      .build()
-
-   val networkAvailable = remember { mutableStateOf(true) }
-
-   val networkCallback = object : ConnectivityManager.NetworkCallback()
-   {
-      override fun onAvailable(network: Network)
-      {
-         networkAvailable.value = true
-      }
-
-      override fun onLost(network: Network)
-      {
-         networkAvailable.value = false
-      }
-   }
-
-   val connectivityManager = getSystemService(LocalContext.current, ConnectivityManager::class.java) as ConnectivityManager
-   DisposableEffect(connectivityManager)
-   {
-      connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
-      onDispose { connectivityManager.unregisterNetworkCallback(networkCallback) }
-   }
 
    TopAppBar(
       colors = TopAppBarDefaults.topAppBarColors(
@@ -147,9 +119,9 @@ fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android App
       }
    )
 
-   if(!networkAvailable.value)
+   if(showNetworkDialog)
    {
-      NoNetworkDialog(qViewModel)
+      NetworkConnectionDialog(qViewModel)
    }
 
    if(isMenuDialogOpen.value)
@@ -157,5 +129,42 @@ fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android App
       MenuDialog(qViewModel, defaultTitle, isMenuDialogOpen)
    }
 
+}
+
+
+
+/** Legacy internet-presence prompt; hosts with server reachability monitoring can omit it. */
+@Composable
+private fun NetworkConnectionDialog(qViewModel: QViewModel)
+{
+   val networkAvailable = remember { mutableStateOf(true) }
+   val connectivityManager = getSystemService(LocalContext.current, ConnectivityManager::class.java) as ConnectivityManager
+   DisposableEffect(connectivityManager)
+   {
+      val networks = NetworkPresence()
+      val request = NetworkRequest.Builder()
+         .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+         .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+         .build()
+      val callback = object : ConnectivityManager.NetworkCallback()
+      {
+         override fun onAvailable(network: Network)
+         {
+            networkAvailable.value = networks.onAvailable(network.networkHandle)
+         }
+
+         override fun onLost(network: Network)
+         {
+            networkAvailable.value = networks.onLost(network.networkHandle)
+         }
+      }
+      connectivityManager.registerNetworkCallback(request, callback)
+      onDispose { connectivityManager.unregisterNetworkCallback(callback) }
+   }
+   if(!networkAvailable.value)
+   {
+      NoNetworkDialog(qViewModel)
+   }
 }
 

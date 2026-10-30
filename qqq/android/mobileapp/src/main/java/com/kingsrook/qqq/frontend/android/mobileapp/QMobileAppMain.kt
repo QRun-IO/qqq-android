@@ -61,7 +61,7 @@ enum class SplashState
  **
  ***************************************************************************/
 @Composable
-fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? = null)
+fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? = null, showNetworkDialog: Boolean = true)
 {
    val splashState = remember { mutableStateOf(if(splashImage == null || qViewModel.didRunSplashAnimation) SplashState.DONE else SplashState.INITIAL) }
    val splashFadeOutMillis = remember { mutableIntStateOf(1500) }
@@ -135,7 +135,8 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
                qViewModel,
                navMenuCallback = topLevelAppState::openNavDrawer,
                defaultTitle = title,
-               qNavigator = qViewModel.qNavigator
+               qNavigator = qViewModel.qNavigator,
+               showNetworkDialog = showNetworkDialog
             )
          }
       ) { innerPadding ->
