@@ -24,10 +24,12 @@ package com.kingsrook.qqq.frontend.android.mobileapp.ui.processes
 
 import android.content.Context
 import android.media.MediaPlayer
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.DisposableEffectResult
@@ -54,6 +56,7 @@ import com.kingsrook.qqq.frontend.android.core.model.processes.QJobStarted
 import com.kingsrook.qqq.frontend.android.mobileapp.R
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentEditForm
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentViewForm
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentHTML
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentHelpText
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentProcessSummaryResults
@@ -80,6 +83,7 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
    }
 
    val processMetaDataLoadState = processViewModel.processMetaDataLoadState
+   BackHandler { processViewModel.cancel() }
    val initLoadState = processViewModel.initLoadState
    val topLevelErrorState = processViewModel.topLevelErrorState
    val loadStates = listOf(processMetaDataLoadState, initLoadState, topLevelErrorState)
@@ -110,7 +114,7 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
    ///////////////////////////////////////////////////////////////////////////////////////////
    LaunchedEffect(key1 = processViewModel.jobRunningLastUpdated)
    {
-      if(processViewModel.initLoadState is LoadState.Loading && processViewModel.processUUID != null)
+      if(processViewModel.initLoadState is LoadState.Loading && processViewModel.processUUID != null && processViewModel.waitingOnBackend && !processViewModel.cancelling)
       {
          delay(1000)
          processViewModel.checkIn()
@@ -158,6 +162,10 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
          }
 
       }
+      if(LoadState.areAnyErrors(loadStates) || LoadState.areAnyLoading(loadStates))
+      {
+         Button(onClick = processViewModel::cancel, enabled = !processViewModel.cancelling) { Text("Cancel") }
+      }
    }
 }
 
@@ -179,7 +187,7 @@ fun ProcessFrontendStepView(processViewModel: ProcessViewModel, qInstance: QInst
       {
          if(format.isStepLabelDisplayed())
          {
-            Text(processViewModel.activeStep?.label ?: "?", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(processViewModel.activeStep?.label ?: if(processViewModel.getNoMoreSteps()) "Complete" else "", fontWeight = FontWeight.Bold, fontSize = 20.sp)
          }
 
          processViewModel.activeStep?.components?.forEach()
@@ -187,15 +195,18 @@ fun ProcessFrontendStepView(processViewModel: ProcessViewModel, qInstance: QInst
             when (component.type)
             {
                QComponentType.EDIT_FORM -> ProcessComponentEditForm(processViewModel, component)
+               QComponentType.VIEW_FORM -> ProcessComponentViewForm(processViewModel, component)
                QComponentType.HELP_TEXT -> ProcessComponentHelpText(processViewModel, component)
                QComponentType.HTML -> ProcessComponentHTML(processViewModel, component)
                QComponentType.PROCESS_SUMMARY_RESULTS -> ProcessComponentProcessSummaryResults(processViewModel, component)
-               QComponentType.WIDGET -> ProcessComponentWidget(processViewModel, qInstance, component, disableControls = processViewModel.waitingOnBackend)
+               QComponentType.WIDGET -> ProcessComponentWidget(processViewModel, qInstance, component, disableControls = processViewModel.waitingOnBackend || processViewModel.cancelling || processViewModel.unsupportedReason() != null || processViewModel.getNoMoreSteps())
                else -> UnsupportedProcessComponent(processViewModel, component)
             }
          }
 
-         if(format.areStandardFooterButtonsDisplayed())
+         processViewModel.unsupportedReason()?.takeUnless { processViewModel.getNoMoreSteps() }?.let { Text(it, color = Colors.ERROR) }
+         processViewModel.submissionError?.let { Text(it, color = Colors.ERROR) }
+         if(format.areStandardFooterButtonsDisplayed() || processViewModel.unsupportedReason() != null || processViewModel.getNoMoreSteps())
          {
             ProcessBottomButtons(processViewModel)
          }

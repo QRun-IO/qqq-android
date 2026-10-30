@@ -36,11 +36,14 @@ object AuthenticationSerializer : JsonContentPolymorphicSerializer<BaseAuthentic
    /***************************************************************************
     **
     ***************************************************************************/
-   override fun selectDeserializer(element: JsonElement) = when (val type = element.jsonObject["type"]?.jsonPrimitive?.content)
+   override fun selectDeserializer(element: JsonElement) = when (element.jsonObject["type"]?.jsonPrimitive?.content)
    {
       Auth0AuthenticationMetaData.TYPE -> Auth0AuthenticationMetaData.serializer()
       FullyAnonymousAuthenticationMetaData.TYPE -> FullyAnonymousAuthenticationMetaData.serializer()
       TableBasedAuthenticationMetaData.TYPE, "tableBased" -> TableBasedAuthenticationMetaData.serializer()
-      else -> throw SerializationException("Unknown type: $type")
+      else -> UnsupportedAuthenticationMetaData.serializer()
    }
 }
+
+@kotlinx.serialization.Serializable
+data class UnsupportedAuthenticationMetaData(override val type: String, override val name: String = "Unsupported authentication") : BaseAuthenticationMetaData

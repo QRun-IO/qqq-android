@@ -41,7 +41,9 @@ import kotlinx.serialization.json.Json
 fun DynamicIcon(icon: QIcon?, defaultResourceId: Int?, modifier: Modifier = Modifier, contentDescription: String? = null, tint: Color = Color.Black)
 {
    val context = LocalContext.current
-   val drawableId = remember(icon?.name) { DrawableUtils.loadDrawableId(context, icon?.name) }
+   val drawableId = remember(icon?.semanticName, icon?.name) {
+      DrawableUtils.loadDrawableId(context, icon?.semanticName) ?: DrawableUtils.loadDrawableId(context, icon?.name)
+   }
 
    val actualId = if(drawableId != null) drawableId else if(defaultResourceId != null) defaultResourceId else return
 
@@ -61,18 +63,18 @@ fun makeIcon(value: Any?): QIcon?
 {
    if(value is Map<*, *>)
    {
-      return (QIcon(value["name"]?.toString(), value["path"]?.toString(), value["color"]?.toString()))
+      return (QIcon(value["name"]?.toString(), value["path"]?.toString(), value["color"]?.toString(), semanticName = value["semanticName"]?.toString()))
    }
 
    if(value is String)
    {
       try
       {
-         return Json.decodeFromString<QIcon>("${value}")
+         return Json { ignoreUnknownKeys = true }.decodeFromString<QIcon>(value)
       }
       catch(e: Exception)
       {
-         Log.i("", "Error parsing JSON into Icon", e)
+         // Unknown icon metadata is decorative; retain the caller's fallback.
       }
    }
 

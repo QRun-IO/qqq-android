@@ -77,6 +77,8 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
    val widgetList = app?.let { app.widgets } ?: emptyList()
 
    val childApps = childList.filter { child -> child.type == QAppNodeType.APP }
+   val sectionNames = app?.sections.orEmpty().flatMap { it.tables.orEmpty() + it.processes.orEmpty() + it.reports.orEmpty() }.toSet()
+   val otherChildren = childList.filter { it.type != QAppNodeType.APP && it.name !in sectionNames }
 
    val isNotYetImplementedDialogOpen = remember { mutableStateOf(false) }
    val notYetImplementedDialogTitle = remember { mutableStateOf("") }
@@ -103,7 +105,11 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
       }
       */
 
-      if(childApps.isEmpty() && app?.sections?.isEmpty() != false)
+      if(widgetList.isNotEmpty())
+      {
+         item { Text("This app includes home widgets unavailable in this client.", Modifier.padding(8.dp)) }
+      }
+      if(childList.isEmpty() && app?.sections?.isEmpty() != false && widgetList.isEmpty())
       {
          item()
          {
@@ -132,6 +138,20 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
                   qNavigator?.navigateToApp(childApp.name, childApp.label)
                }
             }
+            for(child in otherChildren)
+            {
+               val processViewModel: ProcessViewModel = viewModel(factory = ProcessViewModel.factory)
+               Tile(child.label, child.icon, generalSize, "appHome.rowFor${child.type}:" + child.name)
+               {
+                  if(child.type == QAppNodeType.PROCESS) qNavigator?.navigateToProcess(child.name, child.label, processViewModel)
+                  else
+                  {
+                     notYetImplementedDialogTitle.value = child.label
+                     notYetImplementedDialogBody.value = "This type of screen is unavailable in this client."
+                     isNotYetImplementedDialogOpen.value = true
+                  }
+               }
+            }
          }
       }
 
@@ -142,6 +162,21 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
       { section ->
          if(section.hasContent())
          {
+            item()
+            {
+               FlowRow(Modifier.fillMaxWidth())
+               {
+                  section.apps.orEmpty().forEach { name ->
+                     qInstance.apps?.get(name)?.let { child ->
+                        Tile(child.label, child.icon, generalSize, "appHome.sectionApp:" + name) { qNavigator?.navigateToApp(name, child.label) }
+                     }
+                  }
+                  section.reports.orEmpty().forEach { name ->
+                     val label = childList.firstOrNull { it.name == name && it.type == QAppNodeType.REPORT }?.label ?: "Report"
+                     Text("$label: Reports are unavailable in this client.", Modifier.padding(8.dp))
+                  }
+               }
+            }
             item()
             {
                Text(

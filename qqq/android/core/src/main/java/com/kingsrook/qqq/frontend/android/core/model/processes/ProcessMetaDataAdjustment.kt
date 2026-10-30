@@ -9,6 +9,6 @@ import kotlinx.serialization.Serializable
  ***************************************************************************/
 @Serializable
 data class ProcessMetaDataAdjustment(
-   val updatedFrontendStepList: List<QFrontendStepMetaData>? = emptyList(),
-   val updatedFields: Map<String, QFieldMetaData>? = emptyMap(),
+   val updatedFrontendStepList: List<QFrontendStepMetaData>? = null,
+   val updatedFields: Map<String, QFieldMetaData>? = null,
 )

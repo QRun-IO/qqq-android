@@ -81,9 +81,11 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
       processViewModel.qInstance = (qViewModel.qInstanceLoadState as LoadState.Success<QInstance>).value
       processViewModel.processName = name
       processViewModel.qViewModel = qViewModel
+      processViewModel.supportedCustomWidgetTypes = qViewModel.supportedCustomWidgetTypes
 
       processViewModel.closeProcessCallback =
          {
+            qViewModel.activeProcessViewModel = null
             this.popStack()
          }
 
@@ -114,6 +116,7 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
     ***************************************************************************/
    fun popStack()
    {
+      qViewModel.activeProcessViewModel?.let { it.cancel(); return }
       navDepth--
       if(navController?.popBackStack() != true)
       {
@@ -134,8 +137,18 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
    /***************************************************************************
     **
     ***************************************************************************/
-   fun goHome()
+   fun goHome(cancelActiveProcess: Boolean = true)
    {
+      if(!cancelActiveProcess)
+      {
+         qViewModel.activeProcessViewModel?.reset()
+         qViewModel.activeProcessViewModel = null
+      }
+      qViewModel.activeProcessViewModel?.let { process ->
+         process.closeProcessCallback = { qViewModel.activeProcessViewModel = null; goHome() }
+         process.cancel()
+         return
+      }
       while(!atHome)
       {
          popStack()

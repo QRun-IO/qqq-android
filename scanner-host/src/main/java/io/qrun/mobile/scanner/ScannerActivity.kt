@@ -37,6 +37,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
+import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
 import com.kingsrook.qqq.frontend.android.core.controllers.NetworkQQQRepository
 import com.kingsrook.qqq.frontend.android.core.model.Environment
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.TableBasedAuthenticationMetaData
@@ -81,7 +82,7 @@ class ScannerActivity : ComponentActivity()
                   key(currentServer)
                   {
                      HostChrome(currentServer, onChangeServer = { preferences.edit().remove("server").apply(); server = null })
-                     { brand, diagnostics -> ScannerHost(currentServer, brand, diagnostics) }
+                     { brand, diagnostics, compatibility -> ScannerHost(currentServer, brand, diagnostics, compatibility) }
                   }
                }
             }
@@ -91,7 +92,7 @@ class ScannerActivity : ComponentActivity()
 
    /** Server-scoped stores ensure switching installations cannot reuse a credential accidentally. */
    @Composable
-   private fun ScannerHost(server: String, brand: HostBrand, diagnostics: DiagnosticLog)
+   private fun ScannerHost(server: String, brand: HostBrand, diagnostics: DiagnosticLog, compatibility: UiApiCompatibility)
    {
       val credentialsResult = remember(server) { runCatching { credentialsByServer.getOrPut(server) { DeviceCredentials(applicationContext, server) } } }
       val credentials = credentialsResult.getOrNull()
@@ -111,11 +112,11 @@ class ScannerActivity : ComponentActivity()
             {
                val hash = MessageDigest.getInstance("SHA-256").digest(server.toByteArray()).joinToString("") { "%02x".format(it) }
                val dataStore = storesByServer.getOrPut(server) { PreferenceDataStoreFactory.create { File(noBackupFilesDir, "session-$hash.preferences_pb") } }
-               val repository = NetworkQQQRepository(server, requestObserver = diagnostics::nativeRequest) { requestedServer ->
+               val repository = NetworkQQQRepository(server, requestObserver = diagnostics::nativeRequest, compatibility = compatibility) { requestedServer ->
                   if(requestedServer == server) credentials.headers() else emptyMap()
                }
                @Suppress("UNCHECKED_CAST")
-               return QViewModel(repository, dataStore) as T
+               return QViewModel(repository, dataStore).apply { supportedCustomWidgetTypes = setOf("SCANNER") } as T
             }
          }
       }
@@ -129,7 +130,7 @@ class ScannerActivity : ComponentActivity()
          Text("This build supports username/password sign-in. This server uses another sign-in provider. Configure that provider for this app or choose another server.", Modifier.padding(24.dp))
          return
       }
-      val api = remember(server, diagnostics) { DeviceApi(server, credentials, diagnostics::deviceRequest) }
+      val api = remember(server, diagnostics) { DeviceApi(server, credentials, diagnostics::deviceRequest, compatibility) }
       CompositionLocalProvider(
          LocalAuthenticatedContent provides { model, content -> DeviceGate(model, api, credentials, content) },
          LocalCustomWidgetRenderer provides { parameters, modifier, disabled ->

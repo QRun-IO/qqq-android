@@ -36,15 +36,30 @@ data class QFieldMetaData(
    val defaultValue: Any? = null,
    val type: QFieldType,
    val isRequired: Boolean = false,
-   val isEditable: Boolean = false,
+   val isEditable: Boolean = true,
    val isHeavy: Boolean = false,
    val possibleValueSourceName: String? = null,
    val inlinePossibleValueSource: List<QPossibleValue>? = null,
    val displayFormat: String? = null,
    val adornments: List<FieldAdornment>? = null,
    val helpContents: List<QHelpContent>? = null,
+   val isHidden: Boolean = false,
+   val validation: FieldValidation? = null,
    // todo - not Any... val behaviors: List<Any>?,
 )
 {
 
 }
+
+@Serializable
+data class FieldValidation(
+   val required: Boolean? = null,
+   val maxLength: Int? = null,
+   val tooLongBehavior: String? = null,
+   val minValue: String? = null,
+   val maxValue: String? = null,
+   val minInclusive: Boolean? = null,
+   val maxInclusive: Boolean? = null,
+   val pattern: String? = null,
+   val patternMessage: String? = null,
+)

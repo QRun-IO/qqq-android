@@ -27,6 +27,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBlockParameters
+import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessAcknowledgment
 
 const val SCAN_ACTION = "io.qrun.mobile.scanner.SCAN"
 
@@ -39,7 +40,7 @@ fun ScannerWidget(parameters: WidgetBlockParameters, modifier: Modifier, disable
    var manual by remember { mutableStateOf("") }
    var notice by remember { mutableStateOf("") }
    val currentDisabled by rememberUpdatedState(disabled)
-   val currentCallback by rememberUpdatedState(parameters.actionCallback)
+   val scannerMetaData = ScannerMetaData.parse(parameters.widgetBlock.values)
    val process = parameters.qViewModel?.activeProcessViewModel
    LaunchedEffect(parameters.values["acknowledgedEventId"]) { notice = "" }
 
@@ -51,13 +52,19 @@ fun ScannerWidget(parameters: WidgetBlockParameters, modifier: Modifier, disable
          notice = "Wait for the previous scan to be confirmed."
          return
       }
-      if(barcode.isEmpty() || barcode.length > 4096)
+      if(barcode.isEmpty() || barcode.length > scannerMetaData.maxLength)
       {
-         notice = "Scan must contain between 1 and 4096 characters."
+         notice = "Scan must contain between 1 and ${scannerMetaData.maxLength} characters."
          return
       }
       notice = "Sending scan…"
-      currentCallback?.invoke(ScanEvent(barcode, symbology, source).values())
+      val event = ScanEvent(barcode, symbology, source)
+      if(process == null)
+      {
+         notice = "This scanner control requires an active process."
+         return
+      }
+      process.runStep(event.values(), ProcessAcknowledgment("acknowledgedEventId", event.eventId))
    }
 
    val currentSubmit by rememberUpdatedState<(String, String, String) -> Unit>(::submit)
@@ -109,7 +116,7 @@ fun ScannerWidget(parameters: WidgetBlockParameters, modifier: Modifier, disable
          Text("Saved scan ${parameters.values["scanId"] ?: ""}")
       }
       if(notice.isNotEmpty()) Text(notice)
-      OutlinedTextField(manual, { manual = it }, label = { Text("Manual barcode") }, enabled = !disabled, singleLine = true)
-      Button(enabled = !disabled && manual.isNotEmpty(), onClick = { submit(manual, "MANUAL", "manual") }) { Text("Submit barcode") }
+      OutlinedTextField(manual, { manual = it }, label = { Text(scannerMetaData.manualLabel) }, enabled = !disabled, singleLine = true)
+      Button(enabled = !disabled && manual.isNotEmpty(), onClick = { submit(manual, "MANUAL", "manual") }) { Text(scannerMetaData.submitLabel) }
    }
 }

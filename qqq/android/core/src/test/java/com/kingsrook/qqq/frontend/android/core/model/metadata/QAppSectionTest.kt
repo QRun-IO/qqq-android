@@ -40,6 +40,7 @@ class QAppSectionTest
       assertFalse(QAppSection("test", "Test").hasContent())
       assertFalse(QAppSection("test", "Test", tables = null, processes = null, reports = null).hasContent())
 
+      assertTrue(QAppSection("test", "Test", apps = listOf("childApp")).hasContent())
       assertTrue(QAppSection("test", "Test", tables = listOf("myTable")).hasContent())
       assertTrue(QAppSection("test", "Test", processes = listOf("myProcess")).hasContent())
       assertTrue(QAppSection("test", "Test", reports = listOf("myReport")).hasContent())

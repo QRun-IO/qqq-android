@@ -58,9 +58,10 @@ interface QQQRepository
 
    suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): ProcessStepResult
 
+   suspend fun processCancel(processName: String, processUUID: String) { throw UnsupportedOperationException("Process cancellation is unavailable") }
+
    suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult
 
-   suspend fun resource(path: String): ByteArray?
 
    fun getURI(path: String): String
 }

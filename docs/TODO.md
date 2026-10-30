@@ -9,11 +9,19 @@
 
 - [x] Complete Gradle unit tests, debug APK, signature, and lint verification (26 tests; zero lint errors).
 - [ ] Run physical TC22 acceptance: DataWedge trigger, rotation/background lifecycle, duplicate retry, revoked device, bad credentials, sign-out and re-login.
+- [x] Verify TC22 physical Code128 and QR triggers through DataWedge intent output, visible Saved scan, preserved leading-zero QR data and independently inspected backend provenance; two Code128 triggers plus one QR trigger produced exactly three records.
 - [ ] Verify release APK signing/distribution separately; current deliverable is a debug APK.
 - [ ] Reconcile historical source license headers with the root license before production distribution.
 - [ ] Configure/test production identity-provider integration if selected; version one deliberately supports TABLE_BASED sign-in only and rejects other providers with a clear message.
-- [ ] Negotiate the UI/UX API `/version` compatible-version range and required capabilities/features before loading native screens; `/qqq/v1` paths alone are not full protocol conformance.
-- [ ] Broaden native component rendering and add conformance coverage for supported metadata/components, including unknown enum values/additive API changes; unsupported screens must remain explicit.
+- [x] Implement public `/qqq/v1/version` compatibility checks before credentials or native screens, including required features and the registered mobile-scanners extension.
+- [x] Implement semantic process completion, field/step updates, editable/view forms, backend cancellation and explicit unsupported-component blocking.
+- [x] Verify semantic migration JVM suites: 53 tests passed (core 21/mobileapp 23/scanner 9), including hidden fields, explicit null clearing, generic event ID isolation and completion when the server omits `nextStep`.
+- [x] Verify companion browser E2E after the semantic migration: six scenarios passed in 2.9 minutes.
+- [x] Require Android client-channel discovery; companion real HTTP tests use the Android header on every request and pass.
+- [x] Complete final JVM/lint/build verification of this semantic API migration: 53 tests, zero lint errors/six warnings, normal debug and isolated E2E/test APKs.
+- [x] Verify all six native scenarios across focused runs and the OpenAPI request audit: incompatible core, missing extension, missing Android channel, baseline/additive scans and native administrative forms.
+- [x] Identify the TC22 through ADB, authorize USB debugging, install the latest normal APK with login/enrollment preserved, approve its device record and open native Scan Capture with Connected status. Initial Code128 decoding passed; the remaining physical matrix is still pending.
+- [ ] Extend the [documented native component boundary](UI-API.md) with remote possible values, record lists, specialized forms and table/report/download screens as required; add conformance and rendered E2E coverage for each new capability.
 
 Offline queue/background synchronization is deliberately outside version one.
 - [x] Verify remote Scanner Android workflow after publication.

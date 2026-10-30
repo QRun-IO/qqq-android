@@ -31,6 +31,7 @@ data class QIcon(
    val name: String? = null,
    val path: String? = null,
    val color: String? = null,
+   val semanticName: String? = null,
 )
 {
 

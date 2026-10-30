@@ -39,6 +39,7 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 @Composable
 fun ProcessComponentHTML(processViewModel: ProcessViewModel, component: QFrontendComponent)
 {
+   val semanticText = processViewModel.processValues["${processViewModel.activeStep?.name}.text"] as? String
    val processValue = processViewModel.processValues["${processViewModel.activeStep?.name}.html"]
    val html: String = if(processValue is String)
    {
@@ -54,7 +55,7 @@ fun ProcessComponentHTML(processViewModel: ProcessViewModel, component: QFronten
    }
 
    Text(
-      AnnotatedString.fromHtml(html),
+      semanticText ?: plainText(html),
       modifier = Modifier
          .fillMaxWidth()
          .padding(vertical = 12.dp)

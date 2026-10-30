@@ -55,7 +55,7 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 @Composable
 fun ProcessComponentWidget(processViewModel: ProcessViewModel, qInstance: QInstance, component: QFrontendComponent, disableControls: Boolean = false)
 {
-   val state = remember { determineState(processViewModel, qInstance, component) }
+   val state = remember(processViewModel.stepInstanceCounter, component) { determineState(processViewModel, qInstance, component) }
 
    //////////////////////////////////////
    // initially set footer height to 0 //

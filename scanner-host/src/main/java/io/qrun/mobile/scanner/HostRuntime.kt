@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 */
 package io.qrun.mobile.scanner
 
+import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
+import com.kingsrook.qqq.frontend.android.core.controllers.MOBILE_SCANNERS_PATH
+import com.kingsrook.qqq.frontend.android.core.controllers.ANDROID_CLIENT
 import java.net.URI
 import java.time.Instant
 import java.util.ArrayDeque
@@ -47,7 +50,7 @@ internal fun useBlackOnPrimary(hex: String): Boolean
    return (luminance + 0.05) / 0.05 >= 1.05 / (luminance + 0.05)
 }
 
-internal enum class DiagnosticCode { BRAND_LOADED, BRAND_DEFAULT, LOGO_LOADED, LOGO_UNAVAILABLE, CONNECTION_OK, CONNECTION_FAILED, NATIVE_RESPONSE, NATIVE_TRANSPORT_FAILED, DEVICE_RESPONSE, DEVICE_TRANSPORT_FAILED }
+internal enum class DiagnosticCode { COMPATIBILITY_RESPONSE, COMPATIBILITY_FAILED, BRAND_LOADED, BRAND_DEFAULT, LOGO_LOADED, LOGO_UNAVAILABLE, CONNECTION_OK, CONNECTION_FAILED, NATIVE_RESPONSE, NATIVE_TRANSPORT_FAILED, DEVICE_RESPONSE, DEVICE_TRANSPORT_FAILED }
 internal data class DiagnosticEvent(val time: Instant, val code: DiagnosticCode, val httpStatus: Int?, val elapsedMillis: Long)
 
 /** No free-form messages: raw responses, URLs, credentials, and barcode data cannot enter this log. */
@@ -69,6 +72,12 @@ internal class DiagnosticLog(private val capacity: Int = 100)
 /** Dedicated unauthenticated client with no cookie jar, redirects, or disk cache. */
 internal class HostRuntime(private val server: String, val diagnostics: DiagnosticLog = DiagnosticLog())
 {
+   val compatibility = UiApiCompatibility(server, requireMobileScanners = true) { outcome ->
+      diagnostics.record(if(outcome.httpStatus == 200) DiagnosticCode.COMPATIBILITY_RESPONSE else DiagnosticCode.COMPATIBILITY_FAILED, outcome.httpStatus, outcome.elapsedMillis)
+   }
+
+   suspend fun verifyCompatibility() = withContext(Dispatchers.IO) { compatibility.verify() }
+
    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
       .callTimeout(5, TimeUnit.SECONDS).build()
 
@@ -78,7 +87,9 @@ internal class HostRuntime(private val server: String, val diagnostics: Diagnost
       var status: Int? = null
       try
       {
-         client.newCall(Request.Builder().url(url).header("Cache-Control", "no-store").build()).execute().use { response ->
+         if(url.startsWith(server.trimEnd('/') + MOBILE_SCANNERS_PATH)) compatibility.verify()
+         client.newCall(Request.Builder().url(url).header("Cache-Control", "no-store")
+            .apply { if(url.startsWith(server.trimEnd('/') + MOBILE_SCANNERS_PATH)) header("X-QQQ-Client", ANDROID_CLIENT) }.build()).execute().use { response ->
             status = response.code
             val body = response.body
             if(!response.isSuccessful || body == null || body.contentLength() > limit) error("Unavailable")
@@ -99,12 +110,12 @@ internal class HostRuntime(private val server: String, val diagnostics: Diagnost
       }
    }
 
-   suspend fun branding(): HostBrand = fetch(server + "mobile/v1/branding", 8192, DiagnosticCode.BRAND_LOADED, DiagnosticCode.BRAND_DEFAULT)
+   suspend fun branding(): HostBrand = fetch(server.trimEnd('/') + MOBILE_SCANNERS_PATH + "/branding", 8192, DiagnosticCode.BRAND_LOADED, DiagnosticCode.BRAND_DEFAULT)
       ?.toString(Charsets.UTF_8)?.let { HostBrand.parse(it) } ?: HostBrand()
 
    suspend fun logo(url: String): ByteArray? = if(isSafeLogoUrl(url)) fetch(url, 1_048_576, DiagnosticCode.LOGO_LOADED, DiagnosticCode.LOGO_UNAVAILABLE) else null
 
-   suspend fun connected(): Boolean = fetch(server + "mobile/v1/status", 1024, DiagnosticCode.CONNECTION_OK, DiagnosticCode.CONNECTION_FAILED) {
+   suspend fun connected(): Boolean = fetch(server.trimEnd('/') + MOBILE_SCANNERS_PATH + "/status", 1024, DiagnosticCode.CONNECTION_OK, DiagnosticCode.CONNECTION_FAILED) {
       val fields = Json.parseToJsonElement(it.toString(Charsets.UTF_8)) as? JsonObject
       (fields?.get("status") as? JsonPrimitive)?.let { status -> status.isString && status.content == "ok" } == true
    } != null

@@ -59,6 +59,14 @@ open class ProcessViewModel : ViewModel()
    lateinit var qInstance: QInstance
    lateinit var processName: String
    lateinit var qViewModel: QViewModel
+   var supportedCustomWidgetTypes: Set<String> = emptySet()
+   var fieldErrors: Map<String, String> by mutableStateOf(emptyMap())
+      private set
+   var cancelling: Boolean by mutableStateOf(false)
+      private set
+   var submissionError: String? by mutableStateOf(null)
+      private set
+   private var processComplete: Boolean by mutableStateOf(false)
 
    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
    // function that this view-model can call, if user chose, within the process, to leave the process.         //
@@ -211,6 +219,11 @@ open class ProcessViewModel : ViewModel()
    {
       viewModelScope.coroutineContext.cancelChildren()
       pendingStepValues = null
+      pendingAcknowledgment = null
+      fieldErrors = emptyMap()
+      cancelling = false
+      submissionError = null
+      processComplete = false
       processMetaDataLoadState = LoadState.Loading(Unit)
       processMetaData = null
       initLoadState = LoadState.Loading(Unit)
@@ -255,8 +268,7 @@ open class ProcessViewModel : ViewModel()
          catch(e: kotlinx.coroutines.CancellationException) { throw e }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error loading ProcessMetaData", e)
-            LoadState.Error(e, "Error loading Process MetaData")
+            LoadState.Error(e, semanticError(e, "Error loading process metadata."))
          }
       }
    }
@@ -279,8 +291,8 @@ open class ProcessViewModel : ViewModel()
          catch(e: kotlinx.coroutines.CancellationException) { throw e }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error initing process", e)
-            initLoadState = LoadState.Error(e, "Error launching process")
+            waitingOnBackend = false
+            initLoadState = LoadState.Error(e, semanticError(e, "Error launching process."))
          }
       }
    }
@@ -296,9 +308,11 @@ open class ProcessViewModel : ViewModel()
    /***************************************************************************
     **
     ***************************************************************************/
-   fun runStep(eventValues: Map<String, Any?> = emptyMap())
+   fun runStep(eventValues: Map<String, Any?> = emptyMap(), acknowledgment: ProcessAcknowledgment? = null)
    {
-      if(waitingOnBackend) return
+      if(waitingOnBackend || cancelling || getNoMoreSteps()) return
+      unsupportedReason()?.let { setTopLevelError(it); return }
+      submissionError = null
       val localProcessUUID = processUUID
       val localActiveStepName = activeStepName
 
@@ -316,18 +330,28 @@ open class ProcessViewModel : ViewModel()
 
       val valuesToSubmit: MutableMap<String, Any?> = mutableMapOf()
 
-      // todo all the work with the form and form values, like validation, and formatting?
+      val editableFields = activeStep?.components.orEmpty()
+         .filter { it.type == com.kingsrook.qqq.frontend.android.core.model.metadata.QComponentType.EDIT_FORM }
+         .flatMap { SemanticProcess.fields(activeStep, it) }.filter { it.isEditable }.distinctBy { it.name }
+      fieldErrors = editableFields.mapNotNull { field ->
+         validateSemanticField(field, if(eventValues.containsKey(field.name)) eventValues[field.name] else processValues[field.name])?.let { field.name to it }
+      }.toMap()
+      if(fieldErrors.isNotEmpty()) return
+      editableFields.forEach { formFieldNames.add(it.name) }
       for(name in formFieldNames)
       {
-         valuesToSubmit[name] = processValues[name]
+         val field = editableFields.firstOrNull { it.name == name }
+         valuesToSubmit[name] = if(field == null) processValues[name] else semanticFieldValue(field, processValues[name])
       }
 
       for(entry in eventValues.entries)
       {
-         valuesToSubmit[entry.key] = entry.value
+         val field = editableFields.firstOrNull { it.name == entry.key }
+         valuesToSubmit[entry.key] = if(field == null) entry.value else semanticFieldValue(field, entry.value)
       }
 
-      pendingStepValues = if(valuesToSubmit["eventId"] is String) valuesToSubmit.toMap() else null
+      pendingAcknowledgment = acknowledgment
+      pendingStepValues = if(acknowledgment != null) valuesToSubmit.toMap() else null
       topLevelErrorState = LoadState.Success(Unit)
 
       /////////////////////////////////////////
@@ -350,7 +374,13 @@ open class ProcessViewModel : ViewModel()
          catch(e: Exception)
          {
             waitingOnBackend = false
-            setTopLevelError(if(e is retrofit2.HttpException && e.code() in listOf(401, 403))
+            if(e is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException)
+            {
+               fieldErrors = e.fieldErrors.associate { it.field to it.message }
+               if(e.fieldErrors.isNotEmpty()) submissionError = e.message
+               else setTopLevelError(e.message ?: "The server rejected this request.")
+            }
+            else setTopLevelError(if(e is retrofit2.HttpException && e.code() in listOf(401, 403))
                "Access denied. Your session may have expired or device approval may have been revoked. Sign in again or contact your administrator."
                else "The server did not confirm this request. Retry the same request when connected.")
          }
@@ -360,6 +390,7 @@ open class ProcessViewModel : ViewModel()
    /** Retain only the current request in memory so an uncertain response can be retried safely. */
    var pendingStepValues: Map<String, Any?>? = null
       private set
+   private var pendingAcknowledgment: ProcessAcknowledgment? = null
 
    /** Explicit retries preserve the scan event ID; no background queue is created. */
    fun retryPendingStep()
@@ -371,7 +402,7 @@ open class ProcessViewModel : ViewModel()
          waitingOnBackend = true
          checkIn()
       }
-      else pendingStepValues?.let { runStep(it) }
+      else pendingStepValues?.let { runStep(it, pendingAcknowledgment) }
    }
 
    /***************************************************************************
@@ -448,19 +479,23 @@ open class ProcessViewModel : ViewModel()
     ***************************************************************************/
    private fun processJobCompleteResult(value: QJobComplete)
    {
-      val pendingEventId = pendingStepValues?.get("eventId")
-      if(pendingEventId == null || pendingEventId == value.values["acknowledgedEventId"])
+      if(pendingAcknowledgment?.matches(value.values) != false)
       {
          pendingStepValues = null
+         pendingAcknowledgment = null
       }
       else
       {
          setTopLevelError("The server did not acknowledge this scan. Retry the same request when connected.")
+         return
       }
+      frontendSteps = SemanticProcess.adjust(frontendSteps, value.processMetaDataAdjustment)
+      processValues = value.values.toMutableMap()
+      processComplete = SemanticProcess.terminal(value)
+      fieldErrors = emptyMap()
+      submissionError = null
       updateActiveStepName(value.nextStep)
       stepInstanceCounter++
-
-      processValues = value.values.toMutableMap()
       activeJobUUID = ""
       formFieldNames = mutableSetOf()
 
@@ -471,10 +506,6 @@ open class ProcessViewModel : ViewModel()
       ///////////////////////////////////////////////////////////////////////////
       // qViewModel.topBarStatusText = "${System.currentTimeMillis() % 100}"
 
-      value.processMetaDataAdjustment?.let()
-      { adjustment ->
-         adjustment.updatedFields // todo tododo
-      }
    }
 
    /***************************************************************************
@@ -483,6 +514,7 @@ open class ProcessViewModel : ViewModel()
    private fun updateActiveStepName(newActiveStepName: String)
    {
       activeStepName = newActiveStepName
+      activeStep = null
 
       for((index, qFrontendStepMetaData) in frontendSteps.withIndex())
       {
@@ -494,7 +526,7 @@ open class ProcessViewModel : ViewModel()
          }
       }
 
-      Log.w(TAG, "Got through findActiveStepIndex and didn't find one...")
+      if(!getNoMoreSteps()) setTopLevelError("The server returned an unknown process screen. Update the client or contact your administrator.")
    }
 
    /***************************************************************************
@@ -511,7 +543,7 @@ open class ProcessViewModel : ViewModel()
          return
       }
 
-      if(localJobUUID == null)
+      if(localJobUUID.isEmpty() || cancelling)
       {
          setTopLevelError("Missing job UUID.  Unable to continue running process.")
          return
@@ -528,7 +560,7 @@ open class ProcessViewModel : ViewModel()
          catch(e: Exception)
          {
             waitingOnBackend = false
-            setTopLevelError("The server did not confirm the running request. Retry to check the same request again.")
+            setTopLevelError(semanticError(e, "The server did not confirm the running request. Retry to check the same request again."))
          }
       }
    }
@@ -538,69 +570,43 @@ open class ProcessViewModel : ViewModel()
     ***************************************************************************/
    fun cancel()
    {
-      // todo (maybe) an 'are you sure' dialog
-      // todo - call backend if there's a cancel step on the process
-      closeProcessCallback?.invoke()
+      if(cancelling) return
+      val uuid = processUUID
+      if(uuid == null || getNoMoreSteps())
+      {
+         closeProcessCallback?.invoke()
+         return
+      }
+      cancelling = true
+      viewModelScope.coroutineContext.cancelChildren()
+      viewModelScope.launch {
+         try
+         {
+            qqqRepository.processCancel(processName, uuid)
+            closeProcessCallback?.invoke()
+         }
+         catch(e: kotlinx.coroutines.CancellationException) { throw e }
+         catch(e: Exception)
+         {
+            waitingOnBackend = false
+            setTopLevelError(if(e is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException) e.message ?: "Cancellation failed." else "The server did not confirm cancellation. Try again when connected.")
+         }
+         finally { cancelling = false }
+      }
    }
 
    /***************************************************************************
     **
     ***************************************************************************/
-   fun getNextButtonLabel(): String
-   {
-      when (val local = processMetaDataLoadState)
-      {
-         is LoadState.Success ->
-         {
-            if(local.value.stepFlow == "LINEAR" && activeStepIndex == frontendSteps.size - 2)
-            {
-               return ("Submit")
-            }
-         }
+   fun getNextButtonLabel(): String = "Next"
 
-         else ->
-         {
-            // noop
-         }
-      }
+   fun getNoMoreSteps(): Boolean = processComplete
 
-      // todo - a special case for VALIDATION_REVIEW_SCREEN, based on the value of the radio, may return Submit
+   fun unsupportedReason(): String? = SemanticProcess.unsupported(activeStep, processValues,
+      if(::qInstance.isInitialized) qInstance else null, supportedCustomWidgetTypes)
 
-      return ("Next")
-   }
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun getNoMoreSteps(): Boolean
-   {
-      when (val local = processMetaDataLoadState)
-      {
-         is LoadState.Success ->
-         {
-            if(local.value.stepFlow == "LINEAR" && activeStepIndex == frontendSteps.size - 1)
-            {
-               return (true)
-            }
-         }
-
-         else ->
-         {
-            // noop
-         }
-      }
-
-      if(processValues["noMoreSteps"] != null)
-      {
-         return (true)
-      }
-
-      return (false)
-   }
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   private fun semanticError(error: Exception, fallback: String): String =
+      if(error is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException) error.message ?: fallback else fallback
    fun registerFormFieldName(name: String)
    {
       formFieldNames.add(name)

@@ -59,7 +59,7 @@ fun ImageWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifie
    {
       AsyncImage(
          model = ImageRequest.Builder(context = LocalContext.current)
-            .data(qViewModel?.getURI(widgetBlock.values["path"]?.toString() ?: ""))
+            .data(runCatching { qViewModel?.getURI(widgetBlock.values["path"]?.toString() ?: "") }.getOrNull())
             .crossfade(true)
             .build(),
          contentDescription = null,

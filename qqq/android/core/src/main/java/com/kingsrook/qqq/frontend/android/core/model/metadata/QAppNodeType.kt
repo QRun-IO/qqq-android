@@ -24,10 +24,20 @@ package com.kingsrook.qqq.frontend.android.core.model.metadata
 /***************************************************************************
  **
  ***************************************************************************/
+@kotlinx.serialization.Serializable(with = QAppNodeTypeSerializer::class)
 enum class QAppNodeType
 {
+   UNKNOWN,
    TABLE,
    PROCESS,
    REPORT,
    APP,
+}
+
+object QAppNodeTypeSerializer : kotlinx.serialization.KSerializer<QAppNodeType>
+{
+   override val descriptor = kotlinx.serialization.descriptors.PrimitiveSerialDescriptor("QAppNodeType", kotlinx.serialization.descriptors.PrimitiveKind.STRING)
+   override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): QAppNodeType =
+      decoder.decodeString().let { value -> QAppNodeType.entries.firstOrNull { it.name == value } ?: QAppNodeType.UNKNOWN }
+   override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: QAppNodeType) = encoder.encodeString(value.name)
 }

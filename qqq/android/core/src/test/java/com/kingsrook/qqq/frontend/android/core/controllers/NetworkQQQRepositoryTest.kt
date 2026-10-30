@@ -15,9 +15,32 @@ import org.junit.Test
 class NetworkQQQRepositoryTest
 {
    @Test
+   fun clearedOptionalFieldsRemainExplicitNullsOnTheWire() = runBlocking()
+   {
+      MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
+         server.enqueue(MockResponse().setBody("""{"type":"COMPLETE","processUUID":"process","nextStep":"result","values":{}}"""))
+         val origin = server.url("/").toString()
+         val repository = NetworkQQQRepository(origin)
+         repository.setEnvironment(Environment("test", origin))
+         repository.processStep("edit", "process", "input", mapOf("notes" to null, "choice" to null, "quantity" to 0, "enabled" to false), 1000)
+         assertEquals("/qqq/v1/version", server.takeRequest().path)
+         val request = server.takeRequest()
+         assertEquals("/qqq/v1/processes/edit/process/step/input", request.path)
+         val body = request.body.readUtf8()
+         val json = org.json.JSONObject(body.substringAfter("\r\n\r\n").substringBefore("\r\n--"))
+         assertTrue("Clearing notes must overwrite the stored value", json.has("notes") && json.isNull("notes"))
+         assertTrue("Choosing None must overwrite the stored selection", json.has("choice") && json.isNull("choice"))
+         assertEquals(0, json.getInt("quantity"))
+         assertFalse(json.getBoolean("enabled"))
+      }
+   }
+
+   @Test
    fun reportsOnlyStatusAndTimingAndObserverFailuresCannotBreakRequests() = runBlocking()
    {
       MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
          server.enqueue(MockResponse().setBody("{}"))
          server.enqueue(MockResponse().setResponseCode(503).setBody("private-response-barcode"))
          val outcomes = mutableListOf<RequestOutcome>()
@@ -27,7 +50,7 @@ class NetworkQQQRepositoryTest
          repository.setSessionUUID("private-cookie")
          repository.getMetaData("private-query", "1", "test", "1")
          assertTrue(runCatching { repository.getMetaData("test", "1", "test", "1") }.isFailure)
-         assertEquals(listOf(200, 503), outcomes.map { it.httpStatus })
+         assertEquals(listOf(200, 200, 503), outcomes.map { it.httpStatus })
          assertTrue(outcomes.all { it.elapsedMillis >= 0 })
          assertFalse(outcomes.toString().contains("private"))
          assertFalse(outcomes.toString().contains("http:"))
@@ -55,6 +78,7 @@ class NetworkQQQRepositoryTest
    {
       MockWebServer().use { server ->
          server.start()
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
          server.enqueue(MockResponse().setBody("{}"))
          server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("{}"))
          val origin = server.url("/").toString()
@@ -62,6 +86,7 @@ class NetworkQQQRepositoryTest
          repository.setEnvironment(Environment("demo", origin))
          repository.setSessionUUID("synthetic-session")
          repository.logout()
+         assertEquals("/qqq/v1/version", server.takeRequest().path)
          val logoutRequest = server.takeRequest()
          assertEquals("/qqq/v1/logout", logoutRequest.path)
          assertEquals("POST", logoutRequest.method)
@@ -78,9 +103,11 @@ class NetworkQQQRepositoryTest
          MockWebServer().use { second ->
             first.start()
             second.start()
+            first.enqueue(MockResponse().setBody(VERSION_FIXTURE))
             first.enqueue(MockResponse().setHeader("Content-Type", "application/json")
                .addHeader("Set-Cookie", "sessionUUID=synthetic-session; HttpOnly; Path=/").setBody("{\"values\":{}}"))
             first.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("{}"))
+            second.enqueue(MockResponse().setBody(VERSION_FIXTURE))
             second.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("{}"))
             val origin = first.url("/").toString()
             val repository = NetworkQQQRepository(origin) { server ->
@@ -90,6 +117,7 @@ class NetworkQQQRepositoryTest
             val login = repository.loginWithPassword("demo", "synthetic-password")
             assertEquals("synthetic-session", login.uuid)
             repository.getMetaData("test", "1", "test", "1")
+            assertEquals("/qqq/v1/version", first.takeRequest().path)
             val loginRequest = first.takeRequest()
             assertEquals("/qqq/v1/manageSession", loginRequest.path)
             assertNull(loginRequest.getHeader("Cookie"))
@@ -99,6 +127,7 @@ class NetworkQQQRepositoryTest
             assertEquals("test-device", nextRequest.getHeader("X-QQQ-Device-Id"))
             repository.setEnvironment(Environment("second", second.url("/").toString()))
             repository.getMetaData("test", "1", "test", "1")
+            assertEquals("/qqq/v1/version", second.takeRequest().path)
             val otherRequest = second.takeRequest()
             assertNull(otherRequest.getHeader("Cookie"))
             assertNull(otherRequest.getHeader("X-QQQ-Device-Id"))

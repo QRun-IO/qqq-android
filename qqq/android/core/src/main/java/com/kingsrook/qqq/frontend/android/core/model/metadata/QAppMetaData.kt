@@ -36,6 +36,7 @@ data class QAppMetaData(
    val icon: QIcon? = null,
    val widgets: List<String>? = emptyList(),
    val sections: List<QAppSection>? = emptyList(),
+   val keywords: List<String>? = emptyList(),
    // todo - not Any... val supplementalAppMetaData: Map<String, Any> = emptyMap()
 )
 {

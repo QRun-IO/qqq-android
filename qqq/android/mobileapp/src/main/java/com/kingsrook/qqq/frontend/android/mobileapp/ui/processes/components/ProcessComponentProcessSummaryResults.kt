@@ -22,79 +22,25 @@
 
 package com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.intl.Locale
-import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendComponent
-import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Colors
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
-import java.lang.String.format
 
-/***************************************************************************
- ** TODO WIP - very not ready...
- ***************************************************************************/
-@OptIn(ExperimentalLayoutApi::class) // for FlowRow
 @Composable
 fun ProcessComponentProcessSummaryResults(processViewModel: ProcessViewModel, component: QFrontendComponent)
 {
-   val icon = processViewModel.processMetaData?.icon
-   val processResults = processViewModel.processValues["processResults"]
-   val recordCount = processViewModel.processValues["recordCount"]
-
-   Column()
-   {
-      // Text(
-      //    "${processViewModel.processValues}",
-      //    modifier = Modifier
-      //       .fillMaxWidth()
-      //       .padding(vertical = 12.dp)
-      // )
-
-      Row(Modifier.background(color = Colors.SUCCESS, RoundedCornerShape(4.dp)))
-      {
-         if(icon != null)
-         {
-            Text("Icon [${icon.name}]", color = Color.White)
-         }
-
-         Text("Process Summary", color = Color.White)
-      }
-
-      if(recordCount != null && recordCount is Int)
-      {
-         Text("${format("%,d", recordCount)} ${if(recordCount == 1) "record was" else "records were"} processed")
-      }
-
-      if(processResults != null && processResults is List<*>)
-      {
-         processResults.forEach()
-         { line ->
-            if(line is Map<*, *>)
-            {
-               FlowRow()
-               {
-                  when (line["status"])
-                  {
-                     "OK" -> Text("Icon [OK or →]", color = Colors.SUCCESS)
-                     "INFO" -> Text("Icon [i]", color = Colors.INFO)
-                     "WARNING" -> Text("Icon [Warn]", color = Colors.WARNING)
-                     "ERROR" -> Text("Icon [Err]", color = Colors.ERROR)
-                     else -> Box {}
-                  }
-
-                  Text("${format("%,d", line["count"])} ${line["message"]}")
-               }
-            }
+   Column {
+      (processViewModel.processValues["recordCount"] as? Number)?.let { Text("$it records processed") }
+      (processViewModel.processValues["processResults"] as? List<*>)?.forEach { result ->
+         if(result is Map<*, *>) {
+            val status = result["status"]?.toString().orEmpty()
+            val count = (result["count"] as? Number)?.let { "$it " }.orEmpty()
+            val message = result["message"]?.toString().orEmpty()
+            Text("$status: $count$message")
+            // Keep server-provided destinations visible without assuming web routes are native screens.
+            result["link"]?.toString()?.let { Text(it) }
          }
       }
    }

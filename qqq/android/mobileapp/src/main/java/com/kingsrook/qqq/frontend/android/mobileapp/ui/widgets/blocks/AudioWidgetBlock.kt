@@ -50,7 +50,7 @@ fun AudioWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifie
    val path = widgetBlock.values["path"]
    if(path is String)
    {
-      val uri = params.qViewModel?.getURI(path)
+      val uri = runCatching { params.qViewModel?.getURI(path) }.getOrNull()
       val context = LocalContext.current
 
       if(uri != null)

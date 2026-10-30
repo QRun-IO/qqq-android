@@ -46,10 +46,11 @@ import java.util.concurrent.ConcurrentHashMap
 /***************************************************************************
  **
  ***************************************************************************/
-class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObserver: (RequestOutcome) -> Unit = {}, private val additionalHeaders: (String) -> Map<String, String> = { emptyMap() }) : QQQRepository
+class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObserver: (RequestOutcome) -> Unit = {}, private val compatibility: UiApiCompatibility? = null, private val additionalHeaders: (String) -> Map<String, String> = { emptyMap() }) : QQQRepository
 {
    private val sessionUUIDs = ConcurrentHashMap<String, String>()
    private val retroJson = Json { ignoreUnknownKeys = true }
+   private val compatibilityByServer = ConcurrentHashMap<String, UiApiCompatibility>()
 
    private val qqqApiServiceMap: MutableMap<String, QQQApiService> = mutableMapOf()
 
@@ -82,11 +83,19 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
             OkHttpClient.Builder()
                .followRedirects(false)
                .followSslRedirects(false)
+               .addInterceptor { chain ->
+                  compatibilityByServer.getOrPut(baseUrl) {
+                     compatibility?.takeIf { it.server == baseUrl } ?: UiApiCompatibility(baseUrl, observer = { requestObserver(it) })
+                  }.verify()
+                  chain.proceed(chain.request())
+               }
+               .addInterceptor(UiApiErrorInterceptor())
                .addInterceptor(RequestOutcomeInterceptor { requestObserver(it) })
                .addInterceptor { chain ->
                   val request = chain.request().newBuilder()
                   sessionUUIDs[baseUrl]?.takeIf { it.isNotBlank() }?.let { request.header("Cookie", "sessionUUID=$it") }
                   additionalHeaders(baseUrl).forEach { (name, value) -> request.header(name, value) }
+                  request.header("X-QQQ-Client", ANDROID_CLIENT)
                   request.header("X-QQQ-UserTimezone", TimeZone.getDefault().toZoneId().toString())
                   val response = chain.proceed(request.build())
                   response.headers("Set-Cookie").forEach { header ->
@@ -186,6 +195,11 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
    /***************************************************************************
     **
     ***************************************************************************/
+   override suspend fun processCancel(processName: String, processUUID: String)
+   {
+      qqqApiServiceMap[baseUrl]!!.processCancel(processName, processUUID).close()
+   }
+
    override suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult
    {
       return qqqApiServiceMap[baseUrl]!!.processJobStatus(processName, processUUID, jobUUID)
@@ -204,7 +218,7 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
          val valuesJson = JSONObject()
          for(entry in values.entries)
          {
-            valuesJson.put(entry.key, entry.value)
+            valuesJson.put(entry.key, entry.value ?: JSONObject.NULL)
          }
          bodyBuilder.addFormDataPart("values", valuesJson.toString())
       }
@@ -236,17 +250,16 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
    /***************************************************************************
     **
     ***************************************************************************/
-   override suspend fun resource(path: String): ByteArray?
-   {
-      return qqqApiServiceMap[baseUrl]!!.resource(path)
-   }
+
 
    /***************************************************************************
     **
     ***************************************************************************/
    override fun getURI(path: String): String
    {
-      return "${baseUrl.replaceFirst(Regex("/*$"), "/")}${path.replaceFirst(Regex("^/+"), "")}"
+      val uri = java.net.URI(baseUrl).resolve(path)
+      require(uri.scheme in setOf("https", "http") && uri.userInfo == null && uri.host != null) { "Unsupported media URL" }
+      return uri.toASCIIString()
    }
 
    /***************************************************************************

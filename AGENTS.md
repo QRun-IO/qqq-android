@@ -18,6 +18,8 @@ All mobile processes require end-to-end coverage. For scanner flow changes, buil
 
 Reuse the existing `core` and `mobileapp` libraries and native QQQ metadata/process contracts. The scanner host adds enrollment and scanner widgets; do not introduce a competing screen engine. Preserve raw barcode strings, event identity across retries, server acknowledgments, and server-side device authorization.
 
+All client/server operations must use the versioned semantic UI API or a registered, documented semantic extension. Discover version, required features, client channel and extension compatibility before credentials. Follow server process state and field metadata; never infer business actions from a process name or a generic field name. New required controls need native support and E2E coverage; unknown controls must stop submission explicitly. Keep the real-server OpenAPI request audit in CI.
+
 Never log or place passwords, session cookies, or device tokens in process values, test fixtures, or documentation. Keep enrollment credentials and sessions isolated by server. Keep HTTP support limited to debug builds. Test resources under `mobile-contract` are sanitized real demo responses.
 
 ## Repository automation

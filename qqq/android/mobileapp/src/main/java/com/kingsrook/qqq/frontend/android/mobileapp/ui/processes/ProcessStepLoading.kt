@@ -142,6 +142,7 @@ fun ProcessStepLoading(processViewModel: ProcessViewModel)
          color = MaterialTheme.colorScheme.secondary,
          trackColor = MaterialTheme.colorScheme.surfaceVariant,
       )
+      androidx.compose.material3.Button(onClick = processViewModel::cancel, enabled = !processViewModel.cancelling) { Text("Cancel") }
 
    }
 }

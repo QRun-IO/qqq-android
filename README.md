@@ -13,6 +13,8 @@ Native Kotlin/Compose clients for QQQ. The new `scanner-host` application runs s
 
 The client supports metadata and process execution. It does not implement the record CRUD/fluent API previously described by this README.
 
+The scanner host uses the versioned semantic UI API for app discovery, native process screens and actions, plus the registered `mobile-scanners` extension for device enrollment, branding and connectivity. It checks core and extension compatibility before login. See [the client contract and supported components](docs/UI-API.md); full web-client feature coverage is not implied.
+
 ## First scanner application
 
 Use the companion `qbit-mobile-scanners` server/demo with QQQ `4.1.0-RC.20`. The demo uses QQQ TABLE_BASED username/password authentication. Credentials are exchanged through the native QQQ session endpoint; the password is not stored.
@@ -40,9 +42,9 @@ The receiver is active only while a scanner widget is visible and its activity i
 
 ## Customer branding and diagnostics
 
-The shared launcher name/icon remain QQQ Mobile. On connecting to a server, the host reads public `GET /mobile/v1/branding` (`displayName`, `primaryColor`, optional `logoUrl`). The name and Material theme apply to login, device approval, and native app screens. Names are limited to 80 printable characters and colors to `#RRGGBB`; malformed values fall back to QQQ defaults. Button foregrounds choose readable black/white contrast. Optional logos must use HTTPS, are fetched without session/device headers or cookies, and cannot prevent login if unavailable. Responses are size-limited, redirects are disabled, and branding is reset when changing servers. Reconnect to pick up server branding changes; no APK rebuild is needed.
+The shared launcher name/icon remain QQQ Mobile. On connecting to a server, the host reads public `GET /qqq/v1/qbit/mobile-scanners/branding` (`displayName`, `primaryColor`, optional `logoUrl`). The name and Material theme apply to login, device approval, and native app screens. Names are limited to 80 printable characters and colors to `#RRGGBB`; malformed values fall back to QQQ defaults. Button foregrounds choose readable black/white contrast. Optional logos must use HTTPS, are fetched without session/device headers or cookies, and cannot prevent login if unavailable. Responses are size-limited, redirects are disabled, and branding is reset when changing servers. Reconnect to pick up server branding changes; no APK rebuild is needed.
 
-The persistent footer shows **Checking**, **Connected**, or **Disconnected** with the last check time. It checks `GET /mobile/v1/status` every five seconds while foregrounded and on network changes; `Connected` means a valid `{ "status": "ok" }` response, not sign-in or device approval. Tap the footer for **Copy**, **Clear**, and **Close** diagnostics. The in-memory log holds the latest 100 fixed event codes with timestamps, HTTP status, and latency for branding, connection checks, native QQQ calls (including login/process requests), and device enrollment/status requests. A transport failure has no HTTP status; an HTTP response retains its status, including 401/403/500 errors. The log contains no credentials, scan values, request paths, queries, raw response text, or exception messages. Changing servers clears the displayed diagnostics. Monitoring never queues or retries a scan.
+The persistent footer shows **Checking**, **Connected**, or **Disconnected** with the last check time. It checks `GET /qqq/v1/qbit/mobile-scanners/status` every five seconds while foregrounded and on network changes; `Connected` means a valid `{ "status": "ok" }` response, not sign-in or device approval. Tap the footer for **Copy**, **Clear**, and **Close** diagnostics. The in-memory log holds the latest 100 fixed event codes with timestamps, HTTP status, and latency for branding, connection checks, native QQQ calls (including login/process requests), and device enrollment/status requests. A transport failure has no HTTP status; an HTTP response retains its status, including 401/403/500 errors. The log contains no credentials, scan values, request paths, queries, raw response text, or exception messages. Changing servers clears the displayed diagnostics. Monitoring never queues or retries a scan.
 
 ## Online-only behavior
 
@@ -66,7 +68,7 @@ See [emulator testing](docs/EMULATOR.md) for a local interactive demo, synthetic
 
 ## CI and delivery
 
-The managed CircleCI Android profile owns shared-library verification and its existing main-only Maven publication. The GitHub **Scanner Android** workflow adds shared/scanner JVM tests, scanner lint, debug APK assembly, SHA256, and downloadable artifacts for pull requests and supported branches. Its manual **Run workflow** option adds native UI tests and a scanner launch smoke on an API35 emulator.
+The managed CircleCI Android profile owns shared-library verification and its existing main-only Maven publication. The GitHub **Scanner Android** workflow adds shared/scanner JVM tests, scanner lint, debug APK assembly, SHA256, and downloadable artifacts for pull requests and supported branches. The API35 emulator lane runs the shared native UI tests and real-server scanner E2E on pushes and pull requests. See [emulator testing](docs/EMULATOR.md) for the isolated test package and contract checks.
 
 The GitHub workflow does not publish libraries or production releases. Signed APK distribution remains a separate release task. See [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md).
 

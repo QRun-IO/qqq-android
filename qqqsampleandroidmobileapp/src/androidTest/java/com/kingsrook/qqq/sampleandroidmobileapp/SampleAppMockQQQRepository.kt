@@ -168,9 +168,8 @@ class SampleAppMockQQQRepository : QQQRepository
    /***************************************************************************
     **
     ***************************************************************************/
-   override suspend fun resource(path: String): ByteArray?
+   override suspend fun processCancel(processName: String, processUUID: String)
    {
-      return (null)
    }
 
    /***************************************************************************

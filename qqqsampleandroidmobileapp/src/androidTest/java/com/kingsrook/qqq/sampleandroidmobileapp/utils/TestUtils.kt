@@ -167,6 +167,7 @@ fun ComposeContentTestRule.clickAppScreenOption(type: QAppNodeType, childName: S
       QAppNodeType.TABLE -> "Table:"
       QAppNodeType.PROCESS -> "Process:"
       QAppNodeType.REPORT -> "Report:"
+      QAppNodeType.UNKNOWN -> error("Unknown app node types cannot be selected")
    } + childName
 
    this.waitUntilAtLeastOneExists(hasTestTag(testTag))

@@ -30,7 +30,8 @@ import kotlinx.serialization.Serializable
 data class QHelpContent(
    val content: String,
    val format: String,
-   val roles: Set<String> = emptySet()
+   val roles: Set<String> = emptySet(),
+   val contentAsText: String? = null
 )
 {
 

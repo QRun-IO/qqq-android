@@ -40,7 +40,7 @@ fun ProcessComponentHelpText(processViewModel: ProcessViewModel, component: QFro
 {
    // todo - if there's preview text, show that first, w/ a toggle to text.
    Text(
-      "${processViewModel.processValues["text"]}",
+      (processViewModel.processValues["text"] ?: component.values["text"])?.toString().orEmpty(),
       color = Color.Gray,
       modifier = Modifier
          .fillMaxWidth()

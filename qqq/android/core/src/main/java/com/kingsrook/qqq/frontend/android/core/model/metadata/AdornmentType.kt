@@ -24,8 +24,10 @@ package com.kingsrook.qqq.frontend.android.core.model.metadata
 /***************************************************************************
  **
  ***************************************************************************/
+@kotlinx.serialization.Serializable(with = AdornmentTypeSerializer::class)
 enum class AdornmentType
 {
+   UNKNOWN,
    LINK,
    CHIP,
    SIZE,
@@ -33,4 +35,12 @@ enum class AdornmentType
    RENDER_HTML,
    REVEAL,
    CODE_EDITOR,
+}
+
+object AdornmentTypeSerializer : kotlinx.serialization.KSerializer<AdornmentType>
+{
+   override val descriptor = kotlinx.serialization.descriptors.PrimitiveSerialDescriptor("AdornmentType", kotlinx.serialization.descriptors.PrimitiveKind.STRING)
+   override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): AdornmentType =
+      decoder.decodeString().let { value -> AdornmentType.entries.firstOrNull { it.name == value } ?: AdornmentType.UNKNOWN }
+   override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: AdornmentType) = encoder.encodeString(value.name)
 }

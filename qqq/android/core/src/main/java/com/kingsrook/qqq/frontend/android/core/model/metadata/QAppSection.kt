@@ -35,6 +35,9 @@ data class QAppSection(
    val tables: List<String>? = emptyList(),
    val processes: List<String>? = emptyList(),
    val reports: List<String>? = emptyList(),
+   val apps: List<String>? = emptyList(),
+   val role: String? = null,
+   val collapsedByDefault: Boolean? = null,
 )
 {
 
@@ -43,7 +46,7 @@ data class QAppSection(
     ***************************************************************************/
    fun hasContent(): Boolean
    {
-      if(tables?.isEmpty() != false && processes?.isEmpty() != false && reports?.isEmpty() != false)
+      if(apps?.isEmpty() != false && tables?.isEmpty() != false && processes?.isEmpty() != false && reports?.isEmpty() != false)
       {
          return (false)
       }

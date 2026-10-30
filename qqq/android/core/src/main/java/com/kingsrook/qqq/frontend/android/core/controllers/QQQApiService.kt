@@ -98,8 +98,9 @@ interface QQQApiService
       @Path(value = "jobUUID") jobUUID: String,
    ): ProcessStepResult
 
-   @GET(BASE_PATH + "{path}")
-   suspend fun resource(@Path(value = "path") path: String): ByteArray?
+   @POST(BASE_PATH + "processes/{processName}/{processUUID}/cancel")
+   suspend fun processCancel(@Path("processName") processName: String, @Path("processUUID") processUUID: String): ResponseBody
+
 
 }
 

@@ -24,8 +24,10 @@ package com.kingsrook.qqq.frontend.android.core.model.metadata
 /***************************************************************************
  **
  ***************************************************************************/
+@kotlinx.serialization.Serializable(with = QFieldTypeSerializer::class)
 enum class QFieldType
 {
+   UNKNOWN,
    BOOLEAN,
    STRING,
    INTEGER,
@@ -38,4 +40,12 @@ enum class QFieldType
    HTML,
    PASSWORD,
    BLOB,
+}
+
+object QFieldTypeSerializer : kotlinx.serialization.KSerializer<QFieldType>
+{
+   override val descriptor = kotlinx.serialization.descriptors.PrimitiveSerialDescriptor("QFieldType", kotlinx.serialization.descriptors.PrimitiveKind.STRING)
+   override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): QFieldType =
+      decoder.decodeString().let { value -> QFieldType.entries.firstOrNull { it.name == value } ?: QFieldType.UNKNOWN }
+   override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: QFieldType) = encoder.encodeString(value.name)
 }

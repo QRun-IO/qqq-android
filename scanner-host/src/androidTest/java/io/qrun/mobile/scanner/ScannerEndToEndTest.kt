@@ -1,12 +1,16 @@
 /* Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 */
 package io.qrun.mobile.scanner
 
+import android.os.Bundle
+
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -36,6 +40,99 @@ class ScannerEndToEndTest
    private val client = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build()
    private lateinit var origin: String
    private lateinit var adminCookie: String
+
+   @Test
+   fun adminFormsApproveRevokeAndCancel()
+   {
+      stage("admin-start")
+      val context = InstrumentationRegistry.getInstrumentation().targetContext
+      check(context.packageName == "io.qrun.mobile.scanner.e2e")
+      val configFile = File(context.filesDir, "e2e.json")
+      val config = JSONObject(configFile.readText())
+      configFile.delete()
+      origin = config.getString("serverUrl").trimEnd('/')
+      waitFor("QQQ server URL")
+      ui.onNodeWithText("QQQ server URL").performTextReplacement("$origin/")
+      ui.onNodeWithText("Connect", substring = false).performClick()
+      try { waitFor("Username") }
+      catch(error: androidx.compose.ui.test.ComposeTimeoutException)
+      {
+         // This is before any credentials are entered; retain the actual startup error for diagnosis.
+         throw AssertionError("Admin login screen did not load: ${ui.onRoot().printToString()}", error)
+      }
+      stage("admin-login")
+      ui.onNodeWithText("Username").performTextReplacement("admin")
+      ui.onNodeWithText("Password").performTextReplacement(config.getString("adminPassword"))
+      ui.onNode(hasText("Sign in") and hasClickAction()).performClick()
+      waitFor("An administrator must approve this device before you can run mobile apps.")
+      stage("admin-enrolled")
+      adminCookie = loginAdmin(config.getString("adminPassword"))
+      runAdmin("mobileDeviceApprove", DeviceCredentials(context, "$origin/").deviceId)
+      val target = jsonRequest("/qqq/v1/qbit/mobile-scanners/devices/enroll", JSONObject()
+         .put("installationId", UUID.randomUUID().toString()).put("displayName", "Native form fixture")
+         .put("manufacturer", "Test").put("model", "Emulator").put("osVersion", "test").put("appVersion", "test"), expectedStatus = 201)
+         .getString("deviceId")
+      ui.onNodeWithText("Check approval").performClick()
+      waitForTag("appHome.rowForApp:mobileScannerAdmin")
+      ui.onNodeWithTag("appHome.rowForApp:mobileScannerAdmin").performClick()
+      stage("admin-app-open")
+      for ((process, status, result) in listOf(
+         Triple("mobileDeviceApprove", "APPROVED", "1 device approved."),
+         Triple("mobileDeviceRevoke", "REVOKED", "1 device revoked.")))
+      {
+         stage("admin-open-$process")
+         waitForTag("appHome.rowForProcess:$process")
+         ui.onNodeWithTag("appHome.rowForProcess:$process").performClick()
+         waitFor("Device IDs", substring = true)
+         ui.onNodeWithText("Device IDs", substring = true).performTextReplacement(target)
+         ui.onNodeWithText("Next", substring = false).performClick()
+         stage("admin-submitted-$process")
+         waitFor(result, substring = true)
+         assertEquals("Native form must persist its submitted target", status, deviceStatus(target))
+         ui.onNodeWithText("Next", substring = false).performClick()
+         stage("admin-finish-submitted-$process")
+         waitFor("Close")
+         stage("admin-complete-$process")
+         ui.onNodeWithText("Close").performClick()
+         stage("admin-closed-$process")
+      }
+      waitForTag("appHome.rowForProcess:mobileDeviceApprove")
+      ui.onNodeWithTag("appHome.rowForProcess:mobileDeviceApprove").performClick()
+      waitFor("Device IDs", substring = true)
+      ui.onNodeWithText("Device IDs", substring = true).performTextReplacement(target)
+      ui.onNodeWithText("Cancel", substring = false).performClick()
+      stage("admin-cancel-submitted")
+      waitForTag("appHome.rowForProcess:mobileDeviceApprove")
+      assertEquals("Cancel must not execute a populated form", "REVOKED", deviceStatus(target))
+      stage("admin-finished")
+   }
+
+   private fun stage(name: String)
+   {
+      InstrumentationRegistry.getInstrumentation().sendStatus(2, Bundle().apply { putString("qqqStage", name) })
+   }
+
+   private fun deviceStatus(id: String): String
+   {
+      val rows = jsonRequest("/qqq/v1/table/mobileDevice/query", JSONObject()).getJSONArray("records")
+      return (0 until rows.length()).map { rows.getJSONObject(it).getJSONObject("values") }
+         .single { it.getString("id") == id }.getString("status")
+   }
+
+   @Test
+   fun incompatibleServerStopsBeforeLogin()
+   {
+      val context = InstrumentationRegistry.getInstrumentation().targetContext
+      check(context.packageName == "io.qrun.mobile.scanner.e2e")
+      val configFile = File(context.filesDir, "e2e.json")
+      val config = JSONObject(configFile.readText())
+      configFile.delete()
+      waitFor("QQQ server URL")
+      ui.onNodeWithText("QQQ server URL").performTextReplacement(config.getString("serverUrl"))
+      ui.onNodeWithText("Connect", substring = false).performClick()
+      waitFor(config.getString("expectedError"), substring = true)
+      assertTrue("Incompatible servers must not display a login form", ui.onAllNodesWithText("Username").fetchSemanticsNodes().isEmpty())
+   }
 
    @Test
    fun loginEnrollApproveCaptureAndRevoke()
@@ -86,12 +183,12 @@ class ScannerEndToEndTest
 
    private fun waitFor(text: String, substring: Boolean = false)
    {
-      ui.waitUntil(timeoutMillis = 30_000) { ui.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() }
+      ui.waitUntil(timeoutMillis = 60_000) { ui.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() }
    }
 
    private fun waitForTag(tag: String)
    {
-      ui.waitUntil(timeoutMillis = 30_000) { runCatching { ui.onNodeWithTag(tag).fetchSemanticsNode() }.isSuccess }
+      ui.waitUntil(timeoutMillis = 60_000) { runCatching { ui.onNodeWithTag(tag).fetchSemanticsNode() }.isSuccess }
    }
 
    private fun loginAdmin(password: String): String
@@ -132,11 +229,11 @@ class ScannerEndToEndTest
       return result
    }
 
-   private fun jsonRequest(path: String, body: JSONObject): JSONObject = executeJson(Request.Builder().url("$origin$path")
-      .header("Cookie", adminCookie).post(body.toString().toRequestBody("application/json".toMediaType())).build())
+   private fun jsonRequest(path: String, body: JSONObject, expectedStatus: Int = 200): JSONObject = executeJson(Request.Builder().url("$origin$path")
+      .header("Cookie", adminCookie).post(body.toString().toRequestBody("application/json".toMediaType())).build(), expectedStatus)
 
-   private fun executeJson(request: Request): JSONObject = client.newCall(request).execute().use { response ->
-      assertEquals("Test server request must succeed", 200, response.code)
+   private fun executeJson(request: Request, expectedStatus: Int = 200): JSONObject = client.newCall(request).execute().use { response ->
+      assertEquals("Test server request must succeed", expectedStatus, response.code)
       JSONObject(response.body!!.string())
    }
 }

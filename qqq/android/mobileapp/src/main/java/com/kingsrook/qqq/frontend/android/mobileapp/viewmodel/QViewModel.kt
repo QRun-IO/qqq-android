@@ -117,6 +117,7 @@ open class QViewModel(
 
    private var initedQNavigator = false
 
+   var supportedCustomWidgetTypes: Set<String> = emptySet()
    var activeProcessViewModel: ProcessViewModel? = null
 
    ////////////////////////////////////////////////////////////////////
@@ -206,7 +207,7 @@ open class QViewModel(
          }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error loading Authentication MetaData", e)
+            Log.w(TAG, "Error loading Authentication MetaData")
             LoadState.Error(e, "Error loading Authentication MetaData")
          }
       }
@@ -232,7 +233,7 @@ open class QViewModel(
          }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error managing session", e)
+            Log.w(TAG, "Error managing session")
             outerThis.manageSessionLoadState = LoadState.Error(e, "Error managing session")
          }
       }
@@ -266,7 +267,7 @@ open class QViewModel(
    fun requestLogout()
    {
       isLogoutRequested = true
-      qNavigator.goHome()
+      qNavigator.goHome(cancelActiveProcess = false)
    }
 
    /***************************************************************************
@@ -378,7 +379,7 @@ open class QViewModel(
          }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error loading stored session UUID", e)
+            Log.w(TAG, "Error loading stored session UUID")
             LoadState.Error(e, "Error loading stored session UUID")
          }
       }
@@ -402,14 +403,14 @@ open class QViewModel(
             }
             else
             {
-               Log.d(TAG, "got environment ${env} from settings repo.")
+               Log.d(TAG, "Loaded environment from settings.")
             }
 
             activateEnvironment(env).join()
          }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error loading stored environment", e)
+            Log.w(TAG, "Error loading stored environment")
             storedEnvironmentLoadState = LoadState.Error(e, "Error loading stored environment")
          }
       }
@@ -434,7 +435,7 @@ open class QViewModel(
     ***************************************************************************/
    fun switchEnvironment(environment: Environment, postSwitchCallback: () -> Unit)
    {
-      qNavigator.goHome()
+      qNavigator.goHome(cancelActiveProcess = false)
       viewModelScope.launch()
       {
          logOut().join()
@@ -457,7 +458,7 @@ open class QViewModel(
          }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error loading stored session user full name", e)
+            Log.w(TAG, "Error loading stored session user full name")
             LoadState.Error(e, "Error loading stored session user full name")
          }
       }
@@ -535,7 +536,7 @@ open class QViewModel(
          }
          catch(e: Exception)
          {
-            Log.w(TAG, "Error loading QInstance", e)
+            Log.w(TAG, "Error loading QInstance")
             LoadState.Error(e,"Error loading QInstance")
          }
       }

@@ -42,15 +42,19 @@ class HostRuntimeTest
    fun serverSwitchDoesNotReuseBrandAndPublicRequestsContainNoCredentials() = runBlocking()
    {
       MockWebServer().use { first -> MockWebServer().use { second ->
+         first.enqueue(MockResponse().setBody(VERSION_FIXTURE))
          first.enqueue(MockResponse().setBody("{\"displayName\":\"Customer A\",\"primaryColor\":\"#123456\"}"))
+         second.enqueue(MockResponse().setBody(VERSION_FIXTURE))
          second.enqueue(MockResponse().setResponseCode(404))
          val firstRuntime = HostRuntime(first.url("/").toString())
          val secondRuntime = HostRuntime(second.url("/").toString())
          assertEquals("Customer A", firstRuntime.branding().displayName)
          assertEquals(HostBrand(), secondRuntime.branding())
+         assertEquals("/qqq/v1/version", first.takeRequest().path)
+         assertEquals("/qqq/v1/version", second.takeRequest().path)
          for(request in listOf(first.takeRequest(), second.takeRequest()))
          {
-            assertEquals("/mobile/v1/branding", request.path)
+            assertEquals("/qqq/v1/qbit/mobile-scanners/branding", request.path)
             assertNull(request.getHeader("Authorization"))
             assertNull(request.getHeader("Cookie"))
             assertNull(request.getHeader("X-QQQ-Device-Token"))
@@ -64,6 +68,7 @@ class HostRuntimeTest
    fun reachabilityRequiresExpectedStatusAndNeverLogsResponseData() = runBlocking()
    {
       MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
          server.enqueue(MockResponse().setBody("{\"status\":\"ok\"}"))
          server.enqueue(MockResponse().setBody("<html>private-barcode-and-token</html>"))
          server.enqueue(MockResponse().setResponseCode(503).setBody("private-password"))
@@ -89,3 +94,5 @@ class HostRuntimeTest
       assertEquals("", log.text())
    }
 }
+
+private const val VERSION_FIXTURE = """{"apiVersion":"1.8.0","features":["version","metaData","processes","processCancel","extensions","widgets"],"clientChannels":["web","api","android"],"extensions":[{"name":"mobile-scanners","version":"1.0.0","pathPrefix":"/qbit/mobile-scanners"}]}"""

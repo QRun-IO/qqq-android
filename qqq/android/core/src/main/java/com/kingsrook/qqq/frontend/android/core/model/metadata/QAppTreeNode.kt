@@ -34,6 +34,7 @@ data class QAppTreeNode(
    val type: QAppNodeType,
    val children: List<QAppTreeNode>? = emptyList(),
    val icon: QIcon? = null,
+   val keywords: List<String>? = emptyList(),
 )
 {
 

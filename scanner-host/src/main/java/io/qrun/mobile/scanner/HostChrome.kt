@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 */
 package io.qrun.mobile.scanner
 
+import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
+import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibilityException
+import kotlinx.coroutines.CancellationException
 import android.net.ConnectivityManager
 import android.net.Network
 import androidx.compose.foundation.layout.*
@@ -31,9 +34,12 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /** Lifetime is keyed by selected server: presentation and diagnostics cannot bleed across customers. */
 @Composable
-internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Composable (HostBrand, DiagnosticLog) -> Unit)
+internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Composable (HostBrand, DiagnosticLog, UiApiCompatibility) -> Unit)
 {
    val runtime = remember(server) { HostRuntime(server) }
+   var compatible by remember(server) { mutableStateOf(false) }
+   var compatibilityError by remember(server) { mutableStateOf<String?>(null) }
+   var attempt by remember(server) { mutableIntStateOf(0) }
    var brand by remember(server) { mutableStateOf(HostBrand()) }
    var logo by remember(server) { mutableStateOf<ByteArray?>(null) }
    var connection by remember(server) { mutableStateOf("Checking") }
@@ -44,14 +50,26 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
    val lifecycle = LocalLifecycleOwner.current.lifecycle
    val imageLoader = remember(context) { ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build() }
    DisposableEffect(imageLoader) { onDispose { imageLoader.shutdown() } }
-   LaunchedEffect(runtime)
+   LaunchedEffect(runtime, attempt)
    {
+      compatibilityError = null
+      try { runtime.verifyCompatibility() }
+      catch(exception: CancellationException) { throw exception }
+      catch(exception: Exception)
+      {
+         compatibilityError = if(exception is UiApiCompatibilityException) exception.message else "Unable to check QQQ UI API compatibility. Check the server address and connection, then retry."
+         connection = if(exception is UiApiCompatibilityException) "Incompatible server" else "Disconnected"
+         runtime.diagnostics.record(DiagnosticCode.COMPATIBILITY_FAILED, null, 0)
+         return@LaunchedEffect
+      }
       brand = runtime.branding()
+      compatible = true
       logo = brand.logoUrl?.let { runtime.logo(it) }
       diagnosticText = runtime.diagnostics.text()
    }
-   LaunchedEffect(runtime, lifecycle)
+   LaunchedEffect(runtime, lifecycle, compatible)
    {
+      if(!compatible) return@LaunchedEffect
       lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED)
       {
          val changed = Channel<Unit>(Channel.CONFLATED)
@@ -91,7 +109,15 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
                Text(brand.displayName, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                TextButton(onClick = onChangeServer) { Text("Change server") }
             }
-            Box(Modifier.weight(1f)) { content(brand, runtime.diagnostics) }
+            Box(Modifier.weight(1f))
+            {
+               if(compatible) content(brand, runtime.diagnostics, runtime.compatibility)
+               else Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp))
+               {
+                  Text(compatibilityError ?: "Checking QQQ UI API compatibility…")
+                  if(compatibilityError != null) Button(onClick = { attempt++ }) { Text("Retry compatibility check") }
+               }
+            }
             HorizontalDivider()
             TextButton(onClick = { diagnosticText = runtime.diagnostics.text(); showDiagnostics = true }, modifier = Modifier.fillMaxWidth())
             {
