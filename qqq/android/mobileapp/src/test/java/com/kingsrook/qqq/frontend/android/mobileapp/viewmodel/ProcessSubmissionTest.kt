@@ -6,6 +6,10 @@ import com.kingsrook.qqq.frontend.android.core.model.Environment
 import com.kingsrook.qqq.frontend.android.core.model.metadata.*
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.*
 import com.kingsrook.qqq.frontend.android.core.model.processes.*
+import com.kingsrook.qqq.frontend.android.mobileapp.data.MockPreferencesDataStore
+import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
@@ -43,7 +47,7 @@ class ProcessSubmissionTest
       finally { Dispatchers.resetMain() }
    }
 
-   @Test fun missingScanReceiptBlocksLeavingUntilSameRequestIsAcknowledged() = runTest()
+   @Test fun settledMissingScanReceiptAllowsConfirmedLeaveWithoutDiscardingRetry() = runTest()
    {
       Dispatchers.setMain(StandardTestDispatcher(testScheduler))
       try
@@ -52,14 +56,83 @@ class ProcessSubmissionTest
          val model = model(repository)
          model.doInit()
          advanceUntilIdle()
+         assertNull(model.navigationBlockReason())
+         assertNull(model.navigationWarning())
          model.runStep(mapOf("eventId" to "scan"), ProcessAcknowledgment("acknowledgedEventId", "scan"))
          advanceUntilIdle()
-         assertNotNull(model.navigationBlockReason())
+         assertNull(model.navigationBlockReason())
+         assertEquals("scan", model.pendingStepValues?.get("eventId"))
+         assertTrue(model.navigationWarning()!!.contains("may already be saved"))
          repository.responseValues = mapOf("acknowledgedEventId" to "scan")
          model.retryPendingStep()
          advanceUntilIdle()
          assertNull(model.navigationBlockReason())
          assertNull(model.pendingStepValues)
+         assertNull(model.navigationWarning())
+      }
+      finally { Dispatchers.resetMain() }
+   }
+
+   @Test fun lostScanResponseAllowsLeaveOnlyAfterRequestSettlesAndPreservesPendingPhotos() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try
+      {
+         val gate = CompletableDeferred<Unit>()
+         val repository = SubmissionRepository().apply { stepGate = gate; stepFailures = 1 }
+         val model = model(repository)
+         model.doInit()
+         advanceUntilIdle()
+         model.runStep(mapOf("eventId" to "scan"), ProcessAcknowledgment("acknowledgedEventId", "scan"))
+         runCurrent()
+         assertNotNull(model.navigationBlockReason())
+         gate.complete(Unit)
+         advanceUntilIdle()
+         assertNull(model.navigationBlockReason())
+         assertNotNull(model.navigationWarning())
+         assertEquals("scan", model.pendingStepValues?.get("eventId"))
+         model.setClientWork("photo", "Finish the pending photo first.")
+         assertEquals("Finish the pending photo first.", model.navigationBlockReason())
+         model.setClientWork("photo", null)
+         assertNull(model.navigationBlockReason())
+         assertEquals(1, repository.submissions.size)
+      }
+      finally { Dispatchers.resetMain() }
+   }
+
+   @Test fun confirmedLeaveKeepsOriginalScanUntilCancellationSucceedsAndNeverResubmits() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try
+      {
+         val gate = CompletableDeferred<Unit>()
+         val repository = SubmissionRepository().apply { cancelGate = gate; cancelFailures = 1 }
+         val model = model(repository)
+         var closes = 0
+         model.closeProcessCallback = { closes++ }
+         model.doInit()
+         advanceUntilIdle()
+         model.runStep(mapOf("eventId" to "scan"), ProcessAcknowledgment("acknowledgedEventId", "scan"))
+         advanceUntilIdle()
+         model.cancel()
+         runCurrent()
+         model.cancel()
+         assertEquals(1, repository.cancellations)
+         assertEquals("scan", model.pendingStepValues?.get("eventId"))
+         gate.complete(Unit)
+         advanceUntilIdle()
+         assertEquals(0, closes)
+         assertTrue(model.cancellationFailed)
+         assertEquals("scan", model.pendingStepValues?.get("eventId"))
+         assertNotNull(model.navigationWarning())
+         model.cancel()
+         assertFalse(model.cancellationFailed)
+         advanceUntilIdle()
+         assertEquals(1, closes)
+         assertEquals(2, repository.cancellations)
+         assertEquals(1, repository.submissions.size)
+         assertNull(model.pendingStepValues)
+         assertNull(model.navigationWarning())
       }
       finally { Dispatchers.resetMain() }
    }
@@ -280,6 +353,63 @@ class ProcessSubmissionTest
       finally { Dispatchers.resetMain() }
    }
 
+   @Test fun explicitLocalLeaveRequiresFailedCancellationAndHonorsWorkGuards() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try
+      {
+         val repository = SubmissionRepository().apply { cancelFailures = 2 }
+         val process = model(repository)
+         QAppContainer.availableEnvironments = listOf(Environment("Test", "https://example.invalid"))
+         val host = QViewModel(repository, MockPreferencesDataStore())
+         // This policy fixture owns only navigation; skip Android-backed startup/authentication work.
+         host.viewModelScope.coroutineContext.cancelChildren()
+         host.activeProcessViewModel = process
+         process.doInit()
+         advanceUntilIdle()
+         process.runStep(mapOf("eventId" to "scan"), ProcessAcknowledgment("acknowledgedEventId", "scan"))
+         advanceUntilIdle()
+         var destinations = 0
+         host.qNavigator.requestLeave("Leave?") { destinations++ }
+         host.qNavigator.leaveAnyway()
+         assertEquals(0, destinations)
+         host.qNavigator.confirmLeave()
+         advanceUntilIdle()
+         assertTrue(process.cancellationFailed)
+         host.qNavigator.dismissLeave()
+         assertEquals("scan", process.pendingStepValues?.get("eventId"))
+         assertEquals(0, destinations)
+         host.qNavigator.requestLeave("Leave?") { destinations++ }
+         host.qNavigator.confirmLeave()
+         assertFalse(process.cancellationFailed)
+         host.qNavigator.leaveAnyway()
+         assertEquals(0, destinations)
+         advanceUntilIdle()
+         process.setClientWork("photo", "Pending photo")
+         host.qNavigator.leaveAnyway()
+         assertEquals(0, destinations)
+         process.setClientWork("photo", null)
+         val stepGate = CompletableDeferred<Unit>()
+         repository.stepGate = stepGate
+         process.retryPendingStep()
+         runCurrent()
+         host.qNavigator.leaveAnyway()
+         assertEquals(0, destinations)
+         stepGate.complete(Unit)
+         advanceUntilIdle()
+         host.qNavigator.leaveAnyway()
+         host.qNavigator.leaveAnyway()
+         assertEquals(1, destinations)
+         assertEquals(2, repository.cancellations)
+         assertEquals(2, repository.submissions.size)
+         assertEquals(repository.submissions.first(), repository.submissions.last())
+         assertNull(process.pendingStepValues)
+         assertNull(host.activeProcessViewModel)
+         assertFalse(process.cancellationFailed)
+      }
+      finally { Dispatchers.resetMain() }
+   }
+
    private fun model(repository: SubmissionRepository) = ProcessViewModel().apply()
    {
       qqqRepository = repository
@@ -298,6 +428,8 @@ class ProcessSubmissionTest
       var initGate: CompletableDeferred<Unit>? = null
       var stepGate: CompletableDeferred<Unit>? = null
       var stepFailures = 0
+      var cancelGate: CompletableDeferred<Unit>? = null
+      var cancelFailures = 0
       var asynchronous = false
       var statusFailures = 0
       var statusCalls = 0
@@ -323,7 +455,12 @@ class ProcessSubmissionTest
          if(stepFailures-- > 0) throw java.io.IOException("Response lost")
          return if(asynchronous) QJobStarted("process", "job") else QJobComplete("process", responseValues, nextStep)
       }
-      override suspend fun processCancel(processName: String, processUUID: String) { cancellations++ }
+      override suspend fun processCancel(processName: String, processUUID: String)
+      {
+         cancellations++
+         cancelGate?.await()
+         if(cancelFailures-- > 0) throw java.io.IOException("Cancellation response lost")
+      }
       override suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult
       {
          statusCalls++

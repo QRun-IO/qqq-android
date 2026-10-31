@@ -1,5 +1,8 @@
 # TODO
 
+- [x] Verify the unconfirmed-scan exit correction: 46 mobile JVM tests and all 21 selected TC22 native cases pass, including failed cancellation and explicit Leave anyway with preserved receipt/retry identity and in-flight/photo guards.
+- [ ] Finish the operator walkthrough of the unconfirmed-scan exit correction on the normal scanner installation.
+
 - [x] Qualify semantic OAuth2 client protocol/policy and generated notices; all seven synthetic browser-result cases and the selected native navigation suite passed on TC22. See [acceptance evidence](NATIVE-AUTH-ACCEPTANCE.md).
 - [ ] Complete actual configured Authentik acceptance: real browser/exported-callback round trip, authorization rotation/process death, and next-operator switching with prior browser SSO. See [authentication deployment](AUTHENTICATION.md).
 - [x] Verify the single hamburger drawer correction: no duplicate Apps/Switch app controls, fixed Settings/Diagnostics, signed-out gating, drawer Back preserving drafts, and guarded Home/app switching with exactly one cancellation.

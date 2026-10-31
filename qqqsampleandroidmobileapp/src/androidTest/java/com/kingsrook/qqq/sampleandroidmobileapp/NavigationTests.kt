@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.navigation.compose.rememberNavController
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kingsrook.qqq.frontend.android.mobileapp.QMobileAppMain
@@ -23,6 +24,7 @@ import com.kingsrook.qqq.frontend.android.core.controllers.QQQRepository
 import com.kingsrook.qqq.frontend.android.core.model.metadata.*
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobComplete
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
+import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessAcknowledgment
 import com.kingsrook.qqq.frontend.android.mobileapp.data.MockPreferencesDataStore
 import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
@@ -155,6 +157,72 @@ class NavigationTests : BaseTest()
       TestUtils.login(ui)
       assertTrue(model.qNavigator.atHome)
       assertNull(model.activeProcessViewModel)
+   }
+
+   @Test fun unconfirmedScanCanStayOrExplicitlyLeaveWithoutResubmitting()
+   {
+      val cancellations = AtomicInteger()
+      val submissions = AtomicInteger()
+      val base = SampleAppMockQQQRepository()
+      val repository = object : QQQRepository by base
+      {
+         override suspend fun getProcessMetaData(processName: String) = QProcessMetaData("process1", "Process 1", frontendSteps = listOf(
+            QFrontendStepMetaData("input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
+               formFields = listOf(QFieldMetaData("reference", "Reference", type = QFieldType.STRING)))))
+         override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?) = QJobComplete("scan-leave-process", nextStep = "input")
+         override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): QJobComplete
+         {
+            if(submissions.incrementAndGet() == 1) throw java.io.IOException("Synthetic response loss")
+            return QJobComplete(processUUID, values = mapOf("acknowledgedEventId" to "wrong-event"), nextStep = "input")
+         }
+         override suspend fun processCancel(processName: String, processUUID: String)
+         {
+            cancellations.incrementAndGet()
+            throw java.io.IOException("Synthetic cancellation unavailable")
+         }
+      }
+      val model = QViewModel(repository, MockPreferencesDataStore())
+      TestUtils.startStandardTest(ui, model)
+      TestUtils.login(ui)
+      ui.onNodeWithTag("appHome.rowForApp:app1").performClick()
+      ui.onNodeWithTag("appHome.rowForProcess:process1").performClick()
+      ui.waitUntil(5000) { model.activeProcessViewModel?.activeStepName == "input" }
+      val process = model.activeProcessViewModel!!
+      ui.runOnIdle { process.runStep(mapOf("eventId" to "scan-leave-event"), ProcessAcknowledgment("acknowledgedEventId", "scan-leave-event")) }
+      ui.waitUntil(5000) { !process.waitingOnBackend && process.pendingStepValues != null }
+      ui.onNodeWithContentDescription("Go Back").performClick()
+      ui.onNodeWithText("The last scan is not confirmed and may already be saved.", substring = true).assertIsDisplayed()
+      ui.onNodeWithText("Leave process").assertIsEnabled()
+      ui.onNodeWithText("Leave anyway").assertDoesNotExist()
+      ui.onNodeWithText("Stay").performClick()
+      ui.runOnIdle {
+         assertEquals("scan-leave-event", process.pendingStepValues?.get("eventId"))
+         assertEquals(0, cancellations.get())
+         process.retryPendingStep()
+      }
+      ui.waitUntil(5000) { submissions.get() == 2 && !process.waitingOnBackend }
+      ui.onNodeWithTag("topBar.menuIcon").performClick()
+      ui.onNodeWithTag("drawer.home").performClick()
+      ui.onNodeWithText("The last scan is not confirmed and may already be saved.", substring = true).assertIsDisplayed()
+      ui.onNodeWithText("Leave process").assertIsEnabled().performClick()
+      ui.waitUntil(5000) { process.cancellationFailed && !process.cancelling }
+      ui.onNodeWithText("Leave anyway").assertIsEnabled()
+      ui.onNodeWithText("Stay").performClick()
+      ui.runOnIdle {
+         assertEquals("scan-leave-event", process.pendingStepValues?.get("eventId"))
+         assertEquals(1, cancellations.get())
+      }
+      ui.onNodeWithContentDescription("Go Back").performClick()
+      ui.onNodeWithText("Leave process").performClick()
+      ui.waitUntil(5000) { cancellations.get() == 2 && process.cancellationFailed && !process.cancelling }
+      ui.onNodeWithText("Leave anyway").assertIsEnabled().performClick()
+      ui.waitUntil(5000) { model.activeProcessViewModel == null }
+      assertEquals("app1", model.qNavigator.currentAppName)
+      ui.onNodeWithContentDescription("Go Back").performClick()
+      ui.waitUntil(5000) { model.qNavigator.atHome && model.activeProcessViewModel == null }
+      assertEquals(2, cancellations.get())
+      assertEquals(2, submissions.get())
+      assertNull(process.pendingStepValues)
    }
 
    @Test fun systemBackAndToolbarBackUseTheActualDestination()

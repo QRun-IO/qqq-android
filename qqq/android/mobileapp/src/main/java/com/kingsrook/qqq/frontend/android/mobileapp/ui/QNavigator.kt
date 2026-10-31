@@ -80,6 +80,18 @@ class QNavigator(initialController: NavHostController?, val qViewModel: QViewMod
       finishLeave(request.action)
    }
 
+   /** A second explicit choice after failed cancellation; this does not claim the server stopped. */
+   fun leaveAnyway()
+   {
+      val request = leaveRequest ?: return
+      val process = qViewModel.activeProcessViewModel ?: return
+      if(!process.cancellationFailed || process.cancelling || process.navigationBlockReason() != null) return
+      process.reset()
+      qViewModel.activeProcessViewModel = null
+      leaveRequest = null
+      request.action()
+   }
+
    private fun finishLeave(action: () -> Unit)
    {
       val process = qViewModel.activeProcessViewModel

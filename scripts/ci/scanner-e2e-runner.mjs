@@ -124,8 +124,8 @@ export async function runScannerE2e(options = {}) {
          const evidence = join(repository, 'scanner-host/build/native-device-e2e');
          await mkdir(evidence, { recursive: true });
          await writeFile(join(evidence, 'navigation-instrumentation.txt'), output);
-         if (!/OK \(20 tests\)/.test(output) || /FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed/.test(output)) throw new Error('Physical native navigation/input/account/OAuth acceptance failed; inspect the isolated test evidence.');
-         console.log('Physical native navigation/input/account/OAuth acceptance passed (20 tests, synthetic repository and browser result).');
+         if (!/OK \(21 tests\)/.test(output) || /FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed/.test(output)) throw new Error('Physical native navigation/input/account/OAuth acceptance failed; inspect the isolated test evidence.');
+         console.log('Physical native navigation/input/account/OAuth acceptance passed (21 tests, synthetic repository and browser result).');
       } finally {
          for (const installed of temporary.reverse()) await adbRun('uninstall', installed);
       }

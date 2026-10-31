@@ -64,6 +64,8 @@ open class ProcessViewModel : ViewModel()
       private set
    var cancelling: Boolean by mutableStateOf(false)
       private set
+   var cancellationFailed: Boolean by mutableStateOf(false)
+      private set
    var submissionError: String? by mutableStateOf(null)
       private set
    private var processComplete: Boolean by mutableStateOf(false)
@@ -79,14 +81,18 @@ open class ProcessViewModel : ViewModel()
    var unconfirmedSubmission: Boolean by mutableStateOf(false)
       private set
 
-   /** Native navigation never interrupts a submitted mutation or forgets a scan receipt. */
+   /** Native navigation never interrupts a submitted mutation or pending native work. */
    fun navigationBlockReason(): String? = when
    {
       clientWorkBlockReason != null -> clientWorkBlockReason
       waitingOnBackend && processUUID != null && initLoadState !is LoadState.Loading -> "Wait for the running request to finish before leaving."
-      pendingStepValues != null -> "The last scan is not confirmed. Stay and retry the same request before leaving."
       else -> null
    }
+
+   /** Leaving is an explicit choice; a missing receipt is not proof that the scan was rejected. */
+   fun navigationWarning(): String? = if(pendingStepValues != null)
+      "The last scan is not confirmed and may already be saved. Stay to retry the same scan, or leave to stop retrying. Leaving does not undo a saved scan."
+      else null
 
    fun requestClose()
    {
@@ -250,6 +256,7 @@ open class ProcessViewModel : ViewModel()
       pendingAcknowledgment = null
       fieldErrors = emptyMap()
       cancelling = false
+      cancellationFailed = false
       submissionError = null
       processComplete = false
       processMetaDataLoadState = LoadState.Loading(Unit)
@@ -332,6 +339,7 @@ open class ProcessViewModel : ViewModel()
          catch(e: Exception)
          {
             waitingOnBackend = false
+            cancellationFailed = cancelling
             initLoadState = LoadState.Error(e, if(cancelling)
                "The server did not confirm cancellation. The process may still be running. Retry cancellation if available, or contact your administrator."
                else semanticError(e, "Error launching process."))
@@ -446,7 +454,7 @@ open class ProcessViewModel : ViewModel()
    }
 
    /** Retain only the current request in memory so an uncertain response can be retried safely. */
-   var pendingStepValues: Map<String, Any?>? = null
+   var pendingStepValues: Map<String, Any?>? by mutableStateOf(null)
       private set
    private var pendingAcknowledgment: ProcessAcknowledgment? = null
 
@@ -638,6 +646,7 @@ open class ProcessViewModel : ViewModel()
    fun cancel()
    {
       if(cancelling) return
+      cancellationFailed = false
       val uuid = processUUID
       if(uuid == null && initializing)
       {
@@ -657,11 +666,14 @@ open class ProcessViewModel : ViewModel()
          try
          {
             qqqRepository.processCancel(processName, uuid)
+            pendingStepValues = null
+            pendingAcknowledgment = null
             closeProcessCallback?.invoke()
          }
          catch(e: kotlinx.coroutines.CancellationException) { throw e }
          catch(e: Exception)
          {
+            cancellationFailed = true
             waitingOnBackend = false
             setTopLevelError(if(e is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException) e.message ?: "Cancellation failed." else "The server did not confirm cancellation. Try again when connected.")
          }

@@ -48,14 +48,21 @@ internal fun LeaveProcessDialog(model: QViewModel)
          if(process != null && !process.getNoMoreSteps())
          {
             Text("Leaving cancels this process. Unsaved input will be lost. Saved scans and other committed records stay saved.")
-            if(process.unconfirmedSubmission)
+            process.navigationWarning()?.let { Text(it) }
+            if(process.unconfirmedSubmission && process.pendingStepValues == null)
                Text("The last request's result is unknown. Cancellation does not undo saved changes. Ask your administrator to check process ${process.processUUID}.")
          }
          else if(request.confirmLabel == "Sign out") Text("Sign out of this account on this device?")
          blocked?.let { Text(it) }
          if(cancelling) Text("Waiting for the server to confirm cancellation…")
+         if(process?.cancellationFailed == true)
+            Text("The server did not confirm cancellation. You can retry cancellation or leave anyway. The server process may still be running and the scan may already be saved. Leaving anyway stops local retries; it does not undo saved changes.")
          (process?.topLevelErrorState as? LoadState.Error)?.message?.let { Text(it) }
       } },
       confirmButton = { TextButton(onClick = navigator::confirmLeave, enabled = blocked == null && !cancelling) { Text(request.confirmLabel) } },
-      dismissButton = { TextButton(onClick = navigator::dismissLeave, enabled = !cancelling) { Text("Stay") } })
+      dismissButton = { Column {
+         if(process?.cancellationFailed == true)
+            TextButton(onClick = navigator::leaveAnyway, enabled = blocked == null && !cancelling) { Text("Leave anyway") }
+         TextButton(onClick = navigator::dismissLeave, enabled = !cancelling) { Text("Stay") }
+      } })
 }
