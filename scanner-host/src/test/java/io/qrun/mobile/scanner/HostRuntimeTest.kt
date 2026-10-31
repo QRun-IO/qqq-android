@@ -95,4 +95,4 @@ class HostRuntimeTest
    }
 }
 
-private const val VERSION_FIXTURE = """{"apiVersion":"1.8.0","features":["version","metaData","processes","processCancel","extensions","widgets"],"clientChannels":["web","api","android"],"extensions":[{"name":"mobile-scanners","version":"1.0.0","pathPrefix":"/qbit/mobile-scanners"}]}"""
+private const val VERSION_FIXTURE = """{"apiVersion":"1.8.0","features":["version","metaData","processes","processCancel","extensions","widgets"],"clientChannels":["web","api","android"],"extensions":[{"name":"mobile-scanners","version":"1.1.0","pathPrefix":"/qbit/mobile-scanners"}]}"""

@@ -1,0 +1,12 @@
+{
+  "uniqueId": "google:material-design-icons",
+  "tag": "bundled",
+  "website": "https://github.com/google/material-design-icons",
+  "artifactVersion": "d7a78a2ad434d5d38e1b8708c9dd9847cc3ada9b",
+  "licenses": [
+    "Google-Material-Icons"
+  ],
+  "description": "2,142 bundled vectors; attribution, integration modifications, and license.",
+  "developers": [],
+  "name": "Material Design icons by Google"
+}

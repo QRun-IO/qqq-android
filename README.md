@@ -13,7 +13,7 @@ Native Kotlin/Compose clients for QQQ. The new `scanner-host` application runs s
 
 The client supports metadata and process execution. It does not implement the record CRUD/fluent API previously described by this README.
 
-The scanner host uses the versioned semantic UI API for app discovery, native process screens and actions, plus the registered `mobile-scanners` extension for device enrollment, branding and connectivity. It checks core and extension compatibility before login. See [the client contract and supported components](docs/UI-API.md); full web-client feature coverage is not implied.
+The scanner host uses the versioned semantic UI API for app discovery, native process screens and actions, plus the registered `mobile-scanners` extension for device enrollment, branding, connectivity and session administration. It requires extension 1.1 or later within major 1 and checks compatibility before login. See [the client contract and supported components](docs/UI-API.md); full web-client feature coverage is not implied.
 
 ## First scanner application
 
@@ -48,7 +48,9 @@ The persistent footer shows **Checking**, **Connected**, or **Disconnected** wit
 
 ## Online-only behavior
 
-There is no offline queue. One submitted scan is retained in memory until its `acknowledgedEventId` is returned. If a response is uncertain, **Retry same request** preserves its event ID and original timestamp; the server deduplicates it. Further scans are blocked until the pending request is resolved. Sign-out/reset clears the pending request; app termination loses in-memory state. Repeated physical scans deliberately receive distinct event IDs.
+QQQ administrators can inspect session activity, end sessions, and request live viewing of the QQQ app from a session record. Viewing displays an indicator with **Stop viewing** on the handheld. Password/login screens and background apps cannot be mirrored. Optional foreground location requires the operator's Android permission; scanning works without it. See [session behavior and limits](docs/UI-API.md#session-activity-and-screen-viewing).
+
+There is no offline queue. One submitted scan is retained in memory until a complete receipt returns the matching `acknowledgedEventId`, `scanSaved: true`, and a nonblank `scanId`. If a response is uncertain, **Retry same request** preserves its event ID and original timestamp; the server deduplicates it. Further scans are blocked until the pending request is resolved. Sign-out/reset clears the pending request; app termination loses in-memory state. Repeated physical scans deliberately receive distinct event IDs.
 
 Enrollment credentials are encrypted with Android Keystore and stored under `noBackupFilesDir`, scoped to the configured server. The app disables backup. Device headers accompany native QQQ requests, and the server enforces approval on every scan. Release builds reject HTTP; only the development build permits it for local testing. The host disables HTTP redirects to avoid forwarding credentials to another origin.
 
@@ -80,4 +82,4 @@ The first scanner host supports TABLE_BASED authentication only and shows an exp
 
 ## License
 
-Root license: Apache-2.0. Historical source files still carry older license headers; the repository's pre-existing license-header inconsistency has not been resolved by this implementation.
+Licensed under Apache-2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Historical project-owned source headers and the IDE copyright template have been reconciled with the repository's January 2026 license migration. Existing copyright ownership and third-party notices are preserved.

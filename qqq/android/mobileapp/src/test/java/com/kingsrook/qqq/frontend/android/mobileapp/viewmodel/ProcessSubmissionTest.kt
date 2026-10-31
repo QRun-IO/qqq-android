@@ -8,6 +8,7 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.*
 import com.kingsrook.qqq.frontend.android.core.model.processes.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -15,6 +16,176 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProcessSubmissionTest
 {
+   @Test fun navigationWaitsForMutationAndNeverReplaysUnknownOrdinaryResult() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try
+      {
+         val gate = CompletableDeferred<Unit>()
+         val repository = SubmissionRepository().apply { stepGate = gate; stepFailures = 1 }
+         val model = model(repository)
+         model.doInit()
+         advanceUntilIdle()
+         model.runStep(mapOf("eventId" to "ordinary"))
+         runCurrent()
+         assertNotNull(model.navigationBlockReason())
+         gate.complete(Unit)
+         advanceUntilIdle()
+         assertTrue(model.unconfirmedSubmission)
+         assertEquals("process", model.processUUID)
+         assertNull(model.retryLabel())
+         model.retryPendingStep()
+         model.runStep(mapOf("eventId" to "ordinary"))
+         advanceUntilIdle()
+         assertEquals(1, repository.submissions.size)
+         assertTrue((model.topLevelErrorState as LoadState.Error).message.contains("Do not submit it again"))
+      }
+      finally { Dispatchers.resetMain() }
+   }
+
+   @Test fun missingScanReceiptBlocksLeavingUntilSameRequestIsAcknowledged() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try
+      {
+         val repository = SubmissionRepository()
+         val model = model(repository)
+         model.doInit()
+         advanceUntilIdle()
+         model.runStep(mapOf("eventId" to "scan"), ProcessAcknowledgment("acknowledgedEventId", "scan"))
+         advanceUntilIdle()
+         assertNotNull(model.navigationBlockReason())
+         repository.responseValues = mapOf("acknowledgedEventId" to "scan")
+         model.retryPendingStep()
+         advanceUntilIdle()
+         assertNull(model.navigationBlockReason())
+         assertNull(model.pendingStepValues)
+      }
+      finally { Dispatchers.resetMain() }
+   }
+
+   @Test fun widgetInputsAreValidatedConvertedAndProtectedAtSubmission()
+   {
+      runTest {
+         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+         try
+         {
+            fun block(name: String, type: String, hidden: Boolean = false) = mapOf("blockType" to "INPUT_FIELD", "values" to mapOf(
+               "fieldMetaData" to mapOf("name" to name, "label" to name, "type" to type, "isRequired" to true, "isHidden" to hidden)))
+            val repository = SubmissionRepository().apply {
+               inputOverride = QFrontendStepMetaData("input", "Widget", components = listOf(QFrontendComponent(QComponentType.WIDGET,
+                  mapOf("isAdHocWidget" to true, "blocks" to listOf(block("quantity", "INTEGER"), block("secret", "STRING", true))))))
+            }
+            val model = model(repository)
+            model.doInit()
+            advanceUntilIdle()
+            model.runStep(mapOf("quantity" to "invalid"))
+            advanceUntilIdle()
+            assertTrue(repository.submissions.isEmpty())
+            assertTrue(model.fieldErrors.containsKey("quantity"))
+            model.runStep(mapOf("quantity" to "12", "secret" to "must-not-submit"))
+            advanceUntilIdle()
+            assertEquals(mapOf("quantity" to 12), repository.submissions.single())
+         }
+         finally { Dispatchers.resetMain() }
+      }
+   }
+
+   @Test fun ordinaryAsyncJobCanRetryItsStatusWithoutResubmittingTheAction() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try
+      {
+         val repository = SubmissionRepository().apply { asynchronous = true; statusFailures = 1 }
+         val model = model(repository)
+         model.doInit()
+         advanceUntilIdle()
+         model.runStep(mapOf("eventId" to "ordinary"))
+         advanceUntilIdle()
+         model.checkIn()
+         advanceUntilIdle()
+         assertEquals("Check result again", model.retryLabel())
+         assertTrue(model.topLevelErrorState is LoadState.Error)
+         model.retryPendingStep()
+         advanceUntilIdle()
+         assertEquals(1, repository.submissions.size)
+         assertEquals(2, repository.statusCalls)
+         assertEquals("result", model.activeStepName)
+         assertNull(model.retryLabel())
+      }
+      finally { Dispatchers.resetMain() }
+   }
+
+   @Test fun cancellingBeforeMetadataReturnsPreventsInitialization() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try
+      {
+         val gate = CompletableDeferred<Unit>()
+         val repository = SubmissionRepository().apply { metadataGate = gate }
+         val model = model(repository)
+         var closes = 0
+         model.closeProcessCallback = { closes++ }
+         model.doInit()
+         runCurrent()
+         model.cancel()
+         gate.complete(Unit)
+         advanceUntilIdle()
+         assertEquals(1, closes)
+         assertEquals(0, repository.initializations)
+         assertEquals(0, repository.cancellations)
+      }
+      finally { Dispatchers.resetMain() }
+   }
+
+   @Test fun cancellingDuringInitializationWaitsForItsIdentityAndCancelsTheServer() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try
+      {
+         val gate = CompletableDeferred<Unit>()
+         val repository = SubmissionRepository().apply { initGate = gate }
+         val model = model(repository)
+         var closes = 0
+         model.closeProcessCallback = { closes++ }
+         model.doInit()
+         runCurrent()
+         assertEquals(1, repository.initializations)
+         model.cancel()
+         assertTrue(model.cancelling)
+         assertEquals(0, closes)
+         gate.complete(Unit)
+         advanceUntilIdle()
+         assertEquals(1, repository.cancellations)
+         assertEquals(1, closes)
+         assertFalse(model.cancelling)
+      }
+      finally { Dispatchers.resetMain() }
+   }
+
+   @Test fun completeScannerReceiptIsRequiredBeforeDiscardingTheOriginalEvent() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try
+      {
+         val repository = SubmissionRepository().apply { responseValues = mapOf("acknowledgedEventId" to "scan-1", "scanSaved" to false) }
+         val model = model(repository)
+         model.doInit()
+         advanceUntilIdle()
+         model.runStep(mapOf("eventId" to "scan-1", "barcode" to "00123"),
+            ProcessAcknowledgment("acknowledgedEventId", "scan-1", mapOf("scanSaved" to true), setOf("scanId")))
+         advanceUntilIdle()
+         assertEquals("scan-1", model.pendingStepValues?.get("eventId"))
+         assertEquals("input", model.activeStepName)
+         repository.responseValues = mapOf("acknowledgedEventId" to "scan-1", "scanSaved" to true, "scanId" to "receipt")
+         model.retryPendingStep()
+         advanceUntilIdle()
+         assertNull(model.pendingStepValues)
+         assertEquals(repository.submissions.first(), repository.submissions.last())
+      }
+      finally { Dispatchers.resetMain() }
+   }
+
    @Test fun omittedNextStepCompletesTheProcessAndCloseDoesNotCancelIt() = runTest()
    {
       Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -122,18 +293,43 @@ class ProcessSubmissionTest
       var responseValues: Map<String, Any?> = emptyMap()
       var nextStep = "result"
       var cancellations = 0
+      var initializations = 0
+      var metadataGate: CompletableDeferred<Unit>? = null
+      var initGate: CompletableDeferred<Unit>? = null
+      var stepGate: CompletableDeferred<Unit>? = null
+      var stepFailures = 0
+      var asynchronous = false
+      var statusFailures = 0
+      var statusCalls = 0
+      var inputOverride: QFrontendStepMetaData? = null
       private val input = QFrontendStepMetaData("input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
          formFields = listOf(QFieldMetaData("eventId", "Event", type = QFieldType.STRING, isRequired = true, isHidden = hiddenEventId)))
       private val result = QFrontendStepMetaData("result", "Result", components = emptyList())
-      override suspend fun getProcessMetaData(processName: String) = QProcessMetaData("edit", "Edit", frontendSteps = listOf(input, result))
-      override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?) = QJobComplete("process", nextStep = "input")
+      override suspend fun getProcessMetaData(processName: String): QProcessMetaData
+      {
+         metadataGate?.await()
+         return QProcessMetaData("edit", "Edit", frontendSteps = listOf(inputOverride ?: input, result))
+      }
+      override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?): ProcessStepResult
+      {
+         initializations++
+         initGate?.await()
+         return QJobComplete("process", nextStep = "input")
+      }
       override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): ProcessStepResult
       {
          submissions.add(values.toMap())
-         return QJobComplete("process", responseValues, nextStep)
+         stepGate?.await()
+         if(stepFailures-- > 0) throw java.io.IOException("Response lost")
+         return if(asynchronous) QJobStarted("process", "job") else QJobComplete("process", responseValues, nextStep)
       }
       override suspend fun processCancel(processName: String, processUUID: String) { cancellations++ }
-      override suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult = error("Not used")
+      override suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult
+      {
+         statusCalls++
+         if(statusFailures-- > 0) throw java.io.IOException("Unavailable")
+         return QJobComplete("process", responseValues, nextStep)
+      }
       override suspend fun getAuthenticationMetaData(): BaseAuthenticationMetaData = error("Not used")
       override suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse = error("Not used")
       override suspend fun getMetaData(frontendName: String, frontendVersion: String, applicationName: String, applicationVersion: String): QInstance = error("Not used")

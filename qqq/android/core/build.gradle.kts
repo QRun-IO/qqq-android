@@ -51,7 +51,7 @@ dependencies {
    implementation(libs.material)
 
    testImplementation(libs.junit)
-   testImplementation("com.squareup.okhttp3:mockwebserver:4.11.0")
+   testImplementation(libs.okhttp.mockwebserver)
    testImplementation("org.json:json:20240303")
    testImplementation(libs.junit.jupiter)
    androidTestImplementation(libs.androidx.junit)
@@ -65,7 +65,7 @@ dependencies {
 
    // Retrofit with Kotlin serialization Converter
    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
-   implementation("com.squareup.okhttp3:okhttp:4.11.0")
+   implementation(libs.okhttp)
 
    implementation("org.jetbrains.kotlin:kotlin-reflect:2.0.20")
 }

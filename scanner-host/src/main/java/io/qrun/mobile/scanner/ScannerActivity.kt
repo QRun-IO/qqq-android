@@ -3,6 +3,7 @@ package io.qrun.mobile.scanner
 
 import android.os.Build
 import android.os.Bundle
+import android.graphics.Rect
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -23,12 +27,17 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.core.DataStore
@@ -45,16 +54,40 @@ import com.kingsrook.qqq.frontend.android.mobileapp.QMobileAppMain
 import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalAuthenticatedContent
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalCustomWidgetRenderer
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LocalDeviceSettings
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LocalBusinessNavigationEnabled
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import java.io.File
 import java.net.URI
 import java.security.MessageDigest
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 /** Deployable generic host: select a server, authenticate, enroll, then run its QQQ mobile apps. */
 class ScannerActivity : ComponentActivity()
 {
+   private var resumed by mutableStateOf(false)
+   private var focused by mutableStateOf(false)
+   private var captureBounds by mutableStateOf<Rect?>(null)
+   private val windowFocusObserver = android.view.ViewTreeObserver.OnWindowFocusChangeListener { focused = it }
+
+   override fun onResume()
+   {
+      super.onResume()
+      resumed = true
+      window.decorView.post { if(resumed) focused = window.decorView.hasWindowFocus() }
+   }
+   override fun onPause() { resumed = false; super.onPause() }
+   override fun onWindowFocusChanged(hasFocus: Boolean) { super.onWindowFocusChanged(hasFocus); focused = hasFocus }
+
+   override fun onDestroy()
+   {
+      val observer = window.decorView.viewTreeObserver
+      if(observer.isAlive) observer.removeOnWindowFocusChangeListener(windowFocusObserver)
+      super.onDestroy()
+   }
+
    companion object
    {
       private val credentialsByServer = mutableMapOf<String, DeviceCredentials>()
@@ -64,12 +97,17 @@ class ScannerActivity : ComponentActivity()
    override fun onCreate(savedInstanceState: Bundle?)
    {
       super.onCreate(savedInstanceState)
+      window.decorView.viewTreeObserver.addOnWindowFocusChangeListener(windowFocusObserver)
+      OrientationPolicy.read(this).apply(this)
       val preferences = getSharedPreferences("host", MODE_PRIVATE)
       setContent()
       {
          MaterialTheme()
          {
-            Surface(Modifier.windowInsetsPadding(WindowInsets.safeDrawing))
+            Surface(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).onGloballyPositioned { coordinates ->
+               val bounds = coordinates.boundsInWindow()
+               captureBounds = Rect(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt(), bounds.bottom.toInt())
+            })
             {
                var server by remember { mutableStateOf(preferences.getString("server", null)) }
                val currentServer = server
@@ -81,8 +119,18 @@ class ScannerActivity : ComponentActivity()
                {
                   key(currentServer)
                   {
-                     HostChrome(currentServer, onChangeServer = { preferences.edit().remove("server").apply(); server = null })
-                     { brand, diagnostics, compatibility -> ScannerHost(currentServer, brand, diagnostics, compatibility) }
+                     val scope = rememberCoroutineScope()
+                     var beforeChange by remember { mutableStateOf<suspend () -> Unit>({}) }
+                     var changing by remember { mutableStateOf(false) }
+                     HostChrome(currentServer, onChangeServer = {
+                        if(!changing) scope.launch {
+                           changing = true
+                           beforeChange()
+                           preferences.edit().remove("server").apply()
+                           server = null
+                        }
+                     })
+                     { brand, diagnostics, compatibility, changeServer -> ScannerHost(currentServer, brand, diagnostics, compatibility, changeServer) { beforeChange = it } }
                   }
                }
             }
@@ -92,7 +140,8 @@ class ScannerActivity : ComponentActivity()
 
    /** Server-scoped stores ensure switching installations cannot reuse a credential accidentally. */
    @Composable
-   private fun ScannerHost(server: String, brand: HostBrand, diagnostics: DiagnosticLog, compatibility: UiApiCompatibility)
+   private fun ScannerHost(server: String, brand: HostBrand, diagnostics: DiagnosticLog, compatibility: UiApiCompatibility, changeServer: () -> Unit,
+      registerBeforeChange: (suspend () -> Unit) -> Unit)
    {
       val credentialsResult = remember(server) { runCatching { credentialsByServer.getOrPut(server) { DeviceCredentials(applicationContext, server) } } }
       val credentials = credentialsResult.getOrNull()
@@ -116,13 +165,16 @@ class ScannerActivity : ComponentActivity()
                   if(requestedServer == server) credentials.headers() else emptyMap()
                }
                @Suppress("UNCHECKED_CAST")
-               return QViewModel(repository, dataStore).apply { supportedCustomWidgetTypes = setOf("SCANNER") } as T
+               return QViewModel(repository, dataStore).apply { supportedCustomWidgetTypes = setOf("SCANNER", "RECORD_FILES_CAPTURE") } as T
             }
          }
       }
       val qViewModel: QViewModel = viewModel(key = server, factory = factory)
       // A retained per-server ViewModel must write into this visit's fresh diagnostics log.
-      SideEffect { (qViewModel.qqqRepository as NetworkQQQRepository).requestObserver = diagnostics::nativeRequest }
+      SideEffect {
+         (qViewModel.qqqRepository as NetworkQQQRepository).requestObserver = diagnostics::nativeRequest
+         qViewModel.changeServerAction = changeServer
+      }
       qViewModel.setNavController(rememberNavController())
       val authentication = qViewModel.authenticationMetaDataLoadState
       if(authentication is LoadState.Success && authentication.value !is TableBasedAuthenticationMetaData)
@@ -131,12 +183,72 @@ class ScannerActivity : ComponentActivity()
          return
       }
       val api = remember(server, diagnostics) { DeviceApi(server, credentials, diagnostics::deviceRequest, compatibility) }
+      val recordFiles = remember(server, diagnostics) { RecordFilesApi(server, credentials::headers, compatibility, diagnostics::nativeRequest) }
+      var approved by remember(qViewModel.sessionUUID) { mutableStateOf(false) }
+      val location = rememberForegroundLocation(resumed && approved && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested)
+      val currentScreen = sessionScreen(qViewModel, resumed, focused, approved, captureBounds != null)
+      var renderedScreen by remember(qViewModel.sessionUUID) { mutableStateOf<SessionScreen?>(null) }
+      LaunchedEffect(currentScreen)
+      {
+         // Metadata may change before Compose replaces the previous screen's pixels.
+         withFrameNanos { }
+         withFrameNanos { }
+         renderedScreen = currentScreen
+      }
+      val sessionApi = remember(server, diagnostics) { MobileSessionApi(server, credentials::headers, compatibility, diagnostics::sessionRequest) }
+      val sessions = remember(sessionApi, qViewModel.sessionUUID)
+      {
+         val monitoredSession = qViewModel.sessionUUID
+         MobileSessionController(qViewModel.sessionUUID, sessionApi,
+            readScreen = {
+               val screen = sessionScreen(qViewModel, resumed, focused, approved, captureBounds != null)
+               screen.copy(ready = screen.ready && screen == renderedScreen, location = location.report)
+            },
+            capture = { lease -> captureBounds?.let { captureAppScreen(window, it, lease) } },
+            onUnauthorized = {
+               runOnUiThread {
+                  if(qViewModel.sessionUUID == monitoredSession) qViewModel.requestLogout()
+               }
+            })
+      }
+      DisposableEffect(sessions)
+      {
+         qViewModel.beforeLogout = { sessions.end("SIGN_OUT") }
+         registerBeforeChange { sessions.end("SERVER_CHANGE"); qViewModel.logOut().join() }
+         onDispose { sessions.invalidate() }
+      }
+      LaunchedEffect(sessions, approved, qViewModel.isAuthenticated, qViewModel.isLogoutRequested)
+      {
+         if(approved && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested) sessions.run()
+      }
       CompositionLocalProvider(
-         LocalAuthenticatedContent provides { model, content -> DeviceGate(model, api, credentials, content) },
+         LocalBusinessNavigationEnabled provides approved,
+         LocalDeviceSettings provides {
+            OrientationSetting(this@ScannerActivity)
+            if(api.shortName.isNotBlank()) Text("Device: ${api.shortName}")
+            if(api.displayName.isNotBlank()) Text("Name: ${api.displayName}")
+            Text("Device permissions", style = MaterialTheme.typography.titleSmall)
+            LocationPermissionControl(location)
+            OpenSourceLicensesButton()
+            TextButton(onClick = {
+               qViewModel.qNavigator.requestLeave("Change server and sign out?", "Change server", alwaysConfirm = true) { qViewModel.changeServerAction?.invoke() }
+            }) { Text("Change server") }
+         },
+         LocalAuthenticatedContent provides { model, content -> DeviceGate(model, api, credentials, { approved = it }) {
+            Column {
+               ScreenViewingIndicator(sessions)
+               content()
+            }
+         } },
          LocalCustomWidgetRenderer provides { parameters, modifier, disabled ->
             if(parameters.widgetBlock.blockType == "SCANNER")
             {
                ScannerWidget(parameters, modifier, disabled)
+               true
+            }
+            else if(parameters.widgetBlock.blockType == "RECORD_FILES_CAPTURE")
+            {
+               RecordPhotoWidget(parameters, recordFiles, modifier, disabled)
                true
             }
             else false
@@ -165,7 +277,7 @@ private fun ServerForm(onConnect: (String) -> Unit)
 {
    var url by remember { mutableStateOf(if(BuildConfig.DEBUG) "http://127.0.0.1:8080/" else "https://") }
    var error by remember { mutableStateOf("") }
-   Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp))
+   Column(Modifier.imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp))
    {
       Text("Connect QQQ Mobile", style = MaterialTheme.typography.headlineMedium)
       OutlinedTextField(url, { url = it }, label = { Text("QQQ server URL") }, singleLine = true)
@@ -180,7 +292,8 @@ private fun ServerForm(onConnect: (String) -> Unit)
 
 /** Pending, revoked, or unavailable devices cannot expose application screens. */
 @Composable
-private fun DeviceGate(viewModel: QViewModel, api: DeviceApi, credentials: DeviceCredentials, content: @Composable () -> Unit)
+private fun DeviceGate(viewModel: QViewModel, api: DeviceApi, credentials: DeviceCredentials, onApproval: (Boolean) -> Unit,
+   content: @Composable () -> Unit)
 {
    var attempt by remember { mutableIntStateOf(0) }
    var status by remember(viewModel.sessionUUID) { mutableStateOf("CHECKING") }
@@ -189,11 +302,13 @@ private fun DeviceGate(viewModel: QViewModel, api: DeviceApi, credentials: Devic
    LaunchedEffect(viewModel.sessionUUID, attempt)
    {
       status = "CHECKING"
+      onApproval(false)
       error = ""
       enrollmentConflict = false
       try
       {
          status = api.status(viewModel.sessionUUID, "${Build.MANUFACTURER} ${Build.MODEL}")
+         onApproval(status == "APPROVED")
          if(status == "APPROVED") viewModel.loadQInstance()
       }
       catch(exception: CancellationException) { throw exception }
@@ -201,7 +316,7 @@ private fun DeviceGate(viewModel: QViewModel, api: DeviceApi, credentials: Devic
       catch(exception: Exception) { status = "ERROR"; error = exception.message ?: "Device check failed." }
    }
    if(status == "APPROVED") content()
-   else Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp))
+   else Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp))
    {
       Text("Device approval", style = MaterialTheme.typography.headlineMedium)
       Text(when(status) {
@@ -211,8 +326,11 @@ private fun DeviceGate(viewModel: QViewModel, api: DeviceApi, credentials: Devic
          else -> error.ifBlank { "Device status: $status" }
       })
       if(credentials.deviceId.isNotBlank()) Text("Device ID: ${credentials.deviceId}")
+      if(api.shortName.isNotBlank()) Text("Device: ${api.shortName}")
+      if(api.displayName.isNotBlank()) Text("Name: ${api.displayName}")
+      Text("Your administrator can edit this device’s name, short name and description in QQQ before approval.")
       Button(enabled = status != "CHECKING", onClick = { attempt++ }) { Text("Check approval") }
       if(enrollmentConflict) Button(onClick = { credentials.restartPendingEnrollment(); attempt++ }) { Text("Start new registration") }
-      Button(onClick = { viewModel.requestLogout() }) { Text("Sign out") }
+      Button(onClick = { viewModel.qNavigator.requestSignOut() }) { Text("Sign out") }
    }
 }

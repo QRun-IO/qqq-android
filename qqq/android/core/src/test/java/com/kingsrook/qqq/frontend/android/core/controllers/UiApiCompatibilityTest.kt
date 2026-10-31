@@ -10,7 +10,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.*
 import org.junit.Test
 
-internal const val VERSION_FIXTURE = """{"apiVersion":"1.8.0","features":["version","metaData","processes","processCancel","extensions","widgets"],"clientChannels":["web","api","android"],"extensions":[{"name":"mobile-scanners","version":"1.0.0","pathPrefix":"/qbit/mobile-scanners"}]}"""
+internal const val VERSION_FIXTURE = """{"apiVersion":"1.8.0","features":["version","metaData","processes","processCancel","extensions","widgets"],"clientChannels":["web","api","android"],"extensions":[{"name":"mobile-scanners","version":"1.1.0","pathPrefix":"/qbit/mobile-scanners"}]}"""
 
 class UiApiCompatibilityTest
 {
@@ -22,7 +22,8 @@ class UiApiCompatibilityTest
          VERSION_FIXTURE.replace("1.8.0", "1.8.0-preview"),
          VERSION_FIXTURE.replace("\"widgets\"", "\"other\""),
          VERSION_FIXTURE.replace("mobile-scanners", "other"),
-         VERSION_FIXTURE.replace("1.0.0", "2.0.0"),
+         VERSION_FIXTURE.replace("1.1.0", "2.0.0"),
+         VERSION_FIXTURE.replace("1.1.0", "1.0.0"),
          VERSION_FIXTURE.replace("/qbit/mobile-scanners", "/evil"),
          VERSION_FIXTURE.replace("\"android\"", "\"future-client\""),
       )
@@ -47,7 +48,7 @@ class UiApiCompatibilityTest
    @Test fun acceptsAdditiveVersionFeaturesAndUnknownMetadataEnums()
    {
       val json = Json { ignoreUnknownKeys = true }
-      val version = json.decodeFromString<UiApiVersion>(VERSION_FIXTURE.replace("1.8.0", "1.99.9").replace("1.0.0", "1.12.1"))
+      val version = json.decodeFromString<UiApiVersion>(VERSION_FIXTURE.replace("1.8.0", "1.99.9").replace("1.1.0", "1.12.1"))
       UiApiCompatibility.validate(version.copy(features = version.features + "futureFeature"), true)
       assertEquals(QComponentType.UNKNOWN, json.decodeFromString<QFrontendComponent>("""{"type":"FUTURE_COMPONENT","future":true}""").type)
       assertEquals(QFieldType.UNKNOWN, json.decodeFromString<QFieldMetaData>("""{"name":"x","label":"Future field","type":"FUTURE_FIELD"}""").type)
@@ -72,7 +73,7 @@ class UiApiCompatibilityTest
 
    @Test fun nullExtensionsAreAnEmptyAdvertisementRatherThanMalformedDiscovery()
    {
-      val payload = VERSION_FIXTURE.replace("\"extensions\":[{\"name\":\"mobile-scanners\",\"version\":\"1.0.0\",\"pathPrefix\":\"/qbit/mobile-scanners\"}]", "\"extensions\":null")
+      val payload = VERSION_FIXTURE.replace("\"extensions\":[{\"name\":\"mobile-scanners\",\"version\":\"1.1.0\",\"pathPrefix\":\"/qbit/mobile-scanners\"}]", "\"extensions\":null")
       MockWebServer().use { server ->
          server.enqueue(MockResponse().setBody(payload))
          assertTrue(UiApiCompatibility(server.url("/").toString()).verify().extensions.isEmpty())

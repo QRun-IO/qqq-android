@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, 'feature/**', 'fix/**', 'release/**', 'hotfix/**']
   pull_request:
+  workflow_call:
   workflow_dispatch:
     inputs:
       emulator:
@@ -15,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: scanner-${{ github.event.pull_request.number || github.ref }}
+  group: scanner-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -46,7 +47,10 @@ jobs:
           :scanner-host:lintDebug
           :scanner-host:assembleDebug
       - name: Hash debug APK
-        run: sha256sum scanner-host/build/outputs/apk/debug/scanner-host-debug.apk > scanner-host/build/outputs/apk/debug/SHA256SUMS
+        run: |
+          mkdir -p scanner-host/build/outputs/apk/debug/notices
+          cp scanner-host/build/reports/third-party/debug/{aboutlibraries.json,LICENSE,NOTICE} scanner-host/build/outputs/apk/debug/notices/
+          (cd scanner-host/build/outputs/apk/debug && sha256sum scanner-host-debug.apk notices/* > SHA256SUMS)
       - name: Upload installable development APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -85,7 +89,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: QRun-IO/qbit-mobile-scanners
-          ref: 7dd02b8874882ca2edcdcd89109b3dee6b4b0c88
+          ref: 092655051d6a982cbd50c1ef1b95787a4c355d05
           path: .e2e-server
           persist-credentials: false
       - name: Build the isolated server fixture

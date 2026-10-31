@@ -5,18 +5,17 @@
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -37,6 +36,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.Text
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,6 +53,11 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.QAuthenticationWrapper
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.QTopAppBar
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LeaveProcessDialog
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LocalBusinessNavigationEnabled
+import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QAppNodeType
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.TopLevelAppState
 import kotlinx.coroutines.delay
@@ -120,7 +130,12 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
       }
    }
 
-   val topLevelAppState = TopLevelAppState(coroutineScope = rememberCoroutineScope(), qViewModel = qViewModel)
+   val scope = rememberCoroutineScope()
+   val topLevelAppState = remember(qViewModel, scope) { TopLevelAppState(coroutineScope = scope, qViewModel = qViewModel) }
+   LaunchedEffect(qViewModel.isAuthenticated, qViewModel.isLogoutRequested)
+   {
+      if(!qViewModel.isAuthenticated || qViewModel.isLogoutRequested) topLevelAppState.closeNavDrawer()
+   }
 
    AnimatedVisibility(
       splashState.value == SplashState.DONE,
@@ -128,6 +143,23 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
       exit = ExitTransition.None
    )
    {
+      ModalNavigationDrawer(drawerState = topLevelAppState.navDrawerState, gesturesEnabled = LocalBusinessNavigationEnabled.current && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested,
+         drawerContent = {
+            ModalDrawerSheet {
+               Column(Modifier.verticalScroll(rememberScrollState())) {
+                  Text("Switch app", Modifier.padding(16.dp))
+                  NavigationDrawerItem(label = { Text("Apps") }, selected = qViewModel.qNavigator.atHome, onClick = {
+                     topLevelAppState.closeNavDrawer(); qViewModel.qNavigator.goHome()
+                  })
+                  val instance = (qViewModel.qInstanceLoadState as? LoadState.Success<QInstance>)?.value
+                  instance?.appTree?.filter { it.type == QAppNodeType.APP }?.forEach { app ->
+                     NavigationDrawerItem(label = { Text(app.label) }, selected = qViewModel.qNavigator.currentAppName == app.name, onClick = {
+                        topLevelAppState.closeNavDrawer(); qViewModel.qNavigator.navigateToApp(app.name, app.label)
+                     })
+                  }
+               }
+            }
+         }) {
       Scaffold(
          Modifier.fillMaxSize(),
          topBar = {
@@ -154,6 +186,8 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
             )
          }
       }
+      }
+      LeaveProcessDialog(qViewModel)
    }
 
 }

@@ -5,353 +5,150 @@
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
 package com.kingsrook.qqq.frontend.android.core.model
 
-import kotlinx.serialization.*
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.json.*
-import kotlin.reflect.KType
-import kotlin.reflect.full.isSubtypeOf
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.serializer
 import kotlin.reflect.full.starProjectedType
-
-/***************************************************************************
- ** Credit for much of this file - it originally came from:
- ** https://gist.github.com/3v1n0/ecbc5e825e2921bd0022611d7046690b
- ***************************************************************************/
 
 typealias MapOfStringAny = Map<String, @Serializable(with = AnyValueSerializer::class) Any?>
 typealias MutableMapOfStringAny = MutableMap<String, @Serializable(with = AnyValueSerializer::class) Any?>
 typealias ListOfAny = List<@Serializable(with = AnyValueSerializer::class) Any?>
 
+/** Legacy public model retained for source compatibility; it has no special meaning in API JSON. */
 @Serializable
-data class AnyValueSurrogate(
-   val type: String,
-   @Contextual
-   val value: Any?
-)
+data class AnyValueSurrogate(val type: String, @Contextual val value: Any?)
 
+/** Legacy null marker retained for callers; API nulls use JSON null. */
 @Serializable
 object NoneType
 
-/***************************************************************************
- **
- ***************************************************************************/
-object AnyValueSerializer : KSerializer<Any?>
-{
-   override val descriptor: SerialDescriptor = AnyValueSurrogate.serializer().descriptor
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun serialize(encoder: Encoder, value: Any?)
-   {
-      if(value != null)
-      {
-         val valueClass = value::class
-         val valueType = valueClass.starProjectedType
-         val valueSerializer = serializer(valueType)
-
-         if(encoder is JsonEncoder && isTypePrimitive(valueType))
-         {
-            encoder.encodeJsonElement(Json.encodeToJsonElement(valueSerializer, value))
-         }
-         else
-         {
-            /////////////////////////////////////////////////////////////////
-            // Would be nice to use valueSerializer.descriptor.serialName, //
-            // but how to deserialize that to a type?                      //
-            /////////////////////////////////////////////////////////////////
-            val composite = encoder.beginCollection(descriptor, 2)
-            composite.encodeSerializableElement(descriptor, 0, serializer(), valueClass.java.name)
-            composite.encodeSerializableElement(descriptor, 1, valueSerializer, value)
-            composite.endStructure(descriptor)
-         }
-      }
-      else
-      {
-         if(encoder is JsonEncoder)
-         {
-            encoder.encodeJsonElement(JsonNull)
-         }
-         else
-         {
-            val composite = encoder.beginCollection(descriptor, 2)
-            composite.encodeSerializableElement(descriptor, 1, serializer<NoneType?>(), null)
-            composite.endStructure(descriptor)
-         }
-      }
-   }
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun isTypePrimitive(type: KType): Boolean
-   {
-      ////////////////////////////////////////////////////////////////////////////////////////////////
-      // This can be replaced when using experimental API (via @ExperimentalSerializationApi) with: //
-      //  valueSerializer.descriptor.kind is PrimitiveKind                                          //
-      ////////////////////////////////////////////////////////////////////////////////////////////////
-      if(type.isSubtypeOf(Number::class.starProjectedType))
-      {
-         return true
-      }
-
-      if(type.isSubtypeOf(String::class.starProjectedType))
-      {
-         return true
-      }
-
-      if(type.isSubtypeOf(Boolean::class.starProjectedType))
-      {
-         return true
-      }
-
-      return false
-   }
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun getSerializerForTypeName(strType: String): KSerializer<*>
-   {
-      return try
-      {
-         serializer(Class.forName(strType).kotlin.starProjectedType)
-      }
-      catch(e: ClassNotFoundException)
-      {
-         throw SerializationException(e.message)
-      }
-   }
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun deserialize(decoder: Decoder): Any?
-   {
-      if(decoder is JsonDecoder)
-      {
-         val element = decoder.decodeJsonElement()
-         if(element is JsonNull)
-         {
-            return null
-         }
-
-         if(element is JsonPrimitive)
-         {
-            if(element.isString)
-            {
-               return element.content
-            }
-
-            return try
-            {
-               element.boolean
-            }
-            catch(e: Throwable)
-            {
-               try
-               {
-                  element.long
-               }
-               catch(e: Throwable)
-               {
-                  element.double
-               }
-            }
-         }
-         else if(element is JsonObject && "type" in element && "value" in element)
-         {
-            element["type"].also()
-            { type ->
-               if(type is JsonPrimitive && type.isString)
-               {
-                  val valueSerializer = getSerializerForTypeName(type.content)
-                  element["value"].also()
-                  { value ->
-                     if(value is JsonObject)
-                     {
-                        return Json.decodeFromJsonElement(valueSerializer, value)
-                     }
-                  }
-               }
-            }
-         }
-         else if(element is JsonObject)
-         {
-            val decodedMap = Json.decodeFromString<MapStringAny>(element.toString())
-            return (decodedMap.entries)
-         }
-         else if(element is JsonArray)
-         {
-            val decodedList = Json.decodeFromString<ListAny>(element.toString())
-            return (decodedList.entries)
-         }
-
-         throw SerializationException("Invalid Json element $element")
-      }
-      else
-      {
-         val composite = decoder.beginStructure(descriptor)
-         var index = composite.decodeElementIndex(descriptor)
-         if(index == CompositeDecoder.DECODE_DONE)
-         {
-            return null
-         }
-
-         val strType = composite.decodeStringElement(descriptor, index)
-         if(strType.isEmpty())
-         {
-            throw SerializationException("Unknown serialization type")
-         }
-
-         index = composite.decodeElementIndex(descriptor).also()
-         {
-            if(it != index + 1)
-            {
-               throw SerializationException("Unexpected element index!")
-            }
-         }
-
-         getSerializerForTypeName(strType).also()
-         { serializer ->
-            composite.decodeSerializableElement(descriptor, index, serializer).also()
-            {
-               composite.endStructure(descriptor)
-               return it
-            }
-         }
-      }
-   }
-}
-
-/***************************************************************************
- **
- ***************************************************************************/
+/** Wrapper retained for clients using the original generic serializer API. */
 @Serializable(with = AnySerializableValueSerializer::class)
 data class AnySerializableValue(val value: Any?)
 
-/***************************************************************************
- **
- ***************************************************************************/
+/** Delegate wrapped values to the JSON data serializer without class discovery. */
 object AnySerializableValueSerializer : KSerializer<AnySerializableValue>
 {
-   override val descriptor: SerialDescriptor = AnyValueSurrogate.serializer().descriptor
-   override fun serialize(encoder: Encoder, value: AnySerializableValue) =
-      AnyValueSerializer.serialize(encoder, value.value)
-
-   override fun deserialize(decoder: Decoder): AnySerializableValue =
-      AnySerializableValue(AnyValueSerializer.deserialize(decoder))
+   override val descriptor = JsonElement.serializer().descriptor
+   override fun serialize(encoder: Encoder, value: AnySerializableValue) = AnyValueSerializer.serialize(encoder, value.value)
+   override fun deserialize(decoder: Decoder) = AnySerializableValue(AnyValueSerializer.deserialize(decoder))
 }
 
-/***************************************************************************
- **
- ***************************************************************************/
 typealias SerializableMapType = MutableMap<String, AnySerializableValue>
+typealias SerializableListType = MutableList<AnySerializableValue>
 
-/***************************************************************************
- **
- ***************************************************************************/
+/** Legacy collection declarations retain their original public API shape. */
 @Serializable
 abstract class SerializableMap : SerializableMapType
 
-/***************************************************************************
- **
- ***************************************************************************/
-object MapStringAnySerializer : KSerializer<MapStringAny>
-{
-   override val descriptor: SerialDescriptor = SerializableMap.serializer().descriptor
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun serialize(encoder: Encoder, value: MapStringAny)
-   {
-      val entries: SerializableMapType = mutableMapOf()
-      value.entries.forEach { entries[it.key] = AnySerializableValue(it.value) }
-      encoder.encodeSerializableValue(serializer(), entries)
-   }
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun deserialize(decoder: Decoder): MapStringAny
-   {
-      val map = mutableMapOf<String, Any?>()
-      decoder.decodeSerializableValue(serializer<SerializableMapType>()).forEach {
-         map[it.key] = it.value.value
-      }
-      return MapStringAny(map)
-   }
-}
-
-/***************************************************************************
- **
- ***************************************************************************/
-@Serializable(with = MapStringAnySerializer::class)
-data class MapStringAny(val entries: Map<String, Any?> = emptyMap())
-
-/***************************************************************************
- **
- ***************************************************************************/
-typealias SerializableListType = MutableList<AnySerializableValue>
-
-/***************************************************************************
- **
- ***************************************************************************/
+/** Legacy collection declarations retain their original public API shape. */
 @Serializable
 abstract class SerializableList : SerializableListType
 
-/***************************************************************************
- **
- ***************************************************************************/
-object ListAnySerializer : KSerializer<ListAny>
+/** Semantic API values are JSON data; business keys never select JVM classes. */
+object AnyValueSerializer : KSerializer<Any?>
 {
-   override val descriptor: SerialDescriptor = SerializableList.serializer().descriptor
+   override val descriptor: SerialDescriptor = JsonElement.serializer().descriptor
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun serialize(encoder: Encoder, value: ListAny)
+   /** Encode arbitrary API maps/lists without adding class-name envelopes. */
+   override fun serialize(encoder: Encoder, value: Any?)
    {
-      val entries: SerializableListType = mutableListOf()
-      value.entries.forEach { entries.add(AnySerializableValue(it)) }
-      encoder.encodeSerializableValue(serializer(), entries)
+      val json = encoder as? JsonEncoder ?: throw SerializationException("API values require JSON")
+      json.encodeJsonElement(toJson(value))
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun deserialize(decoder: Decoder): ListAny
+   /** Decode objects uniformly, including objects whose keys happen to be type and value. */
+   override fun deserialize(decoder: Decoder): Any?
    {
-      val list = mutableListOf<Any?>()
-      decoder.decodeSerializableValue(serializer<SerializableListType>()).forEach {
-         list.add(it.value)
-      }
-      return ListAny(list)
+      val json = decoder as? JsonDecoder ?: throw SerializationException("API values require JSON")
+      return fromJson(json.decodeJsonElement())
+   }
+
+   /** Only serialization uses a locally supplied object's serializer; wire input never loads classes. */
+   private fun toJson(value: Any?): JsonElement = when(value)
+   {
+      null -> JsonNull
+      is JsonElement -> value
+      is String -> JsonPrimitive(value)
+      is Boolean -> JsonPrimitive(value)
+      is Number -> JsonPrimitive(value)
+      is Map<*, *> -> JsonObject(value.entries.associate { entry ->
+         val name = entry.key as? String ?: throw SerializationException("JSON object keys must be strings")
+         name to toJson(entry.value)
+      })
+      is Iterable<*> -> JsonArray(value.map(::toJson))
+      else -> Json.encodeToJsonElement(serializer(value::class.starProjectedType), value)
+   }
+
+   /** Preserve integer values and nulls while keeping arbitrary nested objects as ordinary maps. */
+   private fun fromJson(value: JsonElement): Any? = when(value)
+   {
+      JsonNull -> null
+      is JsonObject -> value.mapValues { fromJson(it.value) }
+      is JsonArray -> value.map(::fromJson)
+      is JsonPrimitive -> if(value.isString) value.content else
+         value.booleanOrNull ?: value.longOrNull ?: value.doubleOrNull
+         ?: throw SerializationException("Invalid JSON primitive")
    }
 }
 
-/***************************************************************************
- **
- ***************************************************************************/
+/** Wrapper retained for callers that serialize arbitrary JSON object values. */
+@Serializable(with = MapStringAnySerializer::class)
+data class MapStringAny(val entries: Map<String, Any?> = emptyMap())
+
+/** Delegate object framing to the standard map serializer. */
+object MapStringAnySerializer : KSerializer<MapStringAny>
+{
+   private val delegate = MapSerializer(String.serializer(), AnyValueSerializer)
+   override val descriptor = delegate.descriptor
+   override fun serialize(encoder: Encoder, value: MapStringAny) = delegate.serialize(encoder, value.entries)
+   override fun deserialize(decoder: Decoder) = MapStringAny(delegate.deserialize(decoder))
+}
+
+/** Wrapper retained for callers that serialize arbitrary JSON lists. */
 @Serializable(with = ListAnySerializer::class)
 data class ListAny(val entries: List<Any?> = emptyList())
+
+/** Delegate list framing to the standard list serializer. */
+object ListAnySerializer : KSerializer<ListAny>
+{
+   private val delegate = ListSerializer(AnyValueSerializer)
+   override val descriptor = delegate.descriptor
+   override fun serialize(encoder: Encoder, value: ListAny) = delegate.serialize(encoder, value.entries)
+   override fun deserialize(decoder: Decoder) = ListAny(delegate.deserialize(decoder))
+}

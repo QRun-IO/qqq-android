@@ -5,18 +5,17 @@
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -99,12 +98,14 @@ class SessionTests : BaseTest()
          .onNodeWithText("Current User:  ${fullName}")
          .assertIsDisplayed()
 
+      assertEquals(envLabel, qViewModel.environment.label)
       composeTestRule
-         .onNodeWithText(envLabel)
-         .assertIsDisplayed()
-      composeTestRule
-         .onNodeWithText("Dismiss")
+         .onNodeWithText("Close")
          .performClick()
+      composeTestRule.onNodeWithTag("topBar.menuIcon").performClick()
+      composeTestRule.onNodeWithText("Settings").performClick()
+      composeTestRule.onNodeWithText("Server: ${qViewModel.environment.baseUrl}").assertIsDisplayed()
+      composeTestRule.onNodeWithText("Close").performClick()
 
       atEndLocalDebugSleep()
    }
@@ -162,13 +163,13 @@ class SessionTests : BaseTest()
          .assertIsDisplayed()
 
       composeTestRule
-         .onNode(hasAnyAncestor(isDialog()) and hasText("Log Out"))
+         .onNode(hasAnyAncestor(isDialog()) and hasText("Sign out"))
          .assertIsDisplayed()
          .performClick()
          .assertIsNotEnabled()
 
       composeTestRule
-         .onNode(hasAnyAncestor(isDialog()) and hasText("Dismiss"))
+         .onNode(hasAnyAncestor(isDialog()) and hasText("Close"))
          .assertIsDisplayed()
          .performClick()
 
@@ -181,9 +182,15 @@ class SessionTests : BaseTest()
          .assertIsDisplayed()
 
       composeTestRule
-         .onNode(hasAnyAncestor(isDialog()) and hasText("Log Out"))
+         .onNode(hasAnyAncestor(isDialog()) and hasText("Sign out"))
          .assertIsEnabled()
          .performClick()
+
+      composeTestRule.onNodeWithText("Stay").performClick()
+      assertEquals(true, TestUtils.qViewModel.isAuthenticated)
+      openUserDialog()
+      composeTestRule.onNode(hasAnyAncestor(isDialog()) and hasText("Sign out")).performClick()
+      composeTestRule.onNode(hasAnyAncestor(isDialog()) and hasText("Sign out")).performClick()
 
       composeTestRule
          .onNodeWithText("Signed out.")
@@ -209,7 +216,8 @@ class SessionTests : BaseTest()
       TestUtils.startStandardTest(composeTestRule)
       TestUtils.login(composeTestRule)
 
-      openUserDialog()
+      composeTestRule.onNodeWithTag("topBar.menuIcon").performClick()
+      composeTestRule.onNodeWithText("Settings").performClick()
 
       composeTestRule
          .onNodeWithText("Test Env 1")
@@ -225,6 +233,8 @@ class SessionTests : BaseTest()
          .onNodeWithText("Switch")
          .assertIsDisplayed()
          .performClick()
+
+      composeTestRule.onNodeWithText("Change server", substring = false).performClick()
 
       TestUtils.login(composeTestRule)
 
@@ -258,20 +268,20 @@ class SessionTests : BaseTest()
    private fun openUserDialog()
    {
       composeTestRule
-         .onNodeWithTag("topBar.menuIcon", true)
+         .onNodeWithTag("topBar.accountIcon", true)
          .assertIsDisplayed()
          .assertHasClickAction()
          .performClick()
 
       composeTestRule
-         .onNodeWithTag("menuDialog.title")
+         .onNodeWithTag("accountDialog.title")
          .assertIsDisplayed()
    }
 
    /***************************************************************************
     **
     ***************************************************************************/
-   private fun assertHomePageIsDisplayed(pageTitle: String = "Test App", anAppLabelOnPage: String = "App 1")
+   private fun assertHomePageIsDisplayed(pageTitle: String = "Apps", anAppLabelOnPage: String = "App 1")
    {
       composeTestRule
          .onNodeWithTag("topAppBar.title")
@@ -279,7 +289,7 @@ class SessionTests : BaseTest()
          .assertIsDisplayed()
 
       composeTestRule
-         .onNodeWithText(anAppLabelOnPage)
+         .onNodeWithTag("appHome.rowForApp:" + if(anAppLabelOnPage == "App 3") "app3" else "app1")
          .assertIsDisplayed()
    }
 

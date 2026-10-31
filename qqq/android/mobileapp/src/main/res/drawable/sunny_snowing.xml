@@ -1,31 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ QQQ - Low-code Application Framework for Engineers.
-  ~ Copyright (C) 2004-2024.  Kingsrook, LLC
-  ~ 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
-  ~ contact@kingsrook.com
-  ~ https://github.com/Kingsrook/
-  ~
-  ~ This program is free software: you can redistribute it and/or modify
-  ~ it under the terms of the GNU Affero General Public License as
-  ~ published by the Free Software Foundation, either version 3 of the
-  ~ License, or (at your option) any later version.
-  ~
-  ~ This program is distributed in the hope that it will be useful,
-  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
-  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  ~ GNU Affero General Public License for more details.
-  ~
-  ~ You should have received a copy of the GNU Affero General Public License
-  ~ along with this program.  If not, see <https://www.gnu.org/licenses/>.
-  ~
-  -->
-
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+  Original artwork: Material Design icons by Google, Apache-2.0.
+  Pinned source: https://raw.githubusercontent.com/google/material-design-icons/d7a78a2ad434d5d38e1b8708c9dd9847cc3ada9b/android/home/sunny_snowing/materialicons/black/res/drawable/baseline_sunny_snowing_24.xml
+  QQQ Android integration/modifications: Copyright (C) 2004-2024 Kingsrook, LLC.
+  Modified resource naming and Android dimensions/color/tint as recorded in
+  docs/material-icons-provenance.json. Drawing path data matches the pinned source.
+  See NOTICE and docs/third-party/material-design-icons-LICENSE.txt.
+-->
+<vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-  <path
-      android:fillColor="#FF000000"
-      android:pathData="M13,5h-2L11,1h2v4zM1,11h4v2L1,13v-2zM19,13v-2h4v2h-4zM17.66,7.76 L16.25,6.35 19.08,3.52 20.49,4.93 17.66,7.76zM3.51,4.93l1.41,-1.41 2.83,2.83 -1.41,1.41 -2.83,-2.83zM4.75,17a1.25,1.25 0,1 0,2.5 0,1.25 1.25,0 0,0 -2.5,0zM16.75,17a1.25,1.25 0,1 0,2.5 0,1.25 1.25,0 0,0 -2.5,0zM7.75,21a1.25,1.25 0,1 0,2.5 0,1.25 1.25,0 0,0 -2.5,0zM10.75,17a1.25,1.25 0,1 0,2.5 0,1.25 1.25,0 0,0 -2.5,0zM13.75,21a1.25,1.25 0,1 0,2.5 0,1.25 1.25,0 0,0 -2.5,0zM17,13v-1c0,-2.76 -2.24,-5 -5,-5s-5,2.24 -5,5v1h10z"/>
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M13,5h-2V1h2V5zM1,11h4v2H1V11zM19,13v-2h4v2H19zM17.66,7.76l-1.41,-1.41l2.83,-2.83l1.41,1.41L17.66,7.76zM3.51,4.93l1.41,-1.41l2.83,2.83L6.34,7.76L3.51,4.93zM4.75,17c0,0.69 0.56,1.25 1.25,1.25S7.25,17.69 7.25,17S6.69,15.75 6,15.75S4.75,16.31 4.75,17zM16.75,17c0,0.69 0.56,1.25 1.25,1.25s1.25,-0.56 1.25,-1.25s-0.56,-1.25 -1.25,-1.25S16.75,16.31 16.75,17zM7.75,21c0,0.69 0.56,1.25 1.25,1.25s1.25,-0.56 1.25,-1.25S9.69,19.75 9,19.75S7.75,20.31 7.75,21zM10.75,17c0,0.69 0.56,1.25 1.25,1.25s1.25,-0.56 1.25,-1.25s-0.56,-1.25 -1.25,-1.25S10.75,16.31 10.75,17zM13.75,21c0,0.69 0.56,1.25 1.25,1.25s1.25,-0.56 1.25,-1.25s-0.56,-1.25 -1.25,-1.25S13.75,20.31 13.75,21zM17,13l0,-1c0,-2.76 -2.24,-5 -5,-5s-5,2.24 -5,5v1H17z" />
 </vector>

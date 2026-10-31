@@ -3,6 +3,7 @@ package io.qrun.mobile.scanner
 
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibilityException
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LocalOpenDiagnostics
 import kotlinx.coroutines.CancellationException
 import android.net.ConnectivityManager
 import android.net.Network
@@ -34,7 +35,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /** Lifetime is keyed by selected server: presentation and diagnostics cannot bleed across customers. */
 @Composable
-internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Composable (HostBrand, DiagnosticLog, UiApiCompatibility) -> Unit)
+internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Composable (HostBrand, DiagnosticLog, UiApiCompatibility, () -> Unit) -> Unit)
 {
    val runtime = remember(server) { HostRuntime(server) }
    var compatible by remember(server) { mutableStateOf(false) }
@@ -107,11 +108,12 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
             {
                logo?.let { AsyncImage(model = it, imageLoader = imageLoader, contentDescription = "${brand.displayName} logo", modifier = Modifier.size(40.dp)) }
                Text(brand.displayName, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-               TextButton(onClick = onChangeServer) { Text("Change server") }
+               if(!compatible) TextButton(onClick = onChangeServer) { Text("Change server") }
             }
             Box(Modifier.weight(1f))
             {
-               if(compatible) content(brand, runtime.diagnostics, runtime.compatibility)
+               if(compatible) CompositionLocalProvider(LocalOpenDiagnostics provides { diagnosticText = runtime.diagnostics.text(); showDiagnostics = true })
+               { content(brand, runtime.diagnostics, runtime.compatibility, onChangeServer) }
                else Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp))
                {
                   Text(compatibilityError ?: "Checking QQQ UI API compatibility…")

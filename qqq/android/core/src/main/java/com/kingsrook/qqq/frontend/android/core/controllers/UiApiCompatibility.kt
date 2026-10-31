@@ -53,7 +53,7 @@ class UiApiCompatibility(val server: String, private val requireMobileScanners: 
    {
       // Compiled and tested against the published 1.8.0 contract; additive 1.x versions remain compatible.
       const val SUPPORTED_CORE_RANGE = ">=1.8.0 <2.0.0"
-      const val SUPPORTED_MOBILE_RANGE = ">=1.0.0 <2.0.0"
+      const val SUPPORTED_MOBILE_RANGE = ">=1.1.0 <2.0.0"
       val REQUIRED_FEATURES = setOf("version", "metaData", "processes", "processCancel", "extensions", "widgets")
 
       fun validate(version: UiApiVersion, requireMobileScanners: Boolean)
@@ -70,7 +70,7 @@ class UiApiCompatibility(val server: String, private val requireMobileScanners: 
          {
             val extension = version.extensions.singleOrNull { it.name == "mobile-scanners" }
                ?: throw UiApiCompatibilityException("This server is missing the mobile-scanners extension. Ask your administrator to install it.")
-            if(!supported(extension.version, 0) || extension.pathPrefix != "/qbit/mobile-scanners")
+            if(!supported(extension.version, 1) || extension.pathPrefix != "/qbit/mobile-scanners")
                throw UiApiCompatibilityException("Unsupported mobile-scanners extension. This app requires $SUPPORTED_MOBILE_RANGE at /qbit/mobile-scanners. Update the app or server extension.")
          }
       }

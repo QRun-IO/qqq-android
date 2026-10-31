@@ -5,18 +5,17 @@
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -26,6 +25,13 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Home
@@ -39,6 +45,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,64 +67,55 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android Application", navMenuCallback: (() -> Unit)? = null, qNavigator: QNavigator? = null, showNetworkDialog: Boolean = true)
 {
    val isMenuDialogOpen = remember { mutableStateOf(false) }
-
-   val title = if(qNavigator?.titleStack?.isEmpty() == false) qNavigator.titleStack.get(qNavigator.titleStack.size - 1) ?: defaultTitle else defaultTitle
+   val accountOpen = remember { mutableStateOf(false) }
+   val moreOpen = remember { mutableStateOf(false) }
+   val diagnosticsOpen = remember { mutableStateOf(false) }
+   val openDiagnostics = LocalOpenDiagnostics.current
+   val authenticated = qViewModel.isAuthenticated && !qViewModel.isLogoutRequested
+   val businessReady = authenticated && LocalBusinessNavigationEnabled.current
+   LaunchedEffect(qViewModel.isLogoutRequested)
+   {
+      if(qViewModel.isLogoutRequested)
+      {
+         isMenuDialogOpen.value = false
+         accountOpen.value = false
+         moreOpen.value = false
+         diagnosticsOpen.value = false
+      }
+   }
+   val title = if(businessReady) qNavigator?.titleStack?.lastOrNull() ?: "Apps" else defaultTitle
 
    TopAppBar(
-      colors = TopAppBarDefaults.topAppBarColors(
-         containerColor = MaterialTheme.colorScheme.primaryContainer,
-         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-      ),
+      colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
       title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("topAppBar.title")) },
-      navigationIcon =
-      {
-         /////////////////////////////////////////////////////////
-         // this was for the left-menu - but - not using today! //
-         /////////////////////////////////////////////////////////
-         // navMenuCallback?.let()
-         // {
-         //    IconButton(onClick = { it() })
-         //    {
-         //       Icon(imageVector = Icons.Filled.Menu, contentDescription = "Open Menu")
-         //    }
-         // }
-
-         key(qNavigator?.navDepth ?: 0)
-         {
-            qNavigator?.let()
-            {
-               IconButton(onClick = { qNavigator.popStack() },
-                  enabled = !qNavigator.atHome,
-                  modifier = Modifier.focusProperties { canFocus = false }
-               )
-               {
-                  if(qNavigator.atHome)
-                  {
-                     Icon(imageVector = Icons.Filled.Home, contentDescription = "At Home", tint = Color.Black)
-                  }
-                  else
-                  {
-                     Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go Back")
-                  }
-               }
-            }
-         }
+      navigationIcon = {
+         if(businessReady && qNavigator?.atHome == false)
+            IconButton(onClick = qNavigator::popStack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Go Back") }
       },
-      actions =
-      {
-         qViewModel.topBarStatusText?.let()
-         {
-            Text(it)
-         }
-
-         IconButton(onClick = { isMenuDialogOpen.value = true }, modifier = Modifier
-            .focusProperties { canFocus = false }
-            .testTag("topBar.menuIcon"))
-         {
-            Icon(imageVector = Icons.Default.Menu, contentDescription = "Information")
+      actions = {
+         if(businessReady) TextButton(onClick = { qNavigator?.goHome() }, modifier = Modifier.testTag("topBar.apps")) { Text("Apps") }
+         IconButton(onClick = { accountOpen.value = true }, modifier = Modifier.testTag("topBar.accountIcon"))
+         { Icon(Icons.Default.AccountCircle, "Account") }
+         Box {
+            IconButton(onClick = { moreOpen.value = true }, modifier = Modifier.testTag("topBar.menuIcon"))
+            { Icon(Icons.Default.MoreVert, "More options") }
+            DropdownMenu(expanded = moreOpen.value, onDismissRequest = { moreOpen.value = false }) {
+               if(businessReady) DropdownMenuItem(modifier = Modifier.testTag("topBar.switchApp"), text = { Text("Switch app") }, onClick = {
+                  moreOpen.value = false; navMenuCallback?.invoke()
+               })
+               DropdownMenuItem(text = { Text("Settings") }, onClick = { moreOpen.value = false; isMenuDialogOpen.value = true })
+               DropdownMenuItem(text = { Text("Diagnostics") }, onClick = {
+                  moreOpen.value = false
+                  if(openDiagnostics != null) openDiagnostics() else diagnosticsOpen.value = true
+               })
+            }
          }
       }
    )
+   if(accountOpen.value) AccountDialog(qViewModel) { accountOpen.value = false }
+   if(diagnosticsOpen.value) AlertDialog(onDismissRequest = { diagnosticsOpen.value = false },
+      title = { Text("Diagnostics") }, text = { Text("Server: ${qViewModel.environment.baseUrl}\nApplication version: ${QViewModel.applicationVersion}") },
+      confirmButton = { TextButton(onClick = { diagnosticsOpen.value = false }) { Text("Close") } })
 
    if(showNetworkDialog)
    {

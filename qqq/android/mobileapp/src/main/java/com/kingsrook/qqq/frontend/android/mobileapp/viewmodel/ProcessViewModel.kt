@@ -5,18 +5,17 @@
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -26,6 +25,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -67,6 +67,31 @@ open class ProcessViewModel : ViewModel()
    var submissionError: String? by mutableStateOf(null)
       private set
    private var processComplete: Boolean by mutableStateOf(false)
+   private var initializing = false
+   private val clientWork = mutableStateMapOf<String, String>()
+   val clientWorkBlockReason: String? get() = clientWork.values.firstOrNull()
+
+   /** Native controls retain their own operation identity while preventing process exit or advancement. */
+   fun setClientWork(key: String, reason: String?)
+   {
+      if(reason == null) clientWork.remove(key) else clientWork[key] = reason
+   }
+   var unconfirmedSubmission: Boolean by mutableStateOf(false)
+      private set
+
+   /** Native navigation never interrupts a submitted mutation or forgets a scan receipt. */
+   fun navigationBlockReason(): String? = when
+   {
+      clientWorkBlockReason != null -> clientWorkBlockReason
+      waitingOnBackend && processUUID != null && initLoadState !is LoadState.Loading -> "Wait for the running request to finish before leaving."
+      pendingStepValues != null -> "The last scan is not confirmed. Stay and retry the same request before leaving."
+      else -> null
+   }
+
+   fun requestClose()
+   {
+      if(::qViewModel.isInitialized) qViewModel.qNavigator.popStack() else cancel()
+   }
 
    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
    // function that this view-model can call, if user chose, within the process, to leave the process.         //
@@ -218,6 +243,9 @@ open class ProcessViewModel : ViewModel()
    fun reset()
    {
       viewModelScope.coroutineContext.cancelChildren()
+      initializing = false
+      unconfirmedSubmission = false
+      clientWork.clear()
       pendingStepValues = null
       pendingAcknowledgment = null
       fieldErrors = emptyMap()
@@ -282,17 +310,36 @@ open class ProcessViewModel : ViewModel()
       {
          try
          {
+            initializing = true
             waitingOnBackend = true
             initLoadState = LoadState.Loading(Unit)
 
             val value = qqqRepository.processInit(processName, emptyMap())
-            evaluateProcessResult(value)
+            if(cancelling)
+            {
+               // Keep the response long enough to cancel the server process whose UUID was not yet known.
+               processUUID = value.processUUID.takeIf { it.isNotBlank() }
+               if(value !is QJobComplete || !SemanticProcess.terminal(value))
+               {
+                  val uuid = processUUID ?: error("Initialization did not return a process identity")
+                  qqqRepository.processCancel(processName, uuid)
+               }
+               closeProcessCallback?.invoke()
+            }
+            else evaluateProcessResult(value)
          }
          catch(e: kotlinx.coroutines.CancellationException) { throw e }
          catch(e: Exception)
          {
             waitingOnBackend = false
-            initLoadState = LoadState.Error(e, semanticError(e, "Error launching process."))
+            initLoadState = LoadState.Error(e, if(cancelling)
+               "The server did not confirm cancellation. The process may still be running. Retry cancellation if available, or contact your administrator."
+               else semanticError(e, "Error launching process."))
+         }
+         finally
+         {
+            initializing = false
+            cancelling = false
          }
       }
    }
@@ -311,6 +358,8 @@ open class ProcessViewModel : ViewModel()
    fun runStep(eventValues: Map<String, Any?> = emptyMap(), acknowledgment: ProcessAcknowledgment? = null)
    {
       if(waitingOnBackend || cancelling || getNoMoreSteps()) return
+      if(clientWorkBlockReason != null) return
+      if(unconfirmedSubmission && pendingStepValues == null) return
       unsupportedReason()?.let { setTopLevelError(it); return }
       submissionError = null
       val localProcessUUID = processUUID
@@ -330,22 +379,26 @@ open class ProcessViewModel : ViewModel()
 
       val valuesToSubmit: MutableMap<String, Any?> = mutableMapOf()
 
-      val editableFields = activeStep?.components.orEmpty()
+      val declaredFields = activeStep?.components.orEmpty()
          .filter { it.type == com.kingsrook.qqq.frontend.android.core.model.metadata.QComponentType.EDIT_FORM }
-         .flatMap { SemanticProcess.fields(activeStep, it) }.filter { it.isEditable }.distinctBy { it.name }
+         .flatMap { SemanticProcess.fields(activeStep, it) } + SemanticProcess.widgetInputFields(activeStep, processValues)
+      val editableFields = declaredFields.filter { it.isEditable && !it.isHidden }.distinctBy { it.name }
+      val protectedFields = declaredFields.filter { !it.isEditable || it.isHidden }.map { it.name }.toSet()
       fieldErrors = editableFields.mapNotNull { field ->
-         validateSemanticField(field, if(eventValues.containsKey(field.name)) eventValues[field.name] else processValues[field.name])?.let { field.name to it }
+         validateSemanticField(field, if(eventValues.containsKey(field.name)) eventValues[field.name] else semanticInitialValue(field, processValues))?.let { field.name to it }
       }.toMap()
       if(fieldErrors.isNotEmpty()) return
       editableFields.forEach { formFieldNames.add(it.name) }
       for(name in formFieldNames)
       {
+         if(name in protectedFields) continue
          val field = editableFields.firstOrNull { it.name == name }
-         valuesToSubmit[name] = if(field == null) processValues[name] else semanticFieldValue(field, processValues[name])
+         valuesToSubmit[name] = if(field == null) processValues[name] else semanticFieldValue(field, semanticInitialValue(field, processValues))
       }
 
       for(entry in eventValues.entries)
       {
+         if(entry.key in protectedFields) continue
          val field = editableFields.firstOrNull { it.name == entry.key }
          valuesToSubmit[entry.key] = if(field == null) entry.value else semanticFieldValue(field, entry.value)
       }
@@ -380,9 +433,14 @@ open class ProcessViewModel : ViewModel()
                if(e.fieldErrors.isNotEmpty()) submissionError = e.message
                else setTopLevelError(e.message ?: "The server rejected this request.")
             }
-            else setTopLevelError(if(e is retrofit2.HttpException && e.code() in listOf(401, 403))
-               "Access denied. Your session may have expired or device approval may have been revoked. Sign in again or contact your administrator."
-               else "The server did not confirm this request. Retry the same request when connected.")
+              else
+              {
+                 unconfirmedSubmission = true
+                 setTopLevelError(if(e is retrofit2.HttpException && e.code() in listOf(401, 403))
+                    "Access denied. Your session may have expired or device approval may have been revoked. Sign in again or contact your administrator."
+                    else if(pendingStepValues != null) "The server did not confirm this request. Retry the same request when connected."
+                    else "The server did not confirm this request. Do not submit it again. Process reference: $localProcessUUID. Contact your administrator to check its result.")
+              }
          }
       }
    }
@@ -395,7 +453,7 @@ open class ProcessViewModel : ViewModel()
    /** Explicit retries preserve the scan event ID; no background queue is created. */
    fun retryPendingStep()
    {
-      if(pendingStepValues == null) return
+      if(waitingOnBackend || cancelling) return
       if(activeJobUUID.isNotEmpty())
       {
          topLevelErrorState = LoadState.Success(Unit)
@@ -403,6 +461,14 @@ open class ProcessViewModel : ViewModel()
          checkIn()
       }
       else pendingStepValues?.let { runStep(it, pendingAcknowledgment) }
+   }
+
+   /** Polling a known job is safe even when its original action was not an idempotent scanner event. */
+   fun retryLabel(): String? = when
+   {
+      activeJobUUID.isNotEmpty() -> "Check result again"
+      pendingStepValues != null -> "Retry same request"
+      else -> null
    }
 
    /***************************************************************************
@@ -479,6 +545,7 @@ open class ProcessViewModel : ViewModel()
     ***************************************************************************/
    private fun processJobCompleteResult(value: QJobComplete)
    {
+      unconfirmedSubmission = false
       if(pendingAcknowledgment?.matches(value.values) != false)
       {
          pendingStepValues = null
@@ -572,8 +639,15 @@ open class ProcessViewModel : ViewModel()
    {
       if(cancelling) return
       val uuid = processUUID
+      if(uuid == null && initializing)
+      {
+         // Cancelling transport here could discard the only response containing the server UUID.
+         cancelling = true
+         return
+      }
       if(uuid == null || getNoMoreSteps())
       {
+         viewModelScope.coroutineContext.cancelChildren()
          closeProcessCallback?.invoke()
          return
       }

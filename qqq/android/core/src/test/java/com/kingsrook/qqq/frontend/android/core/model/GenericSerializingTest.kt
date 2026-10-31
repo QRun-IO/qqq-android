@@ -50,26 +50,34 @@ class GenericSerializingTest
          "Two dot zero" to 2.0,
          "True" to true,
          "None" to null,
-         "Data" to OtherDataClass(5, "Cinque")
+         "Data" to mapOf("intVal" to 5L, "strVal" to "Cinque")
       )
       val mapData = MySerializableData(map)
 
       val encoded = Json.encodeToString(mapData)
-      println(encoded)
 
       val decoded = Json.decodeFromString<MySerializableData>(encoded)
-      println(decoded)
 
       assertEquals(mapData, decoded)
 
       val mapStringAny = MapStringAny(map)
       val encoded2 = Json.encodeToString(mapStringAny)
-      println(encoded2)
 
       val decoded2 = Json.decodeFromString<MapStringAny>(encoded2)
-      println(decoded2)
 
       assertEquals(mapStringAny, decoded2)
+   }
+
+   /** Business discriminator keys remain data, including class-like strings and nested nulls. */
+   @Test
+   fun typeAndValueObjectsNeverSelectRuntimeClasses()
+   {
+      val payload = """{"processUUID":"p","values":{"weight":{"type":"weight","value":12},"nested":{"type":"java.lang.Runtime","value":{"type":7,"value":null}}}}"""
+      val decoded = Json.decodeFromString<QJobComplete>(payload)
+      assertEquals(mapOf("type" to "weight", "value" to 12L), decoded.values["weight"])
+      assertEquals(mapOf("type" to "java.lang.Runtime", "value" to mapOf("type" to 7L, "value" to null)), decoded.values["nested"])
+      val roundTrip = Json.decodeFromString<QJobComplete>(Json.encodeToString(decoded))
+      assertEquals(decoded, roundTrip)
    }
 
    /***************************************************************************

@@ -6,10 +6,22 @@ internal data class ScannerMetaData(val manualLabel: String = "Manual barcode", 
 {
    companion object
    {
-      fun parse(values: Map<String, Any?>): ScannerMetaData = ScannerMetaData(
+      fun parse(values: Map<String, Any?>): ScannerMetaData
+      {
+         val suppliedLength = values["maxLength"]
+         val maxLength = if(!values.containsKey("maxLength")) 4096 else
+         {
+            require(suppliedLength is Number) { "SCANNER maxLength must be an integer between 1 and 4096." }
+            val number = suppliedLength.toDouble()
+            require(number.isFinite() && number in 1.0..4096.0 && number == number.toInt().toDouble())
+            { "SCANNER maxLength must be an integer between 1 and 4096." }
+            number.toInt()
+         }
+         return ScannerMetaData(
          manualLabel = (values["manualLabel"] as? String)?.takeIf { it.isNotBlank() } ?: "Manual barcode",
          submitLabel = (values["submitLabel"] as? String)?.takeIf { it.isNotBlank() } ?: "Submit barcode",
-         maxLength = (values["maxLength"] as? Number)?.toInt()?.takeIf { it in 1..4096 } ?: 4096,
+         maxLength = maxLength,
       )
+      }
    }
 }

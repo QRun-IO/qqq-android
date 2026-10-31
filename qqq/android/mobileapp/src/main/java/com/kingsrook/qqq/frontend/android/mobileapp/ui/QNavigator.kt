@@ -5,18 +5,17 @@
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -27,6 +26,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavController
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.toRoute
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.AppRoute
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.HomeRoute
@@ -38,7 +40,7 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 /***************************************************************************
  **
  ***************************************************************************/
-class QNavigator(var navController: NavHostController?, val qViewModel: QViewModel) : ViewModel()
+class QNavigator(initialController: NavHostController?, val qViewModel: QViewModel) : ViewModel()
 {
    var navDepth: Int by mutableStateOf(0)
       private set
@@ -49,16 +51,102 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
    var titleStack: List<String?> by mutableStateOf(mutableListOf())
       private set
 
-   init
-   {
-      navController?.addOnDestinationChangedListener()
-      { controller, destination, _ ->
+   var navigationRevision: Long by mutableStateOf(0L)
+      private set
+   var currentAppName: String? by mutableStateOf(null)
+      private set
 
-         /////////////////////////////////////////////////////////////////
-         // clear out the top bar status text after upon any navigation //
-         /////////////////////////////////////////////////////////////////
-         qViewModel.topBarStatusText = null
+   /** A destination is applied only after the current process confirms cancellation. */
+   class LeaveRequest(val title: String, val confirmLabel: String, val action: () -> Unit)
+   var leaveRequest: LeaveRequest? by mutableStateOf(null)
+      private set
+
+   fun dismissLeave() { if(qViewModel.activeProcessViewModel?.cancelling != true) leaveRequest = null }
+
+   fun requestLeave(title: String, confirmLabel: String = "Leave process", alwaysConfirm: Boolean = false, action: () -> Unit)
+   {
+      if(leaveRequest != null || qViewModel.logoutInProgress) return
+      val process = qViewModel.activeProcessViewModel
+      if(alwaysConfirm || process != null && !process.getNoMoreSteps())
+         leaveRequest = LeaveRequest(title, confirmLabel, action)
+      else finishLeave(action)
+   }
+
+   fun confirmLeave()
+   {
+      val request = leaveRequest ?: return
+      val process = qViewModel.activeProcessViewModel
+      if(process?.navigationBlockReason() != null || process?.cancelling == true) return
+      finishLeave(request.action)
+   }
+
+   private fun finishLeave(action: () -> Unit)
+   {
+      val process = qViewModel.activeProcessViewModel
+      if(process != null && !process.getNoMoreSteps())
+      {
+         process.closeProcessCallback = {
+            qViewModel.activeProcessViewModel = null
+            leaveRequest = null
+            action()
+         }
+         process.cancel()
       }
+      else
+      {
+         qViewModel.activeProcessViewModel = null
+         leaveRequest = null
+         action()
+      }
+   }
+
+   fun requestSignOut() = requestLeave("Sign out?", "Sign out", alwaysConfirm = true) { qViewModel.requestLogout() }
+
+   private val destinationListener = NavController.OnDestinationChangedListener { controller, _, _ -> reconcile(controller) }
+   var navController: NavHostController? = null
+      set(value)
+      {
+         if(field === value) return
+         field?.removeOnDestinationChangedListener(destinationListener)
+         field = value
+         value?.addOnDestinationChangedListener(destinationListener)
+         if(value?.currentBackStackEntry == null) clearDestination()
+      }
+
+   init { navController = initialController }
+
+   /** NavController is authoritative, including Android Back and restored controller state. */
+   private fun reconcile(controller: NavController)
+   {
+      val entry = controller.currentBackStackEntry ?: return clearDestination()
+      val instance = (qViewModel.qInstanceLoadState as? LoadState.Success<QInstance>)?.value
+      val processName = if(entry.destination.hasRoute<ProcessRoute>()) entry.toRoute<ProcessRoute>().name else null
+      val appName = if(entry.destination.hasRoute<AppRoute>()) entry.toRoute<AppRoute>().name else
+         if(entry.destination.hasRoute<ProcessRoute>()) entry.toRoute<ProcessRoute>().appName else null
+      atHome = entry.destination.hasRoute<HomeRoute>()
+      navDepth = if(atHome) 0 else 1
+      currentAppName = if(atHome) null else appName
+      val label = entry.savedStateHandle.get<String>("qqqTitle") ?: processName?.let { instance?.processes?.get(it)?.label ?: it }
+         ?: appName?.let { instance?.apps?.get(it)?.label ?: it }
+      titleStack = if(atHome) emptyList() else listOf(label)
+      navigationRevision++
+      qViewModel.topBarStatusText = null
+      qViewModel.activeProcessViewModel?.let { process ->
+         if(process.processName != processName)
+         {
+            process.reset()
+            qViewModel.activeProcessViewModel = null
+         }
+      }
+   }
+
+   private fun clearDestination()
+   {
+      atHome = true
+      navDepth = 0
+      titleStack = emptyList()
+      currentAppName = null
+      navigationRevision++
    }
 
    /***************************************************************************
@@ -66,7 +154,11 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
     ***************************************************************************/
    fun navigateToApp(name: String, label: String)
    {
-      navigateToRoute(AppRoute(name), label)
+      if(currentAppName == name && qViewModel.activeProcessViewModel == null) return
+      requestLeave("Switch app?") {
+         homeNow()
+         navigateToRoute(AppRoute(name), label)
+      }
    }
 
    /***************************************************************************
@@ -76,6 +168,7 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
     ***************************************************************************/
    fun navigateToProcess(name: String, label: String, processViewModel: ProcessViewModel)
    {
+      if(qViewModel.activeProcessViewModel != null || leaveRequest != null) return
       processViewModel.reset()
       processViewModel.qqqRepository = qViewModel.qqqRepository
       processViewModel.qInstance = (qViewModel.qInstanceLoadState as LoadState.Success<QInstance>).value
@@ -86,14 +179,14 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
       processViewModel.closeProcessCallback =
          {
             qViewModel.activeProcessViewModel = null
-            this.popStack()
+            navController?.popBackStack()
          }
 
       processViewModel.doInit()
 
       qViewModel.activeProcessViewModel = processViewModel
 
-      navigateToRoute(ProcessRoute(name), label)
+      navigateToRoute(ProcessRoute(name, currentAppName), label)
    }
 
    /***************************************************************************
@@ -101,14 +194,11 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
     ***************************************************************************/
    private fun navigateToRoute(route: Any, label: String)
    {
-      navDepth++
-      atHome = false
-
-      val titleStackMutation = titleStack.toMutableList()
-      titleStackMutation.add(label)
-      titleStack = titleStackMutation
-
-      navController?.navigate(route)
+      navController?.let { controller ->
+         controller.navigate(route)
+         controller.currentBackStackEntry?.savedStateHandle?.set("qqqTitle", label)
+         reconcile(controller)
+      }
    }
 
    /***************************************************************************
@@ -116,22 +206,9 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
     ***************************************************************************/
    fun popStack()
    {
-      qViewModel.activeProcessViewModel?.let { it.cancel(); return }
-      navDepth--
-      if(navController?.popBackStack() != true)
-      {
-         navController?.navigate(HomeRoute)
-         navDepth = 0
-      }
-
-      val titleStackMutation = titleStack.toMutableList()
-      titleStackMutation.removeAt(titleStackMutation.size - 1)
-      titleStack = titleStackMutation
-
-      if(navDepth <= 0)
-      {
-         atHome = true
-      }
+      if(atHome) return
+      val title = titleStack.lastOrNull() ?: "process"
+      requestLeave("Leave $title?") { navController?.popBackStack() }
    }
 
    /***************************************************************************
@@ -141,17 +218,22 @@ class QNavigator(var navController: NavHostController?, val qViewModel: QViewMod
    {
       if(!cancelActiveProcess)
       {
+         leaveRequest = null
          qViewModel.activeProcessViewModel?.reset()
          qViewModel.activeProcessViewModel = null
-      }
-      qViewModel.activeProcessViewModel?.let { process ->
-         process.closeProcessCallback = { qViewModel.activeProcessViewModel = null; goHome() }
-         process.cancel()
+         homeNow()
          return
       }
-      while(!atHome)
-      {
-         popStack()
+      requestLeave("Return to Apps?") { homeNow() }
+   }
+
+   private fun homeNow()
+   {
+      navController?.let { controller ->
+         if(!controller.popBackStack<HomeRoute>(inclusive = false) && !atHome)
+         {
+            controller.navigate(HomeRoute) { popUpTo(controller.graph.id) { inclusive = true } }
+         }
       }
    }
 

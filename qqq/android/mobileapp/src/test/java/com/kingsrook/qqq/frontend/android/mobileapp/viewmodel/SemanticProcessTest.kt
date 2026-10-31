@@ -4,6 +4,8 @@ package com.kingsrook.qqq.frontend.android.mobileapp.viewmodel
 import com.kingsrook.qqq.frontend.android.core.model.metadata.*
 import com.kingsrook.qqq.frontend.android.core.model.processes.ProcessMetaDataAdjustment
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobComplete
+import com.kingsrook.qqq.frontend.android.core.model.widgets.WidgetBlock
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.evaluateWidgetBlocks
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -55,6 +57,57 @@ class SemanticProcessTest
       assertFalse(expected.matches(mapOf("eventId" to "scan-1")))
       assertTrue(expected.matches(mapOf("acknowledgedEventId" to "scan-1")))
       assertTrue(ProcessAcknowledgment("savedRequest", "request-1").matches(mapOf("savedRequest" to "request-1")))
+   }
+
+   @Test fun completeReceiptRequiresSuccessAndANonemptyStringIdentity()
+   {
+      val policy = ProcessAcknowledgment("acknowledgedEventId", "scan-1", mapOf("scanSaved" to true), setOf("scanId"))
+      val complete = mapOf("acknowledgedEventId" to "scan-1", "scanSaved" to true, "scanId" to "receipt")
+      assertTrue(policy.matches(complete))
+      for(name in complete.keys) assertFalse(policy.matches(complete - name))
+      for(value in listOf(false, "true", null)) assertFalse(policy.matches(complete + ("scanSaved" to value)))
+      for(value in listOf("", " ", 123, null)) assertFalse(policy.matches(complete + ("scanId" to value)))
+   }
+
+   @Test fun explicitNullDoesNotUseTheDefault()
+   {
+      val defaulted = field.copy(defaultValue = "default")
+      assertEquals("default", semanticInitialValue(defaulted, emptyMap()))
+      assertNull(semanticInitialValue(defaulted, mapOf(field.name to null)))
+      assertEquals("entered", semanticInitialValue(defaulted, mapOf(field.name to "entered")))
+   }
+
+   @Test fun widgetInputMetadataUsesTypedSupportAndRejectsUnsupportedFields()
+   {
+      fun screen(metadata: Map<String, Any?>) = step.copy(components = listOf(QFrontendComponent(QComponentType.WIDGET,
+         mapOf("isAdHocWidget" to true, "blocks" to listOf(mapOf("blockType" to "INPUT_FIELD", "values" to mapOf("fieldMetaData" to metadata)))))))
+      val metadata = mapOf("name" to "quantity", "label" to "Quantity", "type" to "INTEGER", "isRequired" to true)
+      assertNull(SemanticProcess.unsupported(screen(metadata), emptyMap(), null, emptySet()))
+      assertEquals(QFieldType.INTEGER, SemanticProcess.widgetInputFields(screen(metadata), emptyMap()).single().type)
+      for(type in listOf("FUTURE", "BLOB", "BOOLEAN")) assertNotNull(SemanticProcess.unsupported(screen(metadata + ("type" to type)), emptyMap(), null, emptySet()))
+      assertNotNull(SemanticProcess.unsupported(screen(metadata - "type"), emptyMap(), null, emptySet()))
+      assertNotNull(SemanticProcess.unsupported(screen(metadata + ("possibleValueSourceName" to "remote")), emptyMap(), null, emptySet()))
+      assertNull(SemanticProcess.unsupported(screen(metadata + mapOf("isHidden" to true, "type" to "FUTURE")), emptyMap(), null, emptySet()))
+   }
+
+   @Test fun conditionalWidgetInputsMatchTheRenderedFields()
+   {
+      val input = mapOf("blockType" to "INPUT_FIELD", "blockId" to "input", "values" to mapOf(
+         "fieldMetaData" to mapOf("name" to "code", "label" to "Code", "type" to "STRING", "isRequired" to true)))
+      val composite = mapOf("blockType" to "COMPOSITE", "blockId" to "group", "conditional" to "showCode", "subBlocks" to listOf(input))
+      val screen = step.copy(components = listOf(QFrontendComponent(QComponentType.WIDGET,
+         mapOf("isAdHocWidget" to true, "blocks" to listOf(composite)))))
+      for(value in listOf(null, "", false, true, "yes"))
+      {
+         val values = mutableMapOf<String, Any?>("showCode" to value)
+         val rendered = mutableListOf(WidgetBlock.fromMap(composite)!!)
+         evaluateWidgetBlocks(rendered, values)
+         val expectedCount = if(value == true || value == "yes") 1 else 0
+         assertEquals(expectedCount, rendered.size)
+         assertEquals(expectedCount, SemanticProcess.widgetInputFields(screen, values).size)
+         val named = screen.copy(components = listOf(QFrontendComponent(QComponentType.WIDGET, mapOf("widgetName" to "named"))))
+         assertEquals(expectedCount, SemanticProcess.widgetInputFields(named, values + ("named" to mapOf("subBlocks" to listOf(composite)))).size)
+      }
    }
 
    @Test fun fieldChangesApplyWithoutReplacingStepList()

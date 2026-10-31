@@ -5,56 +5,54 @@
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
 package com.kingsrook.qqq.frontend.android.mobileapp.ui.processes
 
 import android.content.Context
+import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.ToneGenerator
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.DisposableEffectResult
-import androidx.compose.runtime.DisposableEffectScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QComponentType
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
-import com.kingsrook.qqq.frontend.android.core.model.metadata.QProcessMetaData
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobComplete
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobError
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobRunning
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobStarted
-import com.kingsrook.qqq.frontend.android.mobileapp.R
-import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentEditForm
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentViewForm
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentHTML
@@ -83,31 +81,24 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
    }
 
    val processMetaDataLoadState = processViewModel.processMetaDataLoadState
-   BackHandler { processViewModel.cancel() }
+   BackHandler { qViewModel.qNavigator.popStack() }
    val initLoadState = processViewModel.initLoadState
    val topLevelErrorState = processViewModel.topLevelErrorState
    val loadStates = listOf(processMetaDataLoadState, initLoadState, topLevelErrorState)
 
-   val context = LocalContext.current
-   var mediaPlayer: MediaPlayer? = null
+   val playSubmitSound = rememberProcessSound(ProcessTone.SUBMIT)
    processViewModel.onSubmitCallback =
       {
          val format = FrontendStepFormat.of(processViewModel.activeStep?.format)
          if(format.playOnSubmitSound())
          {
-            if(mediaPlayer == null)
-            {
-               mediaPlayer = createMediaPlayer(context, R.raw.boop1)
-            }
-            mediaPlayer?.start()
+             playSubmitSound()
          }
       }
 
    //////////////////////////////////////////////////////////////
    // try to remove the media player when the screen goes away //
    //////////////////////////////////////////////////////////////
-   val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
-   DisposableEffect(lifecycleOwner, disposeMediaPlayer(mediaPlayer, lifecycleOwner))
 
    ///////////////////////////////////////////////////////////////////////////////////////////
    // in case the init job has gone async - this LaunchedEffect will make us check in on it //
@@ -121,13 +112,13 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
       }
    }
 
-   Column()
+   Column(modifier.fillMaxSize())
    {
       LoadStateView(
          loadStates,
-         modifier = Modifier,
-         reloader = if(processViewModel.pendingStepValues != null)
-            com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Reloader("Retry same request", { processViewModel.retryPendingStep() }) else null,
+          modifier = Modifier.weight(1f),
+          reloader = processViewModel.retryLabel()?.let { label ->
+             com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Reloader(label, { processViewModel.retryPendingStep() }) },
          loadingText = "Loading Process"
       )
       {
@@ -164,7 +155,7 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
       }
       if(LoadState.areAnyErrors(loadStates) || LoadState.areAnyLoading(loadStates))
       {
-         Button(onClick = processViewModel::cancel, enabled = !processViewModel.cancelling) { Text("Cancel") }
+         Button(onClick = processViewModel::requestClose, enabled = !processViewModel.cancelling) { Text("Cancel") }
       }
    }
 }
@@ -177,10 +168,10 @@ fun ProcessFrontendStepView(processViewModel: ProcessViewModel, qInstance: QInst
 {
    val format = FrontendStepFormat.of(processViewModel.activeStep?.format)
 
-   Box()
+   Column(modifier.fillMaxSize().imePadding())
    {
       Column(
-         modifier = modifier
+         modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
             .padding(if(format.doesScreenGetPadding()) 8.dp else 0.dp)
             .zIndex(1f)
       )
@@ -206,10 +197,10 @@ fun ProcessFrontendStepView(processViewModel: ProcessViewModel, qInstance: QInst
 
          processViewModel.unsupportedReason()?.takeUnless { processViewModel.getNoMoreSteps() }?.let { Text(it, color = Colors.ERROR) }
          processViewModel.submissionError?.let { Text(it, color = Colors.ERROR) }
-         if(format.areStandardFooterButtonsDisplayed() || processViewModel.unsupportedReason() != null || processViewModel.getNoMoreSteps())
-         {
-            ProcessBottomButtons(processViewModel)
-         }
+      }
+      if(format.areStandardFooterButtonsDisplayed() || processViewModel.unsupportedReason() != null || processViewModel.getNoMoreSteps())
+      {
+         ProcessBottomButtons(processViewModel)
       }
    }
 }
@@ -228,16 +219,27 @@ fun createMediaPlayer(context: Context, resourceId: Int): MediaPlayer?
  **
  ***************************************************************************/
 @Composable
-fun disposeMediaPlayer(mediaPlayer: MediaPlayer?, lifecycleOwner: LifecycleOwner): DisposableEffectScope.() -> DisposableEffectResult
+internal fun rememberProcessSound(tone: ProcessTone): () -> Unit
 {
-   var mediaPlayer1 = mediaPlayer
-   return {
+   val lifecycleOwner = LocalLifecycleOwner.current
+   val sound = remember(tone)
+   {
+      ProcessSound {
+         val generator = ToneGenerator(AudioManager.STREAM_MUSIC, 50)
+         object : ProcessSound.Playback
+         {
+            override fun start() { generator.startTone(tone.platformType, tone.durationMs) }
+            override fun release() = generator.release()
+         }
+      }
+   }
+   DisposableEffect(lifecycleOwner, sound)
+   {
       val observer = LifecycleEventObserver()
       { _, event ->
          if(event == Lifecycle.Event.ON_STOP)
          {
-            mediaPlayer1?.release()
-            mediaPlayer1 = null
+            sound.release()
          }
       }
 
@@ -246,9 +248,21 @@ fun disposeMediaPlayer(mediaPlayer: MediaPlayer?, lifecycleOwner: LifecycleOwner
       onDispose()
       {
          lifecycleOwner.lifecycle.removeObserver(observer)
-         mediaPlayer1?.release()
-         mediaPlayer1 = null
+         sound.release()
       }
    }
+   return {
+      if(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+      {
+         sound.play()
+      }
+   }
+}
+
+/** Platform-generated feedback avoids redistributing recordings of unknown origin. */
+internal enum class ProcessTone(val platformType: Int, val durationMs: Int)
+{
+   SUBMIT(ToneGenerator.TONE_PROP_ACK, 80),
+   LOADING(ToneGenerator.TONE_PROP_BEEP, 25)
 }
 

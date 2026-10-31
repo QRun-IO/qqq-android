@@ -7,6 +7,30 @@ Licensed under the Apache License, Version 2.0.
 
 ================================================================================
 
+Material Design icons by Google
+
+The 2,142 vector resources in qqq/android/mobileapp/src/main/res/drawable
+use Material Design icon artwork from Google, licensed under Apache-2.0:
+https://github.com/google/material-design-icons
+Pinned upstream revision: d7a78a2ad434d5d38e1b8708c9dd9847cc3ada9b
+
+QQQ Android integration modifications include Android resource names, dimensions,
+and fill/tint presentation. Each resource's drawing path data matches its pinned
+upstream source. The loading and unavailable-network illustrations use the
+upstream hourglass_empty and wifi_off icons, respectively.
+
+See docs/material-icons-provenance.json for the complete resource-to-source
+mapping, SHA-256 hashes, and final styling. The upstream license is retained in
+docs/third-party/material-design-icons-LICENSE.txt.
+
+Project copyright statements cover project integration/modifications and do not
+replace Google's original artwork attribution. Dependency and embedded-data
+notices are included in the application's Open-source licenses settings and its
+matching generated distribution report. This repository notice supplements that
+report; it is not a complete dependency inventory by itself.
+
+================================================================================
+
 Trademarks:
 
 QQQ, qBits, qRun, qStudio, and the QRunIO logo are trademarks of QRunIO, LLC.

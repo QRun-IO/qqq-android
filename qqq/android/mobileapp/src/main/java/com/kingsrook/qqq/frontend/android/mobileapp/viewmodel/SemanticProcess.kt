@@ -1,9 +1,17 @@
 /* Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 */
 package com.kingsrook.qqq.frontend.android.mobileapp.viewmodel
 
-import com.kingsrook.qqq.frontend.android.core.model.metadata.*
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QComponentType
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFieldMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFieldType
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendComponent
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendStepMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
 import com.kingsrook.qqq.frontend.android.core.model.processes.ProcessMetaDataAdjustment
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobComplete
+import com.kingsrook.qqq.frontend.android.core.model.MapStringAny
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /** Semantic decisions shared by the native UI and the submission boundary. */
 internal object SemanticProcess
@@ -66,6 +74,47 @@ internal object SemanticProcess
       val block = raw as? Map<*, *> ?: return@all false
       val type = block["blockType"] as? String ?: return@all false
       type in (setOf("AUDIO", "BUTTON", "COMPOSITE", "DIVIDER", "IMAGE", "INPUT_FIELD", "TEXT") + customBlocks) &&
+         (type != "INPUT_FIELD" || inputField(block["values"] as? Map<*, *>)?.let { it.isHidden || supportedWidgetInput(it) } == true) &&
          ((block["subBlocks"] as? List<*>)?.let { supportedBlocks(it, customBlocks) } ?: true)
+   }
+
+   /** INPUT_FIELD uses the same typed field metadata as forms; malformed metadata fails closed. */
+   fun inputField(values: Map<*, *>?): QFieldMetaData?
+   {
+      val raw = values?.get("fieldMetaData") as? Map<*, *> ?: return null
+      if(raw.keys.any { it !is String }) return null
+      val fields = raw.entries.associate { it.key as String to it.value }
+      return runCatching {
+         Json { ignoreUnknownKeys = true }.decodeFromString<QFieldMetaData>(Json.encodeToString(MapStringAny(fields)))
+      }.getOrNull()?.takeIf { it.name.isNotBlank() }
+   }
+
+   /** Specialized selectors require EDIT_FORM until the widget vocabulary has a native control. */
+   fun supportedWidgetInput(field: QFieldMetaData): Boolean = field.type !in setOf(QFieldType.UNKNOWN, QFieldType.BLOB, QFieldType.BOOLEAN) &&
+      field.possibleValueSourceName == null && field.inlinePossibleValueSource.isNullOrEmpty()
+
+   fun widgetVisible(conditional: String?, values: Map<String, Any?>): Boolean = conditional == null ||
+      values[conditional].let { it != null && it != "" && it != false }
+
+   /** Collect widget inputs at submission time as well as render time, so raw callbacks cannot bypass field rules. */
+   fun widgetInputFields(step: QFrontendStepMetaData?, values: Map<String, Any?>): List<QFieldMetaData>
+   {
+      val fields = mutableListOf<QFieldMetaData>()
+      fun visit(blocks: List<*>)
+      {
+         for(raw in blocks)
+         {
+            val block = raw as? Map<*, *> ?: continue
+            if(!widgetVisible(block["conditional"] as? String, values)) continue
+            if(block["blockType"] == "INPUT_FIELD") inputField(block["values"] as? Map<*, *>)?.let { fields.add(it) }
+            (block["subBlocks"] as? List<*>)?.let(::visit)
+         }
+      }
+      step?.components.orEmpty().filter { it.type == QComponentType.WIDGET }.forEach { component ->
+         val blocks = if(component.values["isAdHocWidget"] == true) component.values["blocks"] as? List<*>
+            else (component.values["widgetName"] as? String)?.let { (values[it] as? Map<*, *>)?.get("subBlocks") as? List<*> }
+         blocks?.let(::visit)
+      }
+      return fields
    }
 }

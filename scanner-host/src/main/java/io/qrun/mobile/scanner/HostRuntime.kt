@@ -50,7 +50,7 @@ internal fun useBlackOnPrimary(hex: String): Boolean
    return (luminance + 0.05) / 0.05 >= 1.05 / (luminance + 0.05)
 }
 
-internal enum class DiagnosticCode { COMPATIBILITY_RESPONSE, COMPATIBILITY_FAILED, BRAND_LOADED, BRAND_DEFAULT, LOGO_LOADED, LOGO_UNAVAILABLE, CONNECTION_OK, CONNECTION_FAILED, NATIVE_RESPONSE, NATIVE_TRANSPORT_FAILED, DEVICE_RESPONSE, DEVICE_TRANSPORT_FAILED }
+internal enum class DiagnosticCode { COMPATIBILITY_RESPONSE, COMPATIBILITY_FAILED, BRAND_LOADED, BRAND_DEFAULT, LOGO_LOADED, LOGO_UNAVAILABLE, CONNECTION_OK, CONNECTION_FAILED, NATIVE_RESPONSE, NATIVE_TRANSPORT_FAILED, DEVICE_RESPONSE, DEVICE_TRANSPORT_FAILED, SESSION_RESPONSE, SESSION_TRANSPORT_FAILED }
 internal data class DiagnosticEvent(val time: Instant, val code: DiagnosticCode, val httpStatus: Int?, val elapsedMillis: Long)
 
 /** No free-form messages: raw responses, URLs, credentials, and barcode data cannot enter this log. */
@@ -67,6 +67,7 @@ internal class DiagnosticLog(private val capacity: Int = 100)
 
    fun nativeRequest(outcome: RequestOutcome) = record(if(outcome.httpStatus == null) DiagnosticCode.NATIVE_TRANSPORT_FAILED else DiagnosticCode.NATIVE_RESPONSE, outcome.httpStatus, outcome.elapsedMillis)
    fun deviceRequest(outcome: RequestOutcome) = record(if(outcome.httpStatus == null) DiagnosticCode.DEVICE_TRANSPORT_FAILED else DiagnosticCode.DEVICE_RESPONSE, outcome.httpStatus, outcome.elapsedMillis)
+   fun sessionRequest(outcome: RequestOutcome) = record(if(outcome.httpStatus == null) DiagnosticCode.SESSION_TRANSPORT_FAILED else DiagnosticCode.SESSION_RESPONSE, outcome.httpStatus, outcome.elapsedMillis)
 }
 
 /** Dedicated unauthenticated client with no cookie jar, redirects, or disk cache. */

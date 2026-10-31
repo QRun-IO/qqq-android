@@ -5,40 +5,29 @@
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
 package com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendComponent
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
@@ -47,117 +36,33 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Colors
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBlockComposable
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBlockParameters
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
+import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.SemanticProcess
 
 /***************************************************************************
  ** process-component to render a widget
  ***************************************************************************/
-@OptIn(ExperimentalFoundationApi::class) // for stickyHeader
 @Composable
 fun ProcessComponentWidget(processViewModel: ProcessViewModel, qInstance: QInstance, component: QFrontendComponent, disableControls: Boolean = false)
 {
    val state = remember(processViewModel.stepInstanceCounter, component) { determineState(processViewModel, qInstance, component) }
 
-   //////////////////////////////////////
-   // initially set footer height to 0 //
-   //////////////////////////////////////
-   val fixedFooterHeight = remember { mutableStateOf(0.dp) }
-   val density = LocalDensity.current
-
-   /***************************************************************************
-    ** when a control needs to call back (e.g., to submit or whatever), it
-    ** goes through this function
-    ***************************************************************************/
-   fun actionCallback(eventValues: Map<String, Any>)
+   // The process owns vertical scrolling so widgets and forms share one viewport.
+   Column(Modifier.fillMaxWidth())
    {
-      processViewModel.actionCallback(eventValues)
-   }
-
-   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-   // box to wrap the lazyColumn (which has a built-in stickyHeader) and a manual sticky footer we'll put below it //
-   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-   val boxModifier = if(state.needFullHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
-   Box(modifier = boxModifier)
-   {
-      LazyColumn(Modifier)
-      {
-         ////////////////////////////////////////////
-         // do the sticky header blocks, if needed //
-         ////////////////////////////////////////////
-         if(state.headerBlockList.isNotEmpty())
-         {
-            stickyHeader()
-            {
-               ////////////////////////////////////////////////////////////////
-               // add a surface - i think it was so body would scroll behind //
-               ////////////////////////////////////////////////////////////////
-               Surface()
-               {
-                  state.headerBlockList.forEach()
-                  { widgetBlock ->
-                     WidgetBlockComposable(WidgetBlockParameters(widgetBlock, ::actionCallback, processViewModel.qViewModel, processViewModel.processValues), disableControls = disableControls, modifier = Modifier)
-                  }
-               }
-            }
-         }
-
-         ////////////////////////
-         // do the body blocks //
-         ////////////////////////
-         items(items = state.bodyBlockList)
-         { widgetBlock ->
-            WidgetBlockComposable(WidgetBlockParameters(widgetBlock, ::actionCallback, processViewModel.qViewModel, processViewModel.processValues), disableControls = disableControls, modifier = Modifier)
-         }
-
-         items(items = state.warningStrings)
-         {
-            Text(it, color = Colors.WARNING, modifier = Modifier.padding(8.dp))
-         }
-
-         item()
-         {
-            ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            // the fixed-footer - will cover the bottom portion of this column - so, put a box here equal to its height, to scroll behind it //
-            ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            Box(Modifier.padding(bottom = fixedFooterHeight.value))
-         }
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // outside of the scrolling lazyColumn, do a manual sticky footer, if needed                              //
-      // credit: https://dev.to/theplebdev/creating-a-quick-sticky-footer-for-lazycolumn-in-jetpack-compose-237 //
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      if(state.footerBlockList.isNotEmpty())
-      {
-         Column(modifier = Modifier
-            .fillMaxWidth()
-            .align(Alignment.BottomCenter)
-            .onGloballyPositioned()
-            {
-               /////////////////////////////////////////////////////////////////////////
-               // capture the footer's height, to fix scrolling of the body behind it //
-               /////////////////////////////////////////////////////////////////////////
-               fixedFooterHeight.value = with(density)
-               {
-                  it.size.height.toDp()
-               }
-            }
+      (state.headerBlockList + state.bodyBlockList + state.footerBlockList).forEach()
+      { widgetBlock ->
+         WidgetBlockComposable(
+            WidgetBlockParameters(widgetBlock, processViewModel::actionCallback, processViewModel.qViewModel, processViewModel.processValues),
+            disableControls = disableControls,
+            modifier = Modifier,
          )
-         {
-            ///////////////////////////////////////////
-            // surface, for background and solidness //
-            ///////////////////////////////////////////
-            Surface()
-            {
-               state.footerBlockList.forEach()
-               { widgetBlock ->
-                  WidgetBlockComposable(WidgetBlockParameters(widgetBlock, ::actionCallback, processViewModel.qViewModel, processViewModel.processValues), disableControls = disableControls, modifier = Modifier)
-               }
-            }
-         }
+      }
+      state.warningStrings.forEach()
+      { warning ->
+         Text(warning, color = Colors.WARNING, modifier = Modifier.padding(8.dp))
       }
    }
 }
-
 
 /***************************************************************************
  ** container for the state within this widget
@@ -206,7 +111,6 @@ private fun determineState(processViewModel: ProcessViewModel, qInstance: QInsta
          warningStrings.add("Widget blocks was not an expected type.")
       }
 
-      evaluateWidgetBlocks(widgetBlockList, processViewModel.processValues)
    }
    else if(component.values["widgetName"] != null)
    {
@@ -259,6 +163,7 @@ private fun determineState(processViewModel: ProcessViewModel, qInstance: QInsta
    // split into body & footer lists                                                      //
    // todo no no, this should be done based on some attribute in the widget/blocks/etc... //
    /////////////////////////////////////////////////////////////////////////////////////////
+   evaluateWidgetBlocks(widgetBlockList, processViewModel.processValues)
    bodyBlockList.addAll(widgetBlockList)
    /*
    if(bodyBlockList.size > 2)
@@ -285,14 +190,10 @@ fun evaluateWidgetBlocks(widgetBlockList: MutableList<WidgetBlock>, processValue
       ////////////////////////////////////////////////////////////////////
       // if the block has a conditional, evaluate, and remove if untrue //
       ////////////////////////////////////////////////////////////////////
-      if(widgetBlock.conditional != null)
+      if(!SemanticProcess.widgetVisible(widgetBlock.conditional, processValues))
       {
-         val value = processValues[widgetBlock.conditional]
-         if(value == null || value == "" || value == false)
-         {
-            iterator.remove()
-            continue
-         }
+         iterator.remove()
+         continue
       }
 
       if(widgetBlock.blockType == "COMPOSITE")

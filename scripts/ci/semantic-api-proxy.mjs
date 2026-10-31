@@ -27,8 +27,12 @@ export async function startSemanticApiProxy(origin) {
          android: String(incoming.headers['x-qqq-client'] ?? '').startsWith('android/'),
       };
       calls.push(call);
+      const started = Date.now();
       const upstream = request(new URL(incoming.url, origin), { method: incoming.method, headers: incoming.headers }, (result) => {
          call.status = result.statusCode;
+         call.responseBytes = 0;
+         result.on('data', (chunk) => { call.responseBytes += chunk.length; });
+         result.on('end', () => { call.elapsedMillis = Date.now() - started; call.completed = true; });
          if (path === '/qqq/v1/version' && mode !== 'compatible') {
             const chunks = [];
             result.on('data', (chunk) => chunks.push(chunk));
@@ -66,8 +70,8 @@ export async function startSemanticApiProxy(origin) {
    return {
       port: proxy.address().port,
       setMode(value) { mode = value; calls = []; },
-      evidence() { return calls.map(({ method, operationId, credentials, android, status }) => ({ method, operationId, credentials, android, status })); },
-      verify(compatible, requireCancel = false) {
+      evidence() { return calls.map(({ method, operationId, credentials, android, status, responseBytes, elapsedMillis, completed }) => ({ method, operationId, credentials, android, status, responseBytes, elapsedMillis, completed })); },
+      verify(compatible, requireCancel = false, requireSession = false, requirePhotos = false) {
          if (!calls.length || calls[0].path !== '/qqq/v1/version' || calls[0].credentials) throw new Error('Native startup must discover compatibility before sending credentials or other requests.');
          if (calls.some((call) => !call.operationId)) throw new Error('Native flow made a request outside the published semantic API contract.');
          if (!compatible && calls.some((call) => call.path !== '/qqq/v1/version' || call.credentials)) throw new Error('An incompatible server received requests beyond public version discovery.');
@@ -78,6 +82,27 @@ export async function startSemanticApiProxy(origin) {
          }
          if (requireCancel && !calls.some((call) => call.android && call.method === 'POST' && call.path.endsWith('/cancel'))) {
             throw new Error('Native process cancellation did not reach the semantic API.');
+         }
+         if (requireSession) {
+            for (const path of ['/qqq/v1/qbit/mobile-scanners/sessions/heartbeat', '/qqq/v1/qbit/mobile-scanners/sessions/current/screen', '/qqq/v1/qbit/mobile-scanners/sessions/current/end']) {
+               if (!calls.some((call) => call.path === path && call.android)) throw new Error(`Missing native session operation: ${path}`);
+            }
+         }
+         if (requirePhotos) {
+            for (const [method, path] of [
+               ['GET', '/qqq/v1/qbit/mobile-record-files/contract'],
+               ['GET', '/qqq/v1/qbit/record-files/capabilities'],
+               ['POST', '/qqq/v1/qbit/record-files/uploads'],
+               ['PUT', '/qqq/v1/qbit/record-files/uploads/{uploadId}/items/{itemId}/chunks/{chunkIndex}'],
+               ['POST', '/qqq/v1/qbit/record-files/uploads/{uploadId}/finalize'],
+            ]) {
+               if (!calls.some(call => call.method === method && call.path === path && call.android && call.status >= 200 && call.status < 300)) {
+                  throw new Error(`Missing successful native photo operation: ${method} ${path}`);
+               }
+            }
+            if (calls.some(call => call.path === '/qqq/v1/qbit/mobile-record-files/contract' && call.credentials)) {
+               throw new Error('Photo vocabulary discovery must not carry credentials.');
+            }
          }
          return { mode, requests: calls.length, operations: [...new Set(calls.map((call) => call.operationId))].sort(), documentedRequests: calls.length };
       },

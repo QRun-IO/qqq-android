@@ -24,14 +24,14 @@ fun ProcessBottomButtons(processViewModel: ProcessViewModel)
    {
       val noMoreSteps = processViewModel.getNoMoreSteps()
 
-      Button(onClick = processViewModel::cancel, enabled = !processViewModel.cancelling, modifier = Modifier.requiredWidth(100.dp))
+      Button(onClick = processViewModel::requestClose, enabled = !processViewModel.cancelling, modifier = Modifier.requiredWidth(100.dp))
       {
          Text(if(noMoreSteps) "Close" else "Cancel")
       }
 
       if(!noMoreSteps)
       {
-         Button(onClick = { processViewModel.runStep() }, enabled = !processViewModel.waitingOnBackend && !processViewModel.cancelling && processViewModel.unsupportedReason() == null, modifier = Modifier.requiredWidth(100.dp))
+         Button(onClick = { processViewModel.runStep() }, enabled = !processViewModel.waitingOnBackend && !processViewModel.cancelling && processViewModel.clientWorkBlockReason == null && processViewModel.unsupportedReason() == null, modifier = Modifier.requiredWidth(100.dp))
          {
             Text(processViewModel.getNextButtonLabel())
          }

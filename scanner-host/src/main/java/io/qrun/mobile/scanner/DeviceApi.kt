@@ -23,6 +23,10 @@ class EnrollmentConflict : IllegalStateException("Registration already exists bu
 class DeviceApi(private val server: String, private val credentials: DeviceCredentials, onRequestOutcome: (RequestOutcome) -> Unit = {},
    private val compatibility: UiApiCompatibility = UiApiCompatibility(server, requireMobileScanners = true))
 {
+   var shortName: String = ""
+      private set
+   var displayName: String = ""
+      private set
    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
       .addInterceptor(RequestOutcomeInterceptor(onRequestOutcome)).build()
 
@@ -47,6 +51,8 @@ class DeviceApi(private val server: String, private val credentials: DeviceCrede
          if(enrolling && response.code == 409) throw EnrollmentConflict()
          if(!response.isSuccessful) throw UiApiException.from(response)
          val body = JSONObject(response.body?.string() ?: error("Empty device response"))
+         shortName = body.optString("shortName").takeUnless { it == "null" }.orEmpty()
+         this@DeviceApi.displayName = body.optString("displayName").takeUnless { it == "null" }.orEmpty()
          if(enrolling) credentials.enroll(body)
          body.getString("status")
       }

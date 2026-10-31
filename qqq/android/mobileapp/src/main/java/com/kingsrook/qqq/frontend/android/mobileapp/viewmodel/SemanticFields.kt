@@ -4,6 +4,10 @@ package com.kingsrook.qqq.frontend.android.mobileapp.viewmodel
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QFieldMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QFieldType
 
+/** A supplied null is an intentional value; defaults apply only to absent fields. */
+internal fun semanticInitialValue(field: QFieldMetaData, values: Map<String, Any?>): Any? =
+   if(values.containsKey(field.name)) values[field.name] else field.defaultValue
+
 internal fun semanticFieldValue(field: QFieldMetaData, raw: Any?): Any?
 {
    if(raw == null || raw == "") return null
