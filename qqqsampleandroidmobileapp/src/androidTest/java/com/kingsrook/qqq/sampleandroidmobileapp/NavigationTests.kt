@@ -37,6 +37,7 @@ class NavigationTests : BaseTest()
 
    private fun hardwareBack()
    {
+      ui.waitForIdle()
       // Dialog dismissal is asynchronous at the Android window layer, even after Compose settles.
       ui.waitUntil(5000) { ui.activity.hasWindowFocus() }
       InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
@@ -52,6 +53,7 @@ class NavigationTests : BaseTest()
       ui.onNodeWithTag("drawer.settings").assertIsDisplayed().performClick()
       ui.onNodeWithText("Close").performClick()
       ui.onNodeWithTag("topBar.menuIcon").performClick()
+      ui.onNodeWithTag("drawer.settings").assertIsDisplayed()
       hardwareBack()
       ui.onNodeWithText("Log In").assertIsDisplayed()
       ui.onNodeWithTag("topBar.apps").assertDoesNotExist()

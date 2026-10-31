@@ -42,6 +42,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -222,7 +223,9 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
       }
       }
       // This is composed after the process content so drawer Back closes only the drawer.
-      BackHandler(enabled = topLevelAppState.navDrawerState.isOpen) { topLevelAppState.closeNavDrawer() }
+      BackHandler(enabled = topLevelAppState.navDrawerState.isOpen || topLevelAppState.navDrawerState.targetValue == DrawerValue.Open) {
+         topLevelAppState.closeNavDrawer()
+      }
       if(settingsOpen.value) MenuDialog(qViewModel, title, settingsOpen)
       if(diagnosticsOpen.value) AlertDialog(onDismissRequest = { diagnosticsOpen.value = false },
          title = { Text("Diagnostics") }, text = { Text("Server: ${qViewModel.environment.baseUrl}\nApplication version: ${QViewModel.applicationVersion}") },

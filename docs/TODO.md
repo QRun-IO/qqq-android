@@ -1,9 +1,8 @@
 # TODO
 
-- [ ] Qualify semantic Authentik/OAuth2 sign-in: API1.9 advertisement and native marker, browser/PKCE/state/prompt, callback/lifecycle/cookie cleanup, new native tests, new dependency notices and actual configured-provider/operator-switch acceptance. See AUTHENTICATION.md.
-
-- [ ] Qualify [semantic OAuth2/Authentik browser authentication](AUTHENTICATION.md): API1.9 native-session advertisement, PKCE callback/lifecycle tests, generated notices, and real configured Authentik acceptance.
-- [ ] Verify the single hamburger drawer correction: no duplicate Apps/Switch app controls, fixed Settings/Diagnostics, prelogin/approval gating, drawer Back preserving drafts, and guarded Home/app switching with exactly one cancellation.
+- [x] Qualify semantic OAuth2 client protocol/policy and generated notices; all seven synthetic browser-result cases and the selected native navigation suite passed on TC22. See [acceptance evidence](NATIVE-AUTH-ACCEPTANCE.md).
+- [ ] Complete actual configured Authentik acceptance: real browser/exported-callback round trip, authorization rotation/process death, and next-operator switching with prior browser SSO. See [authentication deployment](AUTHENTICATION.md).
+- [x] Verify the single hamburger drawer correction: no duplicate Apps/Switch app controls, fixed Settings/Diagnostics, signed-out gating, drawer Back preserving drafts, and guarded Home/app switching with exactly one cancellation.
 
 - [x] Verify persisted device Orientation choices on TC22, including process draft and pending-photo preservation across rotation.
 

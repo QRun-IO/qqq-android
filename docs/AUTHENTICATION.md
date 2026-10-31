@@ -52,7 +52,7 @@ The fresh-login prompt is a request to the provider, not cryptographic proof of 
 
 ## Verification status
 
-Implementation and focused JVM/native tests are being qualified. A real configured Authentik sign-in is a separate acceptance gate from synthetic browser/result tests. It requires a reachable HTTPS QQQ server advertising the descriptor, an explicitly registered callback and an authorized test account. No live provider configuration was changed as part of implementation. New dependency notices must pass the normal generated-notice gates before distribution.
+The combined client passed 102 JVM tests, scanner lint and APK assembly. All 20 selected native navigation/input/account/OAuth cases passed on TC22, including seven synthetic AppAuth request/result scenarios; [the evidence](NATIVE-AUTH-ACCEPTANCE.md) states their boundaries. Generated AppAuth notices were verified in debug/E2E APKs. A real configured Authentik sign-in remains a separate acceptance gate: it requires a reachable HTTPS QQQ server advertising the descriptor, an explicitly registered callback and an authorized test account. No live provider configuration was changed as part of implementation.
 
 Primary references: [AppAuth Android 0.11.1](https://github.com/openid/AppAuth-Android/tree/0.11.1) documents external-browser authorization, PKCE and server-side exchange when a confidential secret is needed. [Authentik OAuth2 provider documentation](https://docs.goauthentik.io/add-secure-apps/providers/oauth2/) documents PKCE, exact redirect registration and global issuer mode.
 
