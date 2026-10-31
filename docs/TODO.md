@@ -1,5 +1,10 @@
 # TODO
 
+- [ ] Qualify semantic Authentik/OAuth2 sign-in: API1.9 advertisement and native marker, browser/PKCE/state/prompt, callback/lifecycle/cookie cleanup, new native tests, new dependency notices and actual configured-provider/operator-switch acceptance. See AUTHENTICATION.md.
+
+- [ ] Qualify [semantic OAuth2/Authentik browser authentication](AUTHENTICATION.md): API1.9 native-session advertisement, PKCE callback/lifecycle tests, generated notices, and real configured Authentik acceptance.
+- [ ] Verify the single hamburger drawer correction: no duplicate Apps/Switch app controls, fixed Settings/Diagnostics, prelogin/approval gating, drawer Back preserving drafts, and guarded Home/app switching with exactly one cancellation.
+
 - [x] Verify persisted device Orientation choices on TC22, including process draft and pending-photo preservation across rotation.
 
 - [x] Implement and verify [navigation UX](NAVIGATION-UX.md): primary Apps/app/process navigation, secondary Account/Settings/diagnostics, shared Back/leave policy, protected in-flight operations and sign-out lifecycle.
@@ -19,7 +24,7 @@
 - [ ] Verify release APK signing/distribution separately; current deliverable is a debug APK.
 - [x] Reconcile exact historical project-owned source license boilerplate and the IDE template with the existing Apache-2.0 migration; preserve copyright ownership and other notices.
 - [ ] Verify third-party asset/dependency attribution and signed release/upgrade delivery before production distribution.
-- [ ] Configure/test production identity-provider integration if selected; version one deliberately supports TABLE_BASED sign-in only and rejects other providers with a clear message.
+- [ ] Configure and test production identity-provider integration; TABLE_BASED remains supported, and native OAuth2 requires explicit server advertisement and callback registration.
 - [x] Implement public `/qqq/v1/version` compatibility checks before credentials or native screens, including required features and the registered mobile-scanners extension.
 - [x] Implement semantic process completion, field/step updates, editable/view forms, backend cancellation and explicit unsupported-component blocking.
 - [x] Verify semantic migration JVM suites: 53 tests passed (core 21/mobileapp 23/scanner 9), including hidden fields, explicit null clearing, generic event ID isolation and completion when the server omits `nextStep`.

@@ -92,14 +92,15 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
                .addInterceptor(RequestOutcomeInterceptor { requestObserver(it) })
                .addInterceptor { chain ->
                   val request = chain.request().newBuilder()
-                  sessionUUIDs[baseUrl]?.takeIf { it.isNotBlank() }?.let { request.header("Cookie", "sessionUUID=$it") }
+                  val deferredSession = chain.request().tag(DeferredSessionCookie::class.java) != null
+                  if(!deferredSession) sessionUUIDs[baseUrl]?.takeIf { it.isNotBlank() }?.let { request.header("Cookie", "sessionUUID=$it") }
                   additionalHeaders(baseUrl).forEach { (name, value) -> request.header(name, value) }
                   request.header("X-QQQ-Client", ANDROID_CLIENT)
                   request.header("X-QQQ-UserTimezone", TimeZone.getDefault().toZoneId().toString())
                   val response = chain.proceed(request.build())
                   response.headers("Set-Cookie").forEach { header ->
                      Cookie.parse(response.request.url, header)?.let { cookie ->
-                        if(cookie.name == "sessionUUID" && cookie.matches(response.request.url))
+                        if(!deferredSession && cookie.name == "sessionUUID" && cookie.matches(response.request.url))
                         {
                            sessionUUIDs[baseUrl] = cookie.value
                         }
@@ -136,6 +137,36 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
    override suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse
    {
       return resolveSession(qqqApiServiceMap[baseUrl]!!.manageSession(body))
+   }
+
+   override suspend fun verifyNativeSessionLogin() = verifyNativeSessionLoginAt(baseUrl)
+
+   private suspend fun verifyNativeSessionLoginAt(server: String) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO)
+   {
+      val version = compatibilityByServer.getOrPut(server) {
+         compatibility?.takeIf { it.server == server } ?: UiApiCompatibility(server, observer = { requestObserver(it) })
+      }.verify()
+      UiApiCompatibility.validateNativeSessionLogin(version)
+   }
+
+   override suspend fun exchangeNativeSession(body: ManageSessionRequest): ManageSessionResponse
+   {
+      val server = baseUrl
+      val service = requireNotNull(qqqApiServiceMap[server])
+      verifyNativeSessionLoginAt(server)
+      val response = service.exchangeNativeSession(body, DeferredSessionCookie())
+      val result = response.body() ?: throw IllegalStateException("Sign-in response did not establish a session")
+      val requestUrl = response.raw().request.url
+      val cookie = response.headers().values("Set-Cookie").mapNotNull { Cookie.parse(requestUrl, it) }
+         .lastOrNull { it.name == "sessionUUID" && it.matches(requestUrl) }?.value?.takeIf { it.isNotBlank() }
+      return result.copy(uuid = cookie ?: result.uuid?.takeIf { it.isNotBlank() }
+         ?: throw IllegalStateException("Sign-in response did not establish a session"))
+   }
+
+   override suspend fun discardNativeSession(server: String, session: String)
+   {
+      val service = qqqApiServiceMap[server] ?: return
+      service.discardNativeSession("sessionUUID=$session", DeferredSessionCookie()).close()
    }
 
    /** Send credentials only to the session endpoint, never to subsequent requests. */

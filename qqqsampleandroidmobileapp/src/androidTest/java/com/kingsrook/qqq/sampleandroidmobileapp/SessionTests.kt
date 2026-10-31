@@ -103,7 +103,7 @@ class SessionTests : BaseTest()
          .onNodeWithText("Close")
          .performClick()
       composeTestRule.onNodeWithTag("topBar.menuIcon").performClick()
-      composeTestRule.onNodeWithText("Settings").performClick()
+      composeTestRule.onNodeWithTag("drawer.settings").performClick()
       composeTestRule.onNodeWithText("Server: ${qViewModel.environment.baseUrl}").assertIsDisplayed()
       composeTestRule.onNodeWithText("Close").performClick()
 
@@ -217,7 +217,7 @@ class SessionTests : BaseTest()
       TestUtils.login(composeTestRule)
 
       composeTestRule.onNodeWithTag("topBar.menuIcon").performClick()
-      composeTestRule.onNodeWithText("Settings").performClick()
+      composeTestRule.onNodeWithTag("drawer.settings").performClick()
 
       composeTestRule
          .onNodeWithText("Test Env 1")

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.navigation.compose.rememberNavController
 import androidx.test.platform.app.InstrumentationRegistry
@@ -40,6 +41,21 @@ class NavigationTests : BaseTest()
       ui.waitUntil(5000) { ui.activity.hasWindowFocus() }
       InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
       ui.waitForIdle()
+   }
+
+   @Test fun signedOutDrawerExposesSettingsWithoutBusinessNavigation()
+   {
+      TestUtils.startStandardTest(ui)
+      ui.onNodeWithTag("topBar.menuIcon").performClick()
+      ui.onNodeWithTag("drawer.home").assertDoesNotExist()
+      ui.onNodeWithTag("drawer.app:app1").assertDoesNotExist()
+      ui.onNodeWithTag("drawer.settings").assertIsDisplayed().performClick()
+      ui.onNodeWithText("Close").performClick()
+      ui.onNodeWithTag("topBar.menuIcon").performClick()
+      hardwareBack()
+      ui.onNodeWithText("Log In").assertIsDisplayed()
+      ui.onNodeWithTag("topBar.apps").assertDoesNotExist()
+      ui.onNodeWithTag("topBar.switchApp").assertDoesNotExist()
    }
 
    @Test fun leavingSwitchingSettingsAndSignOutPreserveOrCancelExactlyOnce()
@@ -75,6 +91,8 @@ class NavigationTests : BaseTest()
          ui.waitUntil(5000) { model.activeProcessViewModel?.activeStepName == "input" }
       }
       openProcess()
+      ui.onNodeWithTag("topBar.apps").assertDoesNotExist()
+      ui.onNodeWithTag("topBar.switchApp").assertDoesNotExist()
       ui.onNodeWithText("Reference").performTextReplacement("preserved draft")
       ui.onNodeWithText("Reference").performImeAction()
       ui.onNodeWithContentDescription("Go Back").performClick()
@@ -82,11 +100,18 @@ class NavigationTests : BaseTest()
       ui.onNodeWithText("Reference").assertTextContains("preserved draft")
       assertEquals(0, cancellations.get())
       ui.onNodeWithTag("topBar.menuIcon").performClick()
-      ui.onNodeWithText("Settings").performClick()
+      ui.onNodeWithTag("drawer.home").assertIsDisplayed()
+      hardwareBack()
+      ui.onNodeWithText("Reference").assertTextContains("preserved draft")
+      assertEquals(0, cancellations.get())
+      ui.onNodeWithTag("topBar.menuIcon").performClick()
+      ui.onNodeWithTag("drawer.settings").assertIsDisplayed().performClick()
       ui.onNodeWithText("Close").performClick()
       ui.onNodeWithTag("topBar.menuIcon").performClick()
-      ui.onNodeWithText("Diagnostics").performClick()
+      ui.onNodeWithTag("drawer.diagnostics").assertIsDisplayed().performClick()
       ui.onNodeWithText("Close").performClick()
+      ui.onNodeWithText("Reference").assertTextContains("preserved draft")
+      assertEquals(0, cancellations.get())
       ui.onNodeWithTag("topBar.accountIcon").performClick()
       ui.onNodeWithText("Sign out").performClick()
       ui.onNodeWithText("Stay").performClick()
@@ -99,14 +124,14 @@ class NavigationTests : BaseTest()
       assertEquals("app1", model.qNavigator.currentAppName)
 
       openProcess(false)
-      ui.onNodeWithTag("topBar.apps").performClick()
+      ui.onNodeWithTag("topBar.menuIcon").performClick()
+      ui.onNodeWithTag("drawer.home").performClick()
       ui.onNodeWithText("Leave process").performClick()
       ui.waitUntil(5000) { model.qNavigator.atHome }
       assertEquals(2, cancellations.get())
       openProcess()
       ui.onNodeWithTag("topBar.menuIcon").performClick()
-      ui.onNodeWithTag("topBar.switchApp").performClick()
-      ui.onNodeWithText("App 2").performClick()
+      ui.onNodeWithTag("drawer.app:app2").performScrollTo().performClick()
       ui.onNodeWithText("Leave process").performClick()
       ui.waitUntil(5000) { model.qNavigator.currentAppName == "app2" }
       assertEquals(3, cancellations.get())

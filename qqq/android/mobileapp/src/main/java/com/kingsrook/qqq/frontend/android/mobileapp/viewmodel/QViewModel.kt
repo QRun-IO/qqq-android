@@ -45,8 +45,13 @@ import com.kingsrook.qqq.frontend.android.mobileapp.QMobileApplication
 import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import com.kingsrook.qqq.frontend.android.mobileapp.data.SettingsRepository
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LoginAttempt
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LoginBinding
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LoginPhase
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
 
 
 private const val TAG = "QViewModel"
@@ -125,6 +130,16 @@ open class QViewModel(
    /** Hosts refresh this action after Activity recreation; a retained leave dialog must not call an obsolete UI scope. */
    var changeServerAction: (() -> Unit)? = null
 
+   var oauth2LoginPhase: OAuth2LoginPhase by mutableStateOf(OAuth2LoginPhase.READY)
+      private set
+   var oauth2LoginMessage: String? by mutableStateOf(null)
+      private set
+   private val oauth2Attempt = OAuth2LoginAttempt()
+   private var oauth2Generation = 0L
+   private var oauth2Binding: OAuth2LoginBinding? = null
+   private var oauth2Metadata: BaseAuthenticationMetaData? = null
+   private var oauth2ExchangeJob: Job? = null
+
    ////////////////////////////////////////////////////////////////////
    // note - new properties - do you want to add them to clearAll()? //
    ////////////////////////////////////////////////////////////////////
@@ -180,6 +195,7 @@ open class QViewModel(
     ***************************************************************************/
    private fun clearAll()
    {
+      cancelOAuth2Login()
       ////////////////////////////////////////////
       // reset all the things to initial values //
       ////////////////////////////////////////////
@@ -271,6 +287,7 @@ open class QViewModel(
     ***************************************************************************/
    fun requestLogout()
    {
+      cancelOAuth2Login()
       isLogoutRequested = true
       qNavigator.goHome(cancelActiveProcess = false)
    }
@@ -497,6 +514,7 @@ open class QViewModel(
     ***************************************************************************/
    fun logOut(): Job
    {
+      cancelOAuth2Login()
       return viewModelScope.launch()
       {
          val capturedIsLogoutRequested = isLogoutRequested
@@ -546,6 +564,95 @@ open class QViewModel(
          {
             Log.w(TAG, "Error loading QInstance")
             LoadState.Error(e,"Error loading QInstance")
+         }
+      }
+   }
+
+   fun prepareOAuth2Login(binding: OAuth2LoginBinding): Long?
+   {
+      if(oauth2LoginPhase != OAuth2LoginPhase.READY || isAuthenticated || isLogoutRequested || binding.server != environment.baseUrl) return null
+      oauth2Generation++
+      oauth2Binding = binding
+      oauth2Metadata = (authenticationMetaDataLoadState as? LoadState.Success)?.value
+      oauth2LoginMessage = null
+      oauth2LoginPhase = OAuth2LoginPhase.PREPARING
+      return oauth2Generation
+   }
+
+   fun isCurrentOAuth2Login(generation: Long, binding: OAuth2LoginBinding): Boolean =
+      generation == oauth2Generation && binding == oauth2Binding && binding.server == environment.baseUrl &&
+         oauth2Metadata == (authenticationMetaDataLoadState as? LoadState.Success)?.value && !isAuthenticated && !isLogoutRequested
+
+   fun beginOAuth2Browser(generation: Long, binding: OAuth2LoginBinding, state: String, nonce: String, verifier: String): Boolean
+   {
+      if(!isCurrentOAuth2Login(generation, binding) || oauth2LoginPhase != OAuth2LoginPhase.PREPARING) return false
+      oauth2Attempt.begin(binding, state, nonce, verifier)
+      oauth2LoginPhase = OAuth2LoginPhase.BROWSER
+      return true
+   }
+
+   fun cancelOAuth2Login(message: String? = null)
+   {
+      oauth2Generation++
+      oauth2Attempt.cancel()
+      oauth2Binding = null
+      oauth2Metadata = null
+      oauth2LoginPhase = OAuth2LoginPhase.READY
+      oauth2LoginMessage = message
+      oauth2ExchangeJob?.cancel()
+      oauth2ExchangeJob = null
+   }
+
+   fun completeOAuth2Login(binding: OAuth2LoginBinding, state: String?, requestState: String?, requestNonce: String?,
+      requestClientId: String, requestRedirect: String, requestPrompt: String?, code: String?)
+   {
+      val generation = oauth2Generation
+      if(oauth2LoginPhase != OAuth2LoginPhase.BROWSER || !isCurrentOAuth2Login(generation, binding)) return
+      val exchange = oauth2Attempt.consume(binding, state, requestState, requestNonce, requestClientId, requestRedirect, requestPrompt, code)
+      if(exchange == null)
+      {
+         cancelOAuth2Login("Sign-in could not be verified. Please start again.")
+         return
+      }
+      oauth2LoginPhase = OAuth2LoginPhase.EXCHANGING
+      oauth2ExchangeJob = viewModelScope.launch {
+         var newSession: String? = null
+         var adopted = false
+         try
+         {
+            val response = qqqRepository.exchangeNativeSession(ManageSessionRequest(code = exchange.code,
+               codeVerifier = exchange.verifier, redirectUri = exchange.redirectUri,
+               authenticationFlow = OAuth2AuthenticationMetaData.SESSION_FLOW))
+            newSession = response.uuid?.takeIf { it.isNotBlank() }
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if(!isCurrentOAuth2Login(generation, binding)) return@launch
+            sessionUUID = requireNotNull(newSession)
+            qqqRepository.setSessionUUID(sessionUUID)
+            manageSessionLoadState = LoadState.Success(response)
+            logInSuccessful()
+            adopted = true
+            oauth2LoginPhase = OAuth2LoginPhase.READY
+            oauth2Binding = null
+            oauth2Metadata = null
+            loadQInstance()
+         }
+         catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
+         catch(exception: Exception)
+         {
+            if(generation == oauth2Generation)
+            {
+               oauth2LoginPhase = OAuth2LoginPhase.READY
+               oauth2Binding = null
+               oauth2Metadata = null
+               oauth2LoginMessage = "Sign-in failed. Check your connection or contact your administrator."
+            }
+         }
+         finally
+         {
+            if(!adopted && newSession != null) kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+               try { kotlinx.coroutines.withTimeout(3000) { qqqRepository.discardNativeSession(binding.server, newSession!!) } }
+               catch(exception: Exception) { /* Never activate an abandoned session, even when revocation cannot be confirmed. */ }
+            }
          }
       }
    }

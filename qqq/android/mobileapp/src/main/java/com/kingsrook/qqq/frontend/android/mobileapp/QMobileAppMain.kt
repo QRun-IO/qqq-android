@@ -21,6 +21,7 @@
 
 package com.kingsrook.qqq.frontend.android.mobileapp
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -36,10 +37,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -50,11 +55,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.QAuthenticationWrapper
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.QTopAppBar
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LeaveProcessDialog
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LocalBusinessNavigationEnabled
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LocalOpenDiagnostics
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.MenuDialog
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QAppNodeType
@@ -132,9 +140,18 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
 
    val scope = rememberCoroutineScope()
    val topLevelAppState = remember(qViewModel, scope) { TopLevelAppState(coroutineScope = scope, qViewModel = qViewModel) }
-   LaunchedEffect(qViewModel.isAuthenticated, qViewModel.isLogoutRequested)
+   val settingsOpen = remember { mutableStateOf(false) }
+   val diagnosticsOpen = remember { mutableStateOf(false) }
+   val openDiagnostics = LocalOpenDiagnostics.current
+   val businessReady = LocalBusinessNavigationEnabled.current && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested
+   LaunchedEffect(qViewModel.isAuthenticated, qViewModel.isLogoutRequested, businessReady)
    {
-      if(!qViewModel.isAuthenticated || qViewModel.isLogoutRequested) topLevelAppState.closeNavDrawer()
+      if(!businessReady) topLevelAppState.closeNavDrawer()
+      if(qViewModel.isLogoutRequested)
+      {
+         settingsOpen.value = false
+         diagnosticsOpen.value = false
+      }
    }
 
    AnimatedVisibility(
@@ -143,18 +160,35 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
       exit = ExitTransition.None
    )
    {
-      ModalNavigationDrawer(drawerState = topLevelAppState.navDrawerState, gesturesEnabled = LocalBusinessNavigationEnabled.current && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested,
+      ModalNavigationDrawer(drawerState = topLevelAppState.navDrawerState,
          drawerContent = {
             ModalDrawerSheet {
-               Column(Modifier.verticalScroll(rememberScrollState())) {
-                  Text("Switch app", Modifier.padding(16.dp))
-                  NavigationDrawerItem(label = { Text("Apps") }, selected = qViewModel.qNavigator.atHome, onClick = {
-                     topLevelAppState.closeNavDrawer(); qViewModel.qNavigator.goHome()
-                  })
-                  val instance = (qViewModel.qInstanceLoadState as? LoadState.Success<QInstance>)?.value
-                  instance?.appTree?.filter { it.type == QAppNodeType.APP }?.forEach { app ->
-                     NavigationDrawerItem(label = { Text(app.label) }, selected = qViewModel.qNavigator.currentAppName == app.name, onClick = {
-                        topLevelAppState.closeNavDrawer(); qViewModel.qNavigator.navigateToApp(app.name, app.label)
+               Column(Modifier.fillMaxSize()) {
+                  Text(title, Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
+                  Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                     if(businessReady)
+                     {
+                        NavigationDrawerItem(modifier = Modifier.testTag("drawer.home"), label = { Text("All apps") },
+                           selected = qViewModel.qNavigator.atHome, onClick = {
+                              topLevelAppState.closeNavDrawer(); qViewModel.qNavigator.goHome()
+                           })
+                        val instance = (qViewModel.qInstanceLoadState as? LoadState.Success<QInstance>)?.value
+                        instance?.appTree?.filter { it.type == QAppNodeType.APP }?.forEach { app ->
+                           NavigationDrawerItem(modifier = Modifier.testTag("drawer.app:${app.name}"), label = { Text(app.label) },
+                              selected = qViewModel.qNavigator.currentAppName == app.name, onClick = {
+                                 topLevelAppState.closeNavDrawer(); qViewModel.qNavigator.navigateToApp(app.name, app.label)
+                              })
+                        }
+                     }
+                  }
+                  HorizontalDivider()
+                  Column(Modifier.padding(vertical = 8.dp)) {
+                     NavigationDrawerItem(modifier = Modifier.testTag("drawer.settings"), label = { Text("Settings") }, selected = false, onClick = {
+                        topLevelAppState.closeNavDrawer(); settingsOpen.value = true
+                     })
+                     NavigationDrawerItem(modifier = Modifier.testTag("drawer.diagnostics"), label = { Text("Diagnostics") }, selected = false, onClick = {
+                        topLevelAppState.closeNavDrawer()
+                        if(openDiagnostics != null) openDiagnostics() else diagnosticsOpen.value = true
                      })
                   }
                }
@@ -187,6 +221,12 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
          }
       }
       }
+      // This is composed after the process content so drawer Back closes only the drawer.
+      BackHandler(enabled = topLevelAppState.navDrawerState.isOpen) { topLevelAppState.closeNavDrawer() }
+      if(settingsOpen.value) MenuDialog(qViewModel, title, settingsOpen)
+      if(diagnosticsOpen.value) AlertDialog(onDismissRequest = { diagnosticsOpen.value = false },
+         title = { Text("Diagnostics") }, text = { Text("Server: ${qViewModel.environment.baseUrl}\nApplication version: ${QViewModel.applicationVersion}") },
+         confirmButton = { TextButton(onClick = { diagnosticsOpen.value = false }) { Text("Close") } })
       LeaveProcessDialog(qViewModel)
    }
 

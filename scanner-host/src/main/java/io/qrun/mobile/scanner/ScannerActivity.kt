@@ -50,6 +50,7 @@ import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
 import com.kingsrook.qqq.frontend.android.core.controllers.NetworkQQQRepository
 import com.kingsrook.qqq.frontend.android.core.model.Environment
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.TableBasedAuthenticationMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.mobileapp.QMobileAppMain
 import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalAuthenticatedContent
@@ -177,9 +178,9 @@ class ScannerActivity : ComponentActivity()
       }
       qViewModel.setNavController(rememberNavController())
       val authentication = qViewModel.authenticationMetaDataLoadState
-      if(authentication is LoadState.Success && authentication.value !is TableBasedAuthenticationMetaData)
+      if(authentication is LoadState.Success && authentication.value !is TableBasedAuthenticationMetaData && authentication.value !is OAuth2AuthenticationMetaData)
       {
-         Text("This build supports username/password sign-in. This server uses another sign-in provider. Configure that provider for this app or choose another server.", Modifier.padding(24.dp))
+         Text("This app supports QQQ password sign-in and server-advertised OAuth2 browser sign-in. This server uses an unsupported provider.", Modifier.padding(24.dp))
          return
       }
       val api = remember(server, diagnostics) { DeviceApi(server, credentials, diagnostics::deviceRequest, compatibility) }

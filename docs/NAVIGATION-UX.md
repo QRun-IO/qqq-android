@@ -6,11 +6,11 @@ Status: implementation and native acceptance in progress. This specifies the req
 
 The primary hierarchy is **Apps → selected app → running process**. The Apps catalog lists only server-authorized business apps. App pages list their server-defined processes. Client settings, troubleshooting and account actions are not business apps and do not belong in that catalog.
 
-Every authenticated screen provides an accessible **Apps** control, a clear current app/process title, and a separate **Account** action. Settings and diagnostics are secondary menu destinations. Use one authoritative navigation stack; toolbar Back and Android Back must call the same navigation policy. Do not maintain a second mutable title/history stack. App switching replaces the active app branch so Back cannot unexpectedly return to an abandoned process.
+Every screen provides one **hamburger navigation drawer**, a clear current app/process title, and a separate **Account** action. The drawer's primary section contains **All apps** and the server-authorized apps; Settings and Diagnostics remain fixed at its bottom while the app list scrolls. There is no separate Apps toolbar button or Switch app overflow action. The hamburger remains accessible alongside Back inside an app or process. Before login or device approval, the drawer exposes Settings and Diagnostics but hides business destinations. Use one authoritative navigation stack; toolbar Back and Android Back must call the same navigation policy. Do not maintain a second mutable title/history stack. App switching replaces the active app branch so Back cannot unexpectedly return to an abandoned process.
 
 | Layer | Contents and entry |
 | --- | --- |
-| Primary navigation | Apps catalog, chosen app, its processes. Apps is reachable from any authenticated screen. |
+| Primary navigation | Apps catalog, chosen app, its processes. All apps and authorized app entries are reachable through the hamburger drawer from every approved authenticated screen. |
 | Process actions | Server-defined submit/next/finish actions; contextual Cancel/Close. A previous business step exists only when supported by the server contract. |
 | Account | Current user and Sign out. Explicit user sign-out is distinct from forced session expiry. |
 | Settings | Current server/customer, device name/short name, device permissions, supported operator preferences. Changing server requires leaving work and signing out of the old server. |
@@ -32,7 +32,7 @@ The owner also requires a device-local Orientation preference in Settings: Syste
 
 ## Back and switching behavior
 
-| Current state | Toolbar Back / Android Back | Apps / selecting another app |
+| Current state | Toolbar Back / Android Back | Drawer All apps / selecting another app |
 | --- | --- | --- |
 | Apps catalog | No misleading disabled Home arrow; Android Back uses normal platform exit/background behavior without signing out. | Stay at Apps; repeated taps do not add duplicate routes. |
 | App menu | Return to Apps. | Return to Apps or replace the app route. |
@@ -44,7 +44,7 @@ The owner also requires a device-local Orientation preference in Settings: Syste
 
 The top-level Back arrow means navigation out of the current process, not undoing a scan or automatically moving to a previous business step. Label the leave dialog accordingly, for example **Leave Scan Capture?** with **Stay** and **Leave process**. Completed scans stay saved. For multi-step forms, render a server-supported previous-step action within the process when available; never guess it from an arrow or step name.
 
-Keyboard Back first dismisses the keyboard where Android normally does so. Dialog Back dismisses the dialog as Stay. Repeated taps while cancellation/sign-out is in progress must not launch duplicate work. Failed cancellation remains visible with retry/reconciliation; it must not silently orphan a live process. Settings changes that affect identity or server use the same guard as app switching.
+Opening the drawer preserves the current process and draft. Android Back or tapping its scrim closes the drawer without navigating or cancelling work. Selecting All apps or another app then applies the same guarded leave policy as toolbar Back. Keyboard Back first dismisses the keyboard where Android normally does so. Dialog Back dismisses the dialog as Stay. Repeated taps while cancellation/sign-out is in progress must not launch duplicate work. Failed cancellation remains visible with retry/reconciliation; it must not silently orphan a live process. Settings changes that affect identity or server use the same guard as app switching.
 
 ## Small-screen and scanner usability
 
@@ -54,7 +54,8 @@ Use labeled actions with accessible names, at least 48dp touch targets, readable
 
 - Login → approval → Apps → app → process; verify user-facing titles and selected navigation at each stage.
 - Toolbar Back and Android Back both leave a process through the same confirmation; Stay preserves field values and makes no cancellation request; Leave cancels exactly once and returns to the app.
-- Apps and direct app switching during a process use the same guard and land at the requested destination; Back never resurrects the old process.
+- The hamburger remains available beside Back inside processes; duplicate Apps and Switch app controls are absent. Drawer dismissal preserves drafts and makes no cancellation request. All apps and direct app switching use the same guard and land at the requested destination; Back never resurrects the old process.
+- Signed-out and pending-approval drawers expose Settings and Diagnostics without business navigation. Secondary entries stay visible below the scrolling app list.
 - Completed result closes without cancel; initializing process cancellation handles its late UUID; uncertain submission does not replay an ordinary mutation or discard retry identity.
 - Settings, account and diagnostics open/close without navigating away from or submitting the process; server change uses the leave/sign-out guard.
 - Explicit sign-out Cancel preserves work; Confirm clears protected content and returns to login; fresh login returns to Apps with enrollment retained.

@@ -27,8 +27,13 @@ import kotlinx.serialization.Serializable
  ***************************************************************************/
 @Serializable
 data class ManageSessionRequest(
-   val accessToken: String,
-   val uuid: String?
+   val accessToken: String? = null,
+   val uuid: String? = null,
+   val code: String? = null,
+   val codeVerifier: String? = null,
+   val redirectUri: String? = null,
+   val authenticationFlow: String? = null
 )
 {
+   override fun toString(): String = "ManageSessionRequest(credentials redacted)"
 }

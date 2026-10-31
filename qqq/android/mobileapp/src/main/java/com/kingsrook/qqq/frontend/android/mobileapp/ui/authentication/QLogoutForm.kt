@@ -32,6 +32,7 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.Aut
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.BaseAuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.FullyAnonymousAuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.TableBasedAuthenticationMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullSizedAllCenteredColumn
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
@@ -50,7 +51,7 @@ fun QLogoutForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticati
          QAuth0Logout(qViewModel, modifier)
       }
 
-      is FullyAnonymousAuthenticationMetaData, is TableBasedAuthenticationMetaData ->
+      is FullyAnonymousAuthenticationMetaData, is TableBasedAuthenticationMetaData, is OAuth2AuthenticationMetaData ->
       {
          LaunchedEffect(true)
          {

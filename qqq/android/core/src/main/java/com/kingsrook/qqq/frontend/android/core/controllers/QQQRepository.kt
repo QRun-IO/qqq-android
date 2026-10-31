@@ -42,6 +42,16 @@ interface QQQRepository
 
    suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse
 
+   /** Native browser sign-in requires explicit version/feature discovery before authorization. */
+   suspend fun verifyNativeSessionLogin() { throw UnsupportedOperationException("Native browser sign-in is unavailable") }
+
+   /** Return the new session without activating it; the caller must validate its pending login first. */
+   suspend fun exchangeNativeSession(body: ManageSessionRequest): ManageSessionResponse =
+      throw UnsupportedOperationException("Native browser sign-in is unavailable")
+
+   /** Revoke an abandoned exchange at its original server without activating its cookie. */
+   suspend fun discardNativeSession(server: String, session: String) { }
+
    /** Authenticate table-backed users without retaining their password. */
    suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse =
       throw UnsupportedOperationException("Password authentication is unavailable")

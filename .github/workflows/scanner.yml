@@ -89,7 +89,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: QRun-IO/qbit-mobile-scanners
-          ref: 092655051d6a982cbd50c1ef1b95787a4c355d05
+          ref: 1df7bbd18047c6c3a20cf1c2b990d4bcde9860e8
           path: .e2e-server
           persist-credentials: false
       - name: Build the isolated server fixture

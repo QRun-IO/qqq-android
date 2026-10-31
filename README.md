@@ -78,7 +78,7 @@ The GitHub workflow does not publish libraries or production releases. Signed AP
 
 `LocalAuthenticatedContent` allows a host to gate authenticated QQQ content. `LocalCustomWidgetRenderer` lets the host render additional metadata-defined widgets without replacing the standard renderer. `NetworkQQQRepository` accepts a server-scoped header provider; credentials never enter process values.
 
-The first scanner host supports TABLE_BASED authentication only and shows an explicit unsupported-provider message for other authentication types. Existing shared-library Auth0 support remains intact; production identity-provider integration requires callback configuration and verification before enabling it in this host.
+The scanner host supports TABLE_BASED authentication and server-advertised OAuth2 browser sign-in, including Authentik. OAuth2 requires the UI API1.9 native-session capability and explicit callback registration; it is being qualified and does not infer support from the provider name. See [authentication setup and verification](docs/AUTHENTICATION.md). Existing shared-library Auth0 support remains intact.
 
 ## License
 

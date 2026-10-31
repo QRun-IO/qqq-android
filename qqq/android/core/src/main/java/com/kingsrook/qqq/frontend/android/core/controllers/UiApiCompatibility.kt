@@ -56,6 +56,13 @@ class UiApiCompatibility(val server: String, private val requireMobileScanners: 
       const val SUPPORTED_MOBILE_RANGE = ">=1.1.0 <2.0.0"
       val REQUIRED_FEATURES = setOf("version", "metaData", "processes", "processCancel", "extensions", "widgets")
 
+      fun validateNativeSessionLogin(version: UiApiVersion)
+      {
+         val parts = Regex("1\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)").matchEntire(version.apiVersion)?.groupValues
+         if(parts == null || (parts[1].toIntOrNull() ?: 0) < 9 || "nativeSessionLogin" !in version.features)
+            throw UiApiCompatibilityException("This server does not advertise native browser sign-in. Ask your administrator to enable the supported login flow.")
+      }
+
       fun validate(version: UiApiVersion, requireMobileScanners: Boolean)
       {
          fun supported(value: String, minMinor: Int): Boolean

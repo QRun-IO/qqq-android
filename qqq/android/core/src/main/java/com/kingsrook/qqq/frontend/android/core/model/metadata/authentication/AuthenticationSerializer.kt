@@ -38,6 +38,7 @@ object AuthenticationSerializer : JsonContentPolymorphicSerializer<BaseAuthentic
    override fun selectDeserializer(element: JsonElement) = when (element.jsonObject["type"]?.jsonPrimitive?.content)
    {
       Auth0AuthenticationMetaData.TYPE -> Auth0AuthenticationMetaData.serializer()
+      OAuth2AuthenticationMetaData.TYPE -> OAuth2AuthenticationMetaData.serializer()
       FullyAnonymousAuthenticationMetaData.TYPE -> FullyAnonymousAuthenticationMetaData.serializer()
       TableBasedAuthenticationMetaData.TYPE, "tableBased" -> TableBasedAuthenticationMetaData.serializer()
       else -> UnsupportedAuthenticationMetaData.serializer()

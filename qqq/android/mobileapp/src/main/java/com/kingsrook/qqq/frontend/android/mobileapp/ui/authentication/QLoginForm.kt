@@ -31,6 +31,7 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.Aut
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.BaseAuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.FullyAnonymousAuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.TableBasedAuthenticationMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullSizedAllCenteredColumn
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import java.util.UUID
@@ -46,6 +47,7 @@ fun QLoginForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticatio
    when (authenticationMetaData)
    {
       is TableBasedAuthenticationMetaData -> QPasswordLogin(qViewModel, modifier)
+      is OAuth2AuthenticationMetaData -> QOAuth2Login(qViewModel, authenticationMetaData, modifier)
       is Auth0AuthenticationMetaData ->
       {
          QAuth0Login(qViewModel, modifier)
