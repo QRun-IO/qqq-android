@@ -119,13 +119,13 @@ export async function runScannerE2e(options = {}) {
          await adbRun('install', join(repository, 'qqqsampleandroidmobileapp/build/outputs/apk/androidTest/debug/qqqsampleandroidmobileapp-debug-androidTest.apk'));
          temporary.push(sample + '.test');
          const output = await adbRun('shell', 'am', 'instrument', '-w', '-r',
-            '-e', 'class', 'com.kingsrook.qqq.sampleandroidmobileapp.NavigationTests,com.kingsrook.qqq.sampleandroidmobileapp.SemanticInputTests,com.kingsrook.qqq.sampleandroidmobileapp.SessionTests,com.kingsrook.qqq.sampleandroidmobileapp.OAuth2LoginTests',
+            '-e', 'class', 'com.kingsrook.qqq.sampleandroidmobileapp.NavigationTests,com.kingsrook.qqq.sampleandroidmobileapp.SemanticInputTests,com.kingsrook.qqq.sampleandroidmobileapp.SessionTests,com.kingsrook.qqq.sampleandroidmobileapp.OAuth2LoginTests,com.kingsrook.qqq.sampleandroidmobileapp.SampleHostSecurityTests,com.kingsrook.qqq.sampleandroidmobileapp.AuthenticationLifecycleTests',
             sample + '.test/androidx.test.runner.AndroidJUnitRunner');
          const evidence = join(repository, 'scanner-host/build/native-device-e2e');
          await mkdir(evidence, { recursive: true });
          await writeFile(join(evidence, 'navigation-instrumentation.txt'), output);
-         if (!/OK \(21 tests\)/.test(output) || /FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed/.test(output)) throw new Error('Physical native navigation/input/account/OAuth acceptance failed; inspect the isolated test evidence.');
-         console.log('Physical native navigation/input/account/OAuth acceptance passed (21 tests, synthetic repository and browser result).');
+         if (!/OK \(32 tests\)/.test(output) || /FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed/.test(output)) throw new Error('Physical native navigation/input/account/OAuth acceptance failed; inspect the isolated test evidence.');
+         console.log('Physical native navigation/input/account/OAuth acceptance passed (32 tests, synthetic repository and browser result).');
       } finally {
          for (const installed of temporary.reverse()) await adbRun('uninstall', installed);
       }

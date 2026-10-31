@@ -31,7 +31,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.kingsrook.qqq.frontend.android.core.model.Environment
@@ -40,6 +40,7 @@ import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.QAuth0Service
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import com.kingsrook.qqq.sampleandroidmobileapp.ui.theme.AppTheme
+import java.io.File
 
 /***************************************************************************
  **
@@ -66,9 +67,10 @@ class SampleAppMainActivity : ComponentActivity()
          Environment("Production", "https://live.coldtrack.com/"),
          Environment("Staging", "https://live.coldtrack-staging.com/"),
          Environment("Development", "https://live.coldtrack-dev.com/"),
+      ) + if(BuildConfig.DEBUG) listOf(
          Environment("Local Dev", "http://192.168.4.122:8000/"),
          Environment("Bad URL", "http://no.such.domain.dot.dot/"),
-      )
+      ) else emptyList()
       val splashResourceId: Int? = null // R.drawable.kingsrook_logo
 
       ///////////////////////////////////////////////////////////
@@ -98,4 +100,14 @@ class SampleAppMainActivity : ComponentActivity()
    }
 }
 
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private var settingsStore: DataStore<Preferences>? = null
+
+// Do not migrate the old backup-eligible store: upgraded/restored samples require fresh login.
+val Context.dataStore: DataStore<Preferences>
+   get() = synchronized(SampleAppMainActivity::class.java)
+   {
+      settingsStore ?: run {
+         val file = File(applicationContext.noBackupFilesDir, "settings.preferences_pb")
+         PreferenceDataStoreFactory.create { file }.also { settingsStore = it }
+      }
+   }

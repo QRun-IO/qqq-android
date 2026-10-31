@@ -136,7 +136,8 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
     ***************************************************************************/
    override suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse
    {
-      return resolveSession(qqqApiServiceMap[baseUrl]!!.manageSession(body))
+      val service = requireNotNull(qqqApiServiceMap[baseUrl])
+      return resolveSession(service.manageSession(body, DeferredSessionCookie()))
    }
 
    override suspend fun verifyNativeSessionLogin() = verifyNativeSessionLoginAt(baseUrl)
@@ -155,6 +156,13 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
       val service = requireNotNull(qqqApiServiceMap[server])
       verifyNativeSessionLoginAt(server)
       val response = service.exchangeNativeSession(body, DeferredSessionCookie())
+      return resolveSession(response)
+   }
+
+   /** Login cookies remain provisional until the initiating ViewModel accepts the response. */
+   private fun resolveSession(response: retrofit2.Response<ManageSessionResponse>): ManageSessionResponse
+   {
+      if(!response.isSuccessful) throw retrofit2.HttpException(response)
       val result = response.body() ?: throw IllegalStateException("Sign-in response did not establish a session")
       val requestUrl = response.raw().request.url
       val cookie = response.headers().values("Set-Cookie").mapNotNull { Cookie.parse(requestUrl, it) }
@@ -170,22 +178,19 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
    }
 
    /** Send credentials only to the session endpoint, never to subsequent requests. */
-   override suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse =
-      resolveSession(qqqApiServiceMap[baseUrl]!!.loginWithPassword(Credentials.basic(username, password, Charsets.UTF_8), emptyMap()))
-
-   /** Modern QQQ deliberately omits the UUID body field and returns an HttpOnly session cookie. */
-   private fun resolveSession(response: ManageSessionResponse): ManageSessionResponse
+   override suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse
    {
-      val session = response.uuid?.takeIf { it.isNotBlank() } ?: sessionUUIDs[baseUrl]?.takeIf { it.isNotBlank() }
-         ?: throw IllegalStateException("Sign-in response did not establish a session")
-      return response.copy(uuid = session)
+      val service = requireNotNull(qqqApiServiceMap[baseUrl])
+      return resolveSession(service.loginWithPassword(Credentials.basic(username, password, Charsets.UTF_8), emptyMap(), DeferredSessionCookie()))
    }
 
    /** Preserve the cookie until the server has received the revocation request. */
    override suspend fun logout()
    {
-      qqqApiServiceMap[baseUrl]!!.logout().close()
-      sessionUUIDs.remove(baseUrl)
+      val server = baseUrl
+      val session = sessionUUIDs[server]
+      try { if(!session.isNullOrBlank()) discardNativeSession(server, session) }
+      finally { if(session != null) sessionUUIDs.remove(server, session) }
    }
 
    /***************************************************************************

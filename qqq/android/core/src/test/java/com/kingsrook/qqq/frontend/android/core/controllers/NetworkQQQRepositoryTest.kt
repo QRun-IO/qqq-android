@@ -116,6 +116,7 @@ class NetworkQQQRepositoryTest
             repository.setEnvironment(Environment("first", origin))
             val login = repository.loginWithPassword("demo", "synthetic-password")
             assertEquals("synthetic-session", login.uuid)
+            repository.setSessionUUID(requireNotNull(login.uuid))
             repository.getMetaData("test", "1", "test", "1")
             assertEquals("/qqq/v1/version", first.takeRequest().path)
             val loginRequest = first.takeRequest()

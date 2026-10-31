@@ -38,7 +38,7 @@ import retrofit2.http.Query
 
 const val BASE_PATH = "/qqq/v1/"
 
-/** A native login response is adopted only after its initiating ViewModel accepts it. */
+/** A login response is adopted only after its initiating ViewModel accepts it. */
 class DeferredSessionCookie
 
 /***************************************************************************
@@ -54,14 +54,16 @@ interface QQQApiService
    suspend fun getAuthenticationMetaData(): BaseAuthenticationMetaData
 
    @POST(BASE_PATH + "manageSession")
-   suspend fun manageSession(@Body body: ManageSessionRequest): ManageSessionResponse
+   suspend fun manageSession(@Body body: ManageSessionRequest,
+      @retrofit2.http.Tag cookiePolicy: DeferredSessionCookie): retrofit2.Response<ManageSessionResponse>
 
    @POST(BASE_PATH + "manageSession")
    suspend fun exchangeNativeSession(@Body body: ManageSessionRequest,
       @retrofit2.http.Tag cookiePolicy: DeferredSessionCookie): retrofit2.Response<ManageSessionResponse>
 
    @POST(BASE_PATH + "manageSession")
-   suspend fun loginWithPassword(@Header("Authorization") authorization: String, @Body body: Map<String, String>): ManageSessionResponse
+   suspend fun loginWithPassword(@Header("Authorization") authorization: String, @Body body: Map<String, String>,
+      @retrofit2.http.Tag cookiePolicy: DeferredSessionCookie): retrofit2.Response<ManageSessionResponse>
 
    @POST(BASE_PATH + "logout")
    suspend fun logout(): ResponseBody

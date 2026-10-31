@@ -52,6 +52,8 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAu
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 
 private const val TAG = "QViewModel"
@@ -140,16 +142,110 @@ open class QViewModel(
    private var oauth2Metadata: BaseAuthenticationMetaData? = null
    private var oauth2ExchangeJob: Job? = null
 
+   /** Opaque login identity: callbacks and responses belong to their initiating server and generation. */
+   class AuthenticationAttempt internal constructor(internal val generation: Long, internal val server: String,
+      internal val metadata: BaseAuthenticationMetaData?)
+   {
+      internal var exchangeStarted = false
+   }
+   private var authenticationGeneration = 0L
+   private var authenticationAttempt: AuthenticationAttempt? = null
+   private var authenticationJob: Job? = null
+   private var logoutJob: Job? = null
+   private var auth0ProviderLogoutJob: Job? = null
+   private val settingsMutex = Mutex()
+
+   fun prepareAuthentication(): AuthenticationAttempt?
+   {
+      if(isAuthenticated || isLogoutRequested || logoutInProgress) return null
+      val metadata = (authenticationMetaDataLoadState as? LoadState.Success)?.value ?: return null
+      cancelAuthentication()
+      cancelOAuth2Login()
+      return AuthenticationAttempt(authenticationGeneration, environment.baseUrl, metadata).also { authenticationAttempt = it }
+   }
+
+   fun isCurrentAuthentication(attempt: AuthenticationAttempt): Boolean =
+      authenticationAttempt === attempt && attempt.generation == authenticationGeneration &&
+         attempt.server == environment.baseUrl && attempt.metadata == (authenticationMetaDataLoadState as? LoadState.Success)?.value &&
+         !isAuthenticated && !isLogoutRequested && !logoutInProgress
+
+   fun cancelAuthentication(attempt: AuthenticationAttempt? = null)
+   {
+      if(attempt != null && authenticationAttempt !== attempt) return
+      authenticationGeneration++
+      authenticationAttempt = null
+      authenticationJob?.cancel()
+      authenticationJob = null
+   }
+
+   fun completeAuth0Login(attempt: AuthenticationAttempt, accessToken: String, userName: String)
+   {
+      viewModelScope.launch {
+         if(isCurrentAuthentication(attempt)) exchangeAuthentication(attempt, userName) {
+            qqqRepository.manageSession(ManageSessionRequest(accessToken = accessToken, uuid = null))
+         }
+      }
+   }
+
+   private fun exchangeAuthentication(attempt: AuthenticationAttempt, userName: String?, exchange: suspend () -> ManageSessionResponse)
+   {
+      if(!isCurrentAuthentication(attempt) || attempt.exchangeStarted) return
+      attempt.exchangeStarted = true
+      manageSessionLoadState = LoadState.Loading(Unit)
+      authenticationJob = viewModelScope.launch {
+         var newSession: String? = null
+         var adopted = false
+         try
+         {
+            val response = exchange()
+            newSession = response.uuid?.takeIf { it.isNotBlank() }
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if(!isCurrentAuthentication(attempt)) return@launch
+            sessionUUID = requireNotNull(newSession)
+            qqqRepository.setSessionUUID(sessionUUID)
+            if(userName != null) doSetSessionUserFullName(userName)
+            manageSessionLoadState = LoadState.Success(response)
+            logInSuccessful()
+            adopted = true
+            authenticationAttempt = null
+            loadQInstance()
+         }
+         catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
+         catch(exception: Exception)
+         {
+            if(isCurrentAuthentication(attempt)) manageSessionLoadState = LoadState.Error("Sign-in failed. Check your credentials and connection.")
+         }
+         finally
+         {
+            if(!adopted && newSession != null) kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+               try { kotlinx.coroutines.withTimeout(3000) { qqqRepository.discardNativeSession(attempt.server, newSession!!) } }
+               catch(exception: Exception) { /* Never adopt an abandoned credential. */ }
+            }
+         }
+      }
+   }
+
    ////////////////////////////////////////////////////////////////////
    // note - new properties - do you want to add them to clearAll()? //
    ////////////////////////////////////////////////////////////////////
 
    init
    {
+      val generation = authenticationGeneration
       viewModelScope.launch()
       {
          doInitialLoadFromDataStore().join()
+         if(generation != authenticationGeneration)
+         {
+            initialLoadFromDataStoreLoadState = LoadState.Success(Unit)
+            return@launch
+         }
          loadAuthenticationMetaData().join()
+         if(generation != authenticationGeneration)
+         {
+            initialLoadFromDataStoreLoadState = LoadState.Success(Unit)
+            return@launch
+         }
          tryLoginFromDataStore().join()
       }
    }
@@ -193,21 +289,22 @@ open class QViewModel(
    /***************************************************************************
     **
     ***************************************************************************/
-   private fun clearAll()
+   private fun clearAll(preserveLogoutScreen: Boolean = false)
    {
+      cancelAuthentication()
       cancelOAuth2Login()
       ////////////////////////////////////////////
       // reset all the things to initial values //
       ////////////////////////////////////////////
       // storedSessionDance = LoadState.Loading(Unit) // well, not this one - it's only for our very first load.
       isAuthenticated = false
-      isLogoutRequested = false
+      if(!preserveLogoutScreen) isLogoutRequested = false
       sessionUUID = ""
       storedSessionUUIDLoadState = LoadState.Loading(Unit)
       sessionUserFullName = ""
       storedSessionUserFullName = LoadState.Loading(Unit)
       storedEnvironmentLoadState = LoadState.Loading(Unit)
-      authenticationMetaDataLoadState = LoadState.Loading(Unit)
+      if(!preserveLogoutScreen) authenticationMetaDataLoadState = LoadState.Loading(Unit)
       manageSessionLoadState = LoadState.Loading(Unit)
       qInstanceLoadState = LoadState.Loading(Unit)
       topBarStatusText = ""
@@ -220,9 +317,11 @@ open class QViewModel(
     ***************************************************************************/
    private fun loadAuthenticationMetaData(): Job
    {
+      val generation = authenticationGeneration
+      val server = environment.baseUrl
       return viewModelScope.launch()
       {
-         authenticationMetaDataLoadState = try
+         val result: LoadState<BaseAuthenticationMetaData> = try
          {
             LoadState.Success(qqqRepository.getAuthenticationMetaData())
          }
@@ -231,6 +330,8 @@ open class QViewModel(
             Log.w(TAG, "Error loading Authentication MetaData")
             LoadState.Error(e, "Error loading Authentication MetaData")
          }
+         kotlinx.coroutines.currentCoroutineContext().ensureActive()
+         if(generation == authenticationGeneration && server == environment.baseUrl) authenticationMetaDataLoadState = result
       }
    }
 
@@ -239,24 +340,9 @@ open class QViewModel(
     ***************************************************************************/
    open fun manageSession(accessToken: String)
    {
-      val outerThis = this
-      viewModelScope.launch()
-      {
-         try
-         {
-            val manageSessionLoadState = LoadState.Success(qqqRepository.manageSession(ManageSessionRequest(accessToken = accessToken, uuid = null)))
-            sessionUUID = requireNotNull(manageSessionLoadState.value.uuid)
-            qqqRepository.setSessionUUID(sessionUUID)
-            loadQInstance()
-            logInSuccessful()
-
-            outerThis.manageSessionLoadState = manageSessionLoadState
-         }
-         catch(e: Exception)
-         {
-            Log.w(TAG, "Error managing session")
-            outerThis.manageSessionLoadState = LoadState.Error(e, "Error managing session")
-         }
+      val attempt = prepareAuthentication() ?: return
+      exchangeAuthentication(attempt, sessionUserFullName.takeIf { it.isNotBlank() }) {
+         qqqRepository.manageSession(ManageSessionRequest(accessToken = accessToken, uuid = null))
       }
    }
 
@@ -287,6 +373,7 @@ open class QViewModel(
     ***************************************************************************/
    fun requestLogout()
    {
+      cancelAuthentication()
       cancelOAuth2Login()
       isLogoutRequested = true
       qNavigator.goHome(cancelActiveProcess = false)
@@ -329,6 +416,7 @@ open class QViewModel(
     ***************************************************************************/
    private fun tryLoginFromDataStore(): Job
    {
+      val generation = authenticationGeneration
       return viewModelScope.launch()
       {
          when (storedSessionUUIDLoadState)
@@ -348,12 +436,14 @@ open class QViewModel(
                   Log.d(TAG, "loadStoredSessionUUID was set - trying to load instance now")
                   qqqRepository.setSessionUUID(sessionUUID)
                   loadQInstance().join()
+                  if(generation != authenticationGeneration || isLogoutRequested) return@launch
 
                   when (qInstanceLoadState)
                   {
                      is LoadState.Success<QInstance> ->
                      {
                         loadStoredSessionUserFullName().join()
+                        if(generation != authenticationGeneration || isLogoutRequested) return@launch
 
                         sessionUserFullName = when (val it = storedSessionUserFullName)
                         {
@@ -445,6 +535,11 @@ open class QViewModel(
    {
       return viewModelScope.launch()
       {
+         if(this@QViewModel.environment.baseUrl != environment.baseUrl)
+         {
+            authenticationMetaDataLoadState = LoadState.Loading(Unit)
+            manageSessionLoadState = LoadState.Loading(Unit)
+         }
          this@QViewModel.environment = environment
          qqqRepository.setEnvironment(environment)
          settingsRepository.setEnvironment(environment)
@@ -457,6 +552,8 @@ open class QViewModel(
     ***************************************************************************/
    fun switchEnvironment(environment: Environment, postSwitchCallback: () -> Unit)
    {
+      cancelAuthentication()
+      cancelOAuth2Login()
       qNavigator.goHome(cancelActiveProcess = false)
       viewModelScope.launch()
       {
@@ -491,9 +588,12 @@ open class QViewModel(
     ***************************************************************************/
    private fun storeSessionUUID(value: String)
    {
+      val generation = authenticationGeneration
       viewModelScope.launch()
       {
-         settingsRepository.setSessionUUID(value)
+         settingsMutex.withLock {
+            if(generation == authenticationGeneration) settingsRepository.setSessionUUID(value)
+         }
       }
    }
 
@@ -503,9 +603,12 @@ open class QViewModel(
    fun doSetSessionUserFullName(value: String)
    {
       sessionUserFullName = value
+      val generation = authenticationGeneration
       viewModelScope.launch()
       {
-         settingsRepository.setSessionUserFullName(value)
+         settingsMutex.withLock {
+            if(generation == authenticationGeneration) settingsRepository.setSessionUserFullName(value)
+         }
       }
    }
 
@@ -514,37 +617,52 @@ open class QViewModel(
     ***************************************************************************/
    fun logOut(): Job
    {
+      logoutJob?.takeIf { it.isActive || (!isAuthenticated && sessionUUID.isBlank() &&
+         authenticationAttempt == null && oauth2LoginPhase == OAuth2LoginPhase.READY) }?.let { return it }
+      cancelAuthentication()
       cancelOAuth2Login()
+      isAuthenticated = false
+      logoutInProgress = true
       return viewModelScope.launch()
       {
          val capturedIsLogoutRequested = isLogoutRequested
          val capturedAuthLoadState = authenticationMetaDataLoadState
          activeProcessViewModel?.reset()
-         logoutInProgress = true
          logoutMessage = "Signing out…"
          var serverConfirmed = false
          try
          {
-            try { beforeLogout() }
+            settingsMutex.withLock { settingsRepository.setSessionUUID(""); settingsRepository.setSessionUserFullName("") }
+            try { kotlinx.coroutines.withTimeoutOrNull(3000) { beforeLogout() } }
             catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
             catch(exception: Exception) { /* Core logout and local clearing still run. */ }
-            qqqRepository.logout()
-            serverConfirmed = true
+            serverConfirmed = kotlinx.coroutines.withTimeoutOrNull(3000) { qqqRepository.logout(); true } ?: false
          }
          catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
          catch(exception: Exception) { /* Local sign-out still completes when the network is unavailable. */ }
          finally
          {
-            clearAll()
+            clearAll(preserveLogoutScreen = true)
             qqqRepository.setSessionUUID("")
-            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { settingsRepository.setSessionUUID("") }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+               settingsMutex.withLock { settingsRepository.setSessionUUID(""); settingsRepository.setSessionUserFullName("") }
+            }
             isLogoutRequested = capturedIsLogoutRequested
             authenticationMetaDataLoadState = capturedAuthLoadState
             logoutInProgress = false
             logoutMessage = if(serverConfirmed) "Signed out."
                else "Signed out on this device. Server sign-out could not be confirmed."
          }
-      }
+      }.also { logoutJob = it }
+   }
+
+   /** Activity recreation may render logout again; each logical sign-out opens the provider only once. */
+   fun claimAuth0ProviderLogout(): Boolean
+   {
+      val current = logoutJob ?: return false
+      if(auth0ProviderLogoutJob === current) return false
+      auth0ProviderLogoutJob = current
+      return true
    }
 
    /***************************************************************************
@@ -552,9 +670,11 @@ open class QViewModel(
     ***************************************************************************/
    fun loadQInstance(): Job
    {
+      val generation = authenticationGeneration
+      val server = environment.baseUrl
       return viewModelScope.launch()
       {
-         qInstanceLoadState = try
+         val result: LoadState<QInstance> = try
          {
             // todo - get frontend name & version from ... somewhere!
             val value = qqqRepository.getMetaData("qqq-android", "1.0", applicationName, applicationVersion)
@@ -565,12 +685,15 @@ open class QViewModel(
             Log.w(TAG, "Error loading QInstance")
             LoadState.Error(e,"Error loading QInstance")
          }
+         kotlinx.coroutines.currentCoroutineContext().ensureActive()
+         if(generation == authenticationGeneration && server == environment.baseUrl) qInstanceLoadState = result
       }
    }
 
    fun prepareOAuth2Login(binding: OAuth2LoginBinding): Long?
    {
-      if(oauth2LoginPhase != OAuth2LoginPhase.READY || isAuthenticated || isLogoutRequested || binding.server != environment.baseUrl) return null
+      if(oauth2LoginPhase != OAuth2LoginPhase.READY || isAuthenticated || isLogoutRequested || logoutInProgress || binding.server != environment.baseUrl) return null
+      cancelAuthentication()
       oauth2Generation++
       oauth2Binding = binding
       oauth2Metadata = (authenticationMetaDataLoadState as? LoadState.Success)?.value
@@ -581,7 +704,7 @@ open class QViewModel(
 
    fun isCurrentOAuth2Login(generation: Long, binding: OAuth2LoginBinding): Boolean =
       generation == oauth2Generation && binding == oauth2Binding && binding.server == environment.baseUrl &&
-         oauth2Metadata == (authenticationMetaDataLoadState as? LoadState.Success)?.value && !isAuthenticated && !isLogoutRequested
+         oauth2Metadata == (authenticationMetaDataLoadState as? LoadState.Success)?.value && !isAuthenticated && !isLogoutRequested && !logoutInProgress
 
    fun beginOAuth2Browser(generation: Long, binding: OAuth2LoginBinding, state: String, nonce: String, verifier: String): Boolean
    {
@@ -660,25 +783,8 @@ open class QViewModel(
    /** Password remains in this request only; the returned session drives the existing host. */
    fun loginWithPassword(username: String, password: String)
    {
-      manageSessionLoadState = LoadState.Loading(Unit)
-      viewModelScope.launch()
-      {
-         try
-         {
-            val response = qqqRepository.loginWithPassword(username, password)
-            sessionUUID = requireNotNull(response.uuid)
-            qqqRepository.setSessionUUID(sessionUUID)
-            doSetSessionUserFullName(username)
-            manageSessionLoadState = LoadState.Success(response)
-            logInSuccessful()
-            loadQInstance()
-         }
-         catch(e: kotlinx.coroutines.CancellationException) { throw e }
-         catch(e: Exception)
-         {
-            manageSessionLoadState = LoadState.Error("Sign-in failed. Check your credentials and connection.")
-         }
-      }
+      val attempt = prepareAuthentication() ?: return
+      exchangeAuthentication(attempt, username) { qqqRepository.loginWithPassword(username, password) }
    }
 
    /***************************************************************************

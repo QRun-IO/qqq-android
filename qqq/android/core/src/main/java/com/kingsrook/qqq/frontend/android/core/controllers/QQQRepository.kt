@@ -40,6 +40,7 @@ interface QQQRepository
 
    suspend fun getAuthenticationMetaData(): BaseAuthenticationMetaData
 
+   /** Return a provisional session; the initiating login must accept it before calling setSessionUUID. */
    suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse
 
    /** Native browser sign-in requires explicit version/feature discovery before authorization. */
@@ -52,7 +53,7 @@ interface QQQRepository
    /** Revoke an abandoned exchange at its original server without activating its cookie. */
    suspend fun discardNativeSession(server: String, session: String) { }
 
-   /** Authenticate table-backed users without retaining their password. */
+   /** Authenticate without retaining the password or adopting the provisional response cookie. */
    suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse =
       throw UnsupportedOperationException("Password authentication is unavailable")
 

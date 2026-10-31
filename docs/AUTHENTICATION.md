@@ -48,11 +48,33 @@ The pending attempt is kept in memory and bound to server, provider metadata, cl
 
 Provider callback URLs, authorization codes, verifiers and raw errors are not shown in diagnostics. App sign-out ends the QQQ session. The browser's identity-provider SSO session may remain; global provider logout is not implied by this contract.
 
+Password and legacy Auth0 flows also bind each attempt and provisional cookie to
+its initiating server, metadata and generation. A response cannot restore a
+signed-out operator or replace a later operator after a server change. The
+repository returns provisional session results: custom callers must validate
+their pending attempt before explicitly adopting the session. Repeated logout
+effects share one logical sign-out; local credentials are cleared independently
+of bounded server revocation and the browser provider's outcome.
+
 The fresh-login prompt is a request to the provider, not cryptographic proof of a newly validated `auth_time`. Before shared-handheld deployment, test with the prior operator still signed into the browser: the next login must require authentication, allow the next operator to identify themselves, and attribute subsequent scans to that operator. Custom provider flows or upstream SSO may affect this behavior and require provider configuration; this client change does not modify them.
+
+## Host storage and transport
+
+Applications embedding the shared libraries must keep reusable session storage under
+Android's `noBackupFilesDir` and exclude it from both cloud backup and device transfer.
+Ordinary preference storage can carry session authority to a restored installation.
+The scanner and sample hosts disable backup and define explicit transfer exclusions.
+The sample now uses a no-backup store; it deliberately does not migrate its previous
+backup-eligible settings, so an upgraded sample requires a fresh login.
+
+The sample permits HTTP development environments and cleartext traffic only in debug
+builds. Its release manifest rejects cleartext even for an old restored HTTP address.
+Embedding applications must enforce the same release transport policy before allowing
+authentication. The scanner's existing release HTTPS requirement remains in force.
 
 ## Verification status
 
-The combined client passed 102 JVM tests, scanner lint and APK assembly. All 20 selected native navigation/input/account/OAuth cases passed on TC22, including seven synthetic AppAuth request/result scenarios; [the evidence](NATIVE-AUTH-ACCEPTANCE.md) states their boundaries. Generated AppAuth notices were verified in debug/E2E APKs. A real configured Authentik sign-in remains a separate acceptance gate: it requires a reachable HTTPS QQQ server advertising the descriptor, an explicitly registered callback and an authorized test account. No live provider configuration was changed as part of implementation.
+The latest security qualification passes 109 JVM tests, scanner lint and APK assembly. All 32 selected native navigation/input/account/authentication/storage cases pass on TC22, including seven synthetic AppAuth request/result scenarios and ten additional authentication lifecycle regressions. See [the scoped security evidence](SECURITY-REVIEW-2026-10-31.md) and [native OAuth evidence](NATIVE-AUTH-ACCEPTANCE.md) for their boundaries. Earlier generated AppAuth notices were verified in debug/E2E APKs. A real configured Authentik sign-in remains a separate acceptance gate: it requires a reachable HTTPS QQQ server advertising the descriptor, an explicitly registered callback and an authorized test account. No live provider configuration was changed as part of implementation.
 
 Primary references: [AppAuth Android 0.11.1](https://github.com/openid/AppAuth-Android/tree/0.11.1) documents external-browser authorization, PKCE and server-side exchange when a confidential secret is needed. [Authentik OAuth2 provider documentation](https://docs.goauthentik.io/add-secure-apps/providers/oauth2/) documents PKCE, exact redirect registration and global issuer mode.
 
