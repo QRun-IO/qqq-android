@@ -1,5 +1,10 @@
 # TODO
 
+- [x] Replace the raw diagnostics popup with tested full-screen status/activity, filtering, pause, copy/share/clear and Back; 159 client JVM tests, zero-warning lint/build and the focused TC22 diagnostics UI test pass.
+- [x] Default foreground location reporting on, preserving explicit opt-out and one-time Android permission behavior; settings/policy tests pass.
+- [x] Verify current trusted EMDK Code128, QR leading zeros and menu/reopen on installed checkpoint1c766bf/E34AC3C6.
+- [ ] Observe the diagnostics/location update on the normal package, grant/deny/restore location permission and verify an actual provider fix; keep physical lifecycle/outage/retry and provider acceptance gates open.
+
 - [x] Verify the API1.10 original-nonce and optional company-logout client patch: 151 JVM tests, zero-warning lint/build and 28 disposable TC22 native authentication/lifecycle tests pass; independent 26-file source review completed with no findings.
 - [ ] Qualify the paired strict server policy and actual Authentik A-to-company-logout-to-B handoff, including the exported native callback and real SDK/browser logging boundary; synthetic native tests do not close this gate.
 

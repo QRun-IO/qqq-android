@@ -17,7 +17,7 @@ Every screen provides one **hamburger navigation drawer**, a clear current app/p
 | Diagnostics | Server reachability details, recent safe logs, retry/check connection and app/version information. Reachable from the connection footer and secondary menu. |
 | Administration | Approval and fleet management remain in QQQ administration. A handheld pending approval shows its short name and administrator instructions. |
 
-Optional location permission belongs under device settings, not in the primary business navigation. Camera permission is requested when the operator chooses Take photo. A live viewing indicator and Stop viewing control remain visible while an administrator is viewing the app; they are not hidden in settings.
+The default-on foreground location reporting toggle, permission recovery and actual provider/fix status belong under device settings. Android location permission is requested once when an approved signed-in session first becomes foreground with reporting enabled; denial leaves scanning usable. Camera permission is requested when the operator chooses Take photo. A live viewing indicator and Stop viewing control remain visible while an administrator is viewing the app; they are not hidden in settings.
 
 The owner also requires a device-local Orientation preference in Settings: System default, Portrait, Landscape, Reverse portrait and Reverse landscape. Persist the selection across app restarts and apply it across login, menus and processes. Use Android's activity orientation policy without changing system-wide rotation settings. Rotation or a policy change must preserve drafts and pending upload identity. Licenses belong in the same secondary Settings layer and must remain readable offline.
 

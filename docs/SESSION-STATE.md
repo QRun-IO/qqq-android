@@ -1,5 +1,13 @@
 # Session state
 
+## November 1 diagnostics and location update
+
+Diagnostics now uses a full-screen, scrollable native view with a connection summary, local-time newest-first activity, All/Problems filters, pause/resume, copy/share/clear and Back. Existing footer and menu entry points still block process input while diagnostics is open. Location reporting defaults on for approved signed-in foreground sessions; Android grants remain required, explicit opt-out persists and automatic permission requests are not repeated after denial. Controls remain under Settings → Device permissions.
+
+The combined client passes 159 JVM tests, zero-error/zero-warning debug lint, normal/E2E APK builds and the focused diagnostics interaction test on TC22 using the separate E2E package. The new UI/default policy still needs normal-package field observation. This does not establish a physical GPS fix, background tracking, real provider sign-out or production release readiness.
+
+The preceding signed checkpoint1c766bf was installed in place as APK E34AC3C6…C1874EB with private backup, matching signer and no data clear. The operator and backend confirm one Code128 and one QR event on these bytes, including exact leading-zero value001234567890 from EMDK/QRCODE. Apps → menu → Scan Capture round trip was also confirmed. The normal server remains API1.9/mobile1.1; API1.10 core159 tests, current contract3 tests and coherent scanner/demo/files/browser78 cases pass separately while real Authentik acceptance continues.
+
 ## November 1 native authentication checkpoint
 
 The optional company sign-out and original-nonce client changes pass 151 JVM tests, zero-error/zero-warning lint, debug assembly and native-test compilation. All 28 selected OAuth2 login/logout and authentication-lifecycle native tests also pass on the TC22 in the disposable sample application, with no failures or skips. The normal scanner package/data were preserved and its Activity is foreground again. These native tests use synthetic provider adapters; they do not establish real Authentik or external-browser acceptance.

@@ -63,6 +63,7 @@ internal class DiagnosticLog(private val capacity: Int = 100)
       while(events.size > capacity) events.removeFirst()
    }
    @Synchronized fun text(): String = events.joinToString("\n") { "${it.time} ${it.code} HTTP=${it.httpStatus ?: "none"} ${it.elapsedMillis}ms" }
+   @Synchronized fun snapshot(): List<DiagnosticEvent> = events.toList()
    @Synchronized fun clear() { events.clear() }
 
    fun nativeRequest(outcome: RequestOutcome) = record(if(outcome.httpStatus == null) DiagnosticCode.NATIVE_TRANSPORT_FAILED else DiagnosticCode.NATIVE_RESPONSE, outcome.httpStatus, outcome.elapsedMillis)
