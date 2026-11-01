@@ -200,13 +200,30 @@ class ScannerInjectionTest
       val priorEvents = before.map { it.getString("eventId") }.toSet()
       val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(120)
       fun remainingMillis() = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()).coerceAtLeast(1)
+      fun pollScans(stage: String): List<JSONObject>
+      {
+         val remaining = remainingMillis()
+         // Do not start a near-deadline 1ms HTTP call that hides the actual operator wait failure.
+         if(remaining < 1000)
+         {
+            Thread.sleep(remaining)
+            throw AssertionError("Physical trigger deadline reached during $stage; no additional polling budget remains")
+         }
+         return try { scans(remaining.coerceAtMost(20_000)) }
+         catch(error: java.io.InterruptedIOException)
+         {
+            if(System.nanoTime() >= deadline)
+               throw AssertionError("Physical trigger deadline reached during $stage; the final status poll did not complete", error)
+            throw error
+         }
+      }
       InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply { putString("qqqStage", "hardware-$phase-ready") })
       var saved: JSONObject? = null
       while(saved == null)
       {
          assertTrue("Timed out waiting for the operator's physical trigger", System.nanoTime() < deadline)
          foreground(context)
-         val current = scans(remainingMillis().coerceAtMost(20_000))
+         val current = pollScans("waiting for the operator's acknowledged scan")
          val added = current.filter { it.getString("id") !in priorIds }
          assertTrue("One trigger must not create multiple records", added.size <= 1 && current.size <= before.size + 1)
          if(added.isNotEmpty()) saved = added.single() else Thread.sleep(200)
@@ -221,7 +238,7 @@ class ScannerInjectionTest
       assertTrue("Each physical trigger needs its own event identity", event !in priorEvents && events.add(event))
       waitFor("Saved scan ${row.getString("id")}", timeoutMillis = remainingMillis())
       waitFor("Scanner ready. Press the handheld trigger.", timeoutMillis = remainingMillis())
-      assertEquals(before.size + 1, scans(remainingMillis().coerceAtMost(20_000)).size)
+      assertEquals(before.size + 1, pollScans("final saved-scan verification").size)
       foreground(context)
       InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply { putString("qqqStage", "hardware-$phase-saved") })
    }

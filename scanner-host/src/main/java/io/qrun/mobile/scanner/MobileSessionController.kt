@@ -25,11 +25,15 @@ internal class MobileSessionController(
    private val capture: suspend (ScreenLease) -> ScreenFrame?,
    private val onUnauthorized: () -> Unit,
    private val now: () -> Long = android.os.SystemClock::elapsedRealtime,
+   private val onDeviceViewingStopped: () -> Unit = {},
+   private val onDeviceLease: (Long) -> Unit = {},
 )
 {
    var operatorPaused by mutableStateOf(false)
       private set
    var viewing by mutableStateOf(false)
+      private set
+   var supportsDeviceScreen by mutableStateOf(false)
       private set
    private var ended = false
    private var generation = 0L
@@ -40,11 +44,11 @@ internal class MobileSessionController(
 
    private fun screen() = readScreen().copy(paused = operatorPaused)
 
-   fun pauseViewing() { operatorPaused = true; generation++; viewing = false }
+   fun pauseViewing() { operatorPaused = true; generation++; viewing = false; onDeviceViewingStopped() }
    fun allowViewing() { operatorPaused = false; generation++ }
 
    /** Invalidating synchronously prevents a completed PixelCopy callback from uploading after exit. */
-   fun invalidate() { ended = true; generation++; lease = null; viewing = false; running?.cancel() }
+   fun invalidate() { ended = true; generation++; lease = null; viewing = false; onDeviceViewingStopped(); running?.cancel() }
 
    suspend fun end(reason: String)
    {
@@ -53,6 +57,7 @@ internal class MobileSessionController(
       generation++
       lease = null
       viewing = false
+      onDeviceViewingStopped()
       val job = running
       if(job != currentCoroutineContext()[Job]) job?.cancelAndJoin()
       if(session.isNotBlank()) try { api.end(session, reason) }
@@ -70,6 +75,8 @@ internal class MobileSessionController(
       var nextHeartbeat = 0L
       var nextFrame = 0L
       var heartbeatInterval = 5000L
+      var deviceStartedAt = 0L
+      var deviceHadLease = false
       try
       {
          while(isActive && !ended)
@@ -77,6 +84,12 @@ internal class MobileSessionController(
             val state = screen()
             if(state != previous)
             {
+               if(state.captureMode != previous?.captureMode)
+               {
+                  lease = null
+                  deviceStartedAt = now()
+                  deviceHadLease = false
+               }
                generation++
                previous = state
                nextHeartbeat = 0L
@@ -90,8 +103,9 @@ internal class MobileSessionController(
                {
                   val response = api.heartbeat(session, state)
                   heartbeatInterval = response.intervalMillis
+                  supportsDeviceScreen = CaptureMode.DEVICE_SCREEN in response.supportedCaptureModes
                   // A slow response cannot extend the lease beyond its server-derived remaining lifetime.
-                  val newLease = response.lease
+                  val newLease = response.lease?.takeIf { it.captureMode == state.captureMode }
                   leaseExpiresAt = started + (newLease?.durationMillis ?: 0)
                   if(newLease?.id != lease?.id) sequence = newLease?.nextSequence ?: 0L
                   else sequence = maxOf(sequence, newLease?.nextSequence ?: 0L)
@@ -101,20 +115,32 @@ internal class MobileSessionController(
                catch(exception: Exception)
                {
                   lease = null
+                  if(state.captureMode == CaptureMode.DEVICE_SCREEN) pauseViewing()
                   if(exception is UiApiException && exception.httpStatus in setOf(401, 403)) { onUnauthorized(); break }
                }
-               nextHeartbeat = if(state.foreground) now() + heartbeatInterval else Long.MAX_VALUE
+               nextHeartbeat = if(state.foreground || state.captureMode == CaptureMode.DEVICE_SCREEN) now() + heartbeatInterval else Long.MAX_VALUE
             }
             val activeLease = lease
             if(screen() != state) continue
             viewing = activeLease != null && state.available && now() < leaseExpiresAt
+            if(state.captureMode == CaptureMode.DEVICE_SCREEN)
+            {
+               if(viewing) { deviceHadLease = true; onDeviceLease(leaseExpiresAt) }
+               if(!state.available || !supportsDeviceScreen || (!viewing && (deviceHadLease || now() - deviceStartedAt >= 30000)))
+               {
+                  pauseViewing()
+                  lease = null
+                  viewing = false
+                  continue
+               }
+            }
             if(viewing && activeLease != null && now() >= nextFrame)
             {
                val ticket = ScreenTicket(generation, state, activeLease.id)
                val frame = try { capture(activeLease) }
                catch(exception: CancellationException) { throw exception }
                catch(exception: Exception) { null }
-               if(frame != null && ticket.valid(generation, screen(), lease?.id, now(), leaseExpiresAt) && !ended)
+               if(frame != null && frame.captureMode == state.captureMode && ticket.valid(generation, screen(), lease?.id, now(), leaseExpiresAt) && !ended)
                {
                   try
                   {
@@ -127,16 +153,18 @@ internal class MobileSessionController(
                   {
                      lease = null
                      viewing = false
+                     if(state.captureMode == CaptureMode.DEVICE_SCREEN) pauseViewing()
                      nextHeartbeat = now() + heartbeatInterval
                      if(exception is UiApiException && exception.httpStatus == 401) { onUnauthorized(); break }
                   }
                }
                nextFrame = now() + activeLease.intervalMillis
             }
-            val deadline = if(viewing) minOf(nextHeartbeat, nextFrame, leaseExpiresAt) else nextHeartbeat
+            val deadline = if(viewing) minOf(nextHeartbeat, nextFrame, leaseExpiresAt) else
+               if(state.captureMode == CaptureMode.DEVICE_SCREEN) minOf(nextHeartbeat, deviceStartedAt + 30000) else nextHeartbeat
             withTimeoutOrNull((deadline - now()).coerceIn(1, 15000)) { changed.receive() }
          }
       }
-      finally { observer.cancel(); changed.close(); viewing = false; lease = null; running = null }
+      finally { observer.cancel(); changed.close(); viewing = false; lease = null; running = null; onDeviceViewingStopped() }
    }
 }

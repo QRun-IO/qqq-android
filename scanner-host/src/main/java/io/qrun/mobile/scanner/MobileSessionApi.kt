@@ -47,6 +47,7 @@ internal class MobileSessionApi(
       val locationStatus = if(!state.foreground || (state.location.status == "AVAILABLE" && !locationAvailable)) "UNAVAILABLE" else state.location.status
       val json = JSONObject().put("foreground", state.foreground).put("screenAvailable", state.available)
          .put("locationStatus", locationStatus)
+      if(state.captureMode != CaptureMode.APP_CONTENT) json.put("captureMode", state.captureMode.name)
       state.location.fix?.takeIf { locationAvailable }?.let { fix ->
          json.put("location", JSONObject().put("latitude", fix.latitude).put("longitude", fix.longitude)
             .put("accuracyMeters", fix.accuracyMeters).put("capturedAt", fix.capturedAt))
@@ -68,6 +69,7 @@ internal class MobileSessionApi(
       val json = JSONObject().put("leaseId", leaseId).put("sequence", sequence).put("capturedAt", frame.capturedAt)
          .put("width", frame.width).put("height", frame.height).put("mimeType", "image/jpeg")
          .put("imageBase64", java.util.Base64.getEncoder().encodeToString(frame.jpeg))
+      if(frame.captureMode != CaptureMode.APP_CONTENT) json.put("captureMode", frame.captureMode.name)
       post(session, "/sessions/current/screen", json, 204)
    }
 

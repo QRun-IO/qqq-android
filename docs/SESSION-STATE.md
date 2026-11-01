@@ -1,5 +1,9 @@
 # Session state
 
+## November 1 — initial consent-based device-screen checkpoint
+
+The optional device-screen client and paired1.2 server pass initial compilation and automated gates:135 Android JVM tests, lint/all package builds,39 server and six real-HTTP demo tests. Parent and fresh independent static review found no reportable client issue across the nine changed-file inventory; actual consent and projection behavior remain unverified. See [scope, hashes and remaining acceptance](DEVICE-SCREEN-ACCEPTANCE.md). The normal operator APK and qualified1.1 demo remain separate. Frame freshness/binding refinements and final native acceptance are still required.
+
 ## November 1 — hosted Back focus failure and physical-trigger checkpoint
 
 Published Android head `6845abc5289fa975e6f50b23b159c3131a82eee1` has a successful CodeQL check; not all CI is green. CircleCI android-test job 140 fails three NavigationTests before injecting Back: their Activity is resumed and the device is interactive/unlocked, but Activity/decor window focus stays false for five seconds. Both job attempts reproduce the failure. Retained JUnit contains no focused-window owner, so the cause is not yet established. Failure-only diagnostics now classify the focused window as own/system/other, report bounded own-window flags and the known network-dialog visibility; they retain the five-second focus requirement and actual Back injection. CircleCI unit job 141 passed. One GitHub native run failed and the other was still running at inspection; neither is claimed successful.

@@ -197,26 +197,33 @@ class ScannerActivity : ComponentActivity()
          renderedScreen = currentScreen
       }
       val sessionApi = remember(server, diagnostics) { MobileSessionApi(server, credentials::headers, compatibility, diagnostics::sessionRequest) }
+      val deviceSharing = remember(server, qViewModel.sessionUUID) { DeviceScreenSharing(applicationContext) }
       val sessions = remember(sessionApi, qViewModel.sessionUUID)
       {
          val monitoredSession = qViewModel.sessionUUID
          MobileSessionController(qViewModel.sessionUUID, sessionApi,
             readScreen = {
                val screen = sessionScreen(qViewModel, resumed, focused, approved, captureBounds != null)
-               screen.copy(ready = screen.ready && screen == renderedScreen, location = location.report)
+               if(deviceSharing.active) screen.copy(ready = true, captureMode = CaptureMode.DEVICE_SCREEN, location = location.report)
+               else screen.copy(ready = screen.ready && screen == renderedScreen, location = location.report)
             },
-            capture = { lease -> captureBounds?.let { captureAppScreen(window, it, lease) } },
+            capture = { lease -> if(lease.captureMode == CaptureMode.DEVICE_SCREEN) deviceSharing.frame(lease)
+               else captureBounds?.let { captureAppScreen(window, it, lease) } },
             onUnauthorized = {
                runOnUiThread {
                   if(qViewModel.sessionUUID == monitoredSession) qViewModel.requestLogout()
                }
-            })
+            }, onDeviceViewingStopped = deviceSharing::stop, onDeviceLease = deviceSharing::boundLease)
       }
       DisposableEffect(sessions)
       {
-         qViewModel.beforeLogout = { sessions.end("SIGN_OUT") }
+         qViewModel.beforeLogout = { deviceSharing.stop(); sessions.end("SIGN_OUT") }
          registerBeforeChange { sessions.end("SERVER_CHANGE"); qViewModel.logOut().join() }
-         onDispose { sessions.invalidate() }
+         onDispose { deviceSharing.stop(); sessions.invalidate() }
+      }
+      SideEffect {
+         deviceSharing.onSystemStop = sessions::pauseViewing
+         deviceSharing.onStarted = sessions::allowViewing
       }
       LaunchedEffect(sessions, approved, qViewModel.isAuthenticated, qViewModel.isLogoutRequested)
       {
@@ -226,6 +233,9 @@ class ScannerActivity : ComponentActivity()
          LocalBusinessNavigationEnabled provides approved,
          LocalDeviceSettings provides {
             OrientationSetting(this@ScannerActivity)
+            DeviceScreenSharingControl(deviceSharing, sessions) {
+               approved && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested
+            }
             if(api.shortName.isNotBlank()) Text("Device: ${api.shortName}")
             if(api.displayName.isNotBlank()) Text("Name: ${api.displayName}")
             Text("Device permissions", style = MaterialTheme.typography.titleSmall)
