@@ -73,6 +73,13 @@ export async function runScannerE2e(options = {}) {
       child.stdin.end(input);
    });
    const adbRun = (...args) => run(adb, [...adbPrefix, ...args]);
+   const grantE2eLocationPermissions = async () => {
+      // These scenarios exercise scanner/navigation behavior, not the Android permission dialog.
+      // Never grant permissions to the operator's normal app or the separate consent-based QA app.
+      if (packageName !== 'io.qrun.mobile.scanner.e2e') return;
+      await adbRun('shell', 'pm', 'grant', packageName, 'android.permission.ACCESS_COARSE_LOCATION');
+      await adbRun('shell', 'pm', 'grant', packageName, 'android.permission.ACCESS_FINE_LOCATION');
+   };
 
    const emulated = (await adbRun('shell', 'getprop', 'ro.kernel.qemu')).trim() === '1';
    if (physical) {
@@ -94,6 +101,7 @@ export async function runScannerE2e(options = {}) {
    const localScenarios = {
       licenses: 'io.qrun.mobile.scanner.OpenSourceLicensesTest',
       orientation: 'io.qrun.mobile.scanner.OrientationPolicyTest',
+      diagnostics: 'io.qrun.mobile.scanner.DiagnosticScreenTest',
    };
    const runLocalScenario = async (scenario) => {
       const output = await adbRun('shell', 'am', 'instrument', '-w', '-r',
@@ -104,7 +112,7 @@ export async function runScannerE2e(options = {}) {
       if (!/OK \(1 test\)/.test(output) || /FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed/.test(output)) {
          throw new Error(`Native ${scenario} acceptance failed; inspect the isolated test evidence.`);
       }
-      console.log(`Native ${scenario} acceptance passed (bundled resources, no server).`);
+      console.log(`Native ${scenario} acceptance passed (local UI, no server).`);
    };
    const allowedScenarios = [...(physical ? ['navigation', 'photos', 'device-screen'] : []), ...Object.keys(localScenarios), 'pixel-copy', 'unsupported-api', 'missing-extension', 'missing-channel', 'compatible', 'additive', 'admin-forms', 'session-monitor'];
    if (selectedScenario && !allowedScenarios.includes(selectedScenario)) throw new Error('Unknown native E2E scenario.');
@@ -115,6 +123,7 @@ export async function runScannerE2e(options = {}) {
          temporary.push(packageName);
          await adbRun('install', ...(physical ? [] : ['-r']), join(repository, 'scanner-host/build/outputs/apk/androidTest/e2e/scanner-host-e2e-androidTest.apk'));
          temporary.push(packageName + '.test');
+         await grantE2eLocationPermissions();
          await runLocalScenario(selectedScenario);
       } finally {
          for (const installed of temporary.reverse()) await adbRun('uninstall', installed);
@@ -206,6 +215,7 @@ export async function runScannerE2e(options = {}) {
       installedByRun.add(packageName);
       await adbRun('install', ...(physical ? ['--no-streaming'] : ['-r']), apkPaths[1]);
       installedByRun.add(packageName + '.test');
+      await grantE2eLocationPermissions();
       if (deviceScreen) {
          await adbRun('shell', 'run-as', packageName, 'mkdir', '-p', 'files');
          await run(adb, [...adbPrefix, 'shell', 'run-as', packageName, 'sh', '-c', "'cat > files/qa-screen.json'"],
@@ -254,6 +264,17 @@ export async function runScannerE2e(options = {}) {
          if (selectedScenario && selectedScenario !== (phase.name ?? phase.mode)) continue;
          proxy.setMode(phase.mode);
          await adbRun('shell', 'pm', 'clear', packageName);
+         // Clearing disposable app data also resets runtime permissions on fresh Android images.
+         if ((phase.name ?? phase.mode) === 'session-monitor' && packageName === 'io.qrun.mobile.scanner.e2e') {
+            // Preserve this scenario's real denied-location telemetry assertion without an OS dialog.
+            await adbRun('shell', 'pm', 'revoke', packageName, 'android.permission.ACCESS_FINE_LOCATION');
+            await adbRun('shell', 'pm', 'revoke', packageName, 'android.permission.ACCESS_COARSE_LOCATION');
+            await adbRun('shell', 'run-as', packageName, 'mkdir', '-p', 'shared_prefs');
+            await run(adb, [...adbPrefix, 'shell', 'run-as', packageName, 'sh', '-c', "'cat > shared_prefs/host.xml'"],
+               '<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map><boolean name="locationPermissionRequested" value="true" /></map>');
+         } else {
+            await grantE2eLocationPermissions();
+         }
          await adbRun('shell', 'run-as', packageName, 'mkdir', '-p', 'files');
          await run(adb, [...adbPrefix, 'shell', 'run-as', packageName, 'sh', '-c', "'cat > files/e2e.json'"],
             JSON.stringify({ serverUrl: `http://127.0.0.1:${proxy.port}/`, adminPassword, scannerPassword, expectedError: phase.expectedError }));
