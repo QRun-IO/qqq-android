@@ -1,5 +1,7 @@
 # TODO
 
+- [x] Compile/review additive consent-based device-screen client and paired1.2 server:137 JVM, package/lint/APK inspection, ordinary-UID TC22 scan-input rejection,39 server/six demo/all15 browser cases and strict provenance pass. Actual projection acceptance remains separate.
+- [ ] Execute opt-in actual Android consent, notification, Home/background pixels, Stop, lease expiry, lock/rotation and forced-session-end acceptance on the refined device-screen candidate.
 - [ ] Resolve CircleCI job 140's three unfocused-Activity Back failures using the new bounded window-owner diagnostics; retain real Back and the five-second guard. CodeQL on `6845abc` passed, but native CI is not fully green.
 - [ ] Repeat physical EMDK acceptance after the unsuccessful first-stage QA attempt preserved in `C:/Users/james/.cache/qqq-tc22-physical-attempt-20261101-0210`; no physical trigger proof is established. Preserve the 120-second operator stage bound and explicit timeout reporting.
 - [x] Resolve normal backend ownership and perform the reviewed API 1.9 upgrade with fresh backup, original-column/data checks, recovery logins and live account validation; preserve the operator APK. Private verification confirms two devices and three scans retained.

@@ -1,5 +1,9 @@
 # Session state
 
+## November 1 — refined device-screen client and published paired server
+
+The refined client passes137 JVM tests, all package/lint gates, fresh four-APK inspection and the TC22 ordinary-UID scan-ingress regression. Continuous image draining retains one latest buffer; repeated Share is blocked through service binding. Fresh independent follow-up review found no concrete issue. The source-pinned1.2 server `1041693` is published and passes39 server/six demo/all15 browser tests with strict195-JAR/2,441-class provenance in a cloned private Maven cache. Hosted client CI now targets that exact source. No actual projection consent/physical trigger is proved; the normal APK remains unchanged and its running demo remains qualified1.1. See [candidate scope and hashes](DEVICE-SCREEN-ACCEPTANCE.md).
+
 ## November 1 — initial consent-based device-screen checkpoint
 
 The optional device-screen client and paired1.2 server pass initial compilation and automated gates:135 Android JVM tests, lint/all package builds,39 server and six real-HTTP demo tests. Parent and fresh independent static review found no reportable client issue across the nine changed-file inventory; actual consent and projection behavior remain unverified. See [scope, hashes and remaining acceptance](DEVICE-SCREEN-ACCEPTANCE.md). The normal operator APK and qualified1.1 demo remain separate. Frame freshness/binding refinements and final native acceptance are still required.

@@ -78,7 +78,7 @@ jobs:
     timeout-minutes: 40
     env:
       QQQ_CORE_SHA: ecf0f550a0357cec6387c2b54efca128a405a629
-      SCANNER_SERVER_SHA: b14d925b741e815d1cfa4f62301f19207f25b03f
+      SCANNER_SERVER_SHA: 10416938724c9663d66f7848ff2b1a63fe635794
       MAVEN_OPTS: -XX:ActiveProcessorCount=2 -Xmx768m
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

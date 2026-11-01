@@ -35,6 +35,8 @@ internal class DeviceScreenSharing(private val context: Context)
       private set
    var pending by mutableStateOf(false)
       private set
+   var connecting by mutableStateOf(false)
+      private set
    var message by mutableStateOf("")
       private set
    private val consentAttempt = ScreenConsentAttempt()
@@ -61,6 +63,7 @@ internal class DeviceScreenSharing(private val context: Context)
          return
       }
       requireNotNull(data)
+      connecting = true
       val serviceIntent = Intent(context, DeviceScreenCaptureService::class.java)
       val binding = object : ServiceConnection {
          override fun onServiceConnected(name: ComponentName, binder: IBinder)
@@ -73,6 +76,7 @@ internal class DeviceScreenSharing(private val context: Context)
                if(consentAttempt.current(ticket)) { stop(); onSystemStop() }
             }
             if(active) onStarted()
+            connecting = false
             if(!active) { stop(); message = "Device screen sharing could not start. Try again from the app." }
          }
          private fun disconnected() { if(connection === this) { stop(); onSystemStop() } }
@@ -96,6 +100,7 @@ internal class DeviceScreenSharing(private val context: Context)
       consentAttempt.invalidate()
       active = false
       pending = false
+      connecting = false
       val previous = service
       service = null
       val binding = connection
@@ -133,7 +138,8 @@ internal fun DeviceScreenSharingControl(sharing: DeviceScreenSharing, controller
          ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED }
       if(!canNotify) TextButton(onClick = { if(Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }) {
          Text("Enable sharing notification")
-      } else TextButton(enabled = !sharing.pending && allowed(), onClick = { disclosure = true }) { Text("Share device screen…") }
+      } else TextButton(enabled = !sharing.pending && !sharing.connecting && allowed(), onClick = { disclosure = true }) { Text("Share device screen…") }
+      if(sharing.connecting) Text("Starting device screen sharing…")
       if(sharing.message.isNotBlank()) Text(sharing.message)
    }
    if(disclosure) AlertDialog(onDismissRequest = { disclosure = false }, title = { Text("Share this device screen?") },

@@ -19,6 +19,7 @@ import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.ImageReader
+import android.media.Image
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Binder
@@ -43,6 +44,8 @@ class DeviceScreenCaptureService : Service()
    private var projection: MediaProjection? = null
    private var display: VirtualDisplay? = null
    private var reader: ImageReader? = null
+   private val latestImage = LatestScreenImage<Image>()
+   private var latestCapturedAt = ""
    private var stopped: (() -> Unit)? = null
    private var foregroundReady = false
    private var screenReceiverRegistered = false
@@ -104,7 +107,7 @@ class DeviceScreenCaptureService : Service()
          granted.registerCallback(callback, handler)
          val (width, height) = displaySize()
          val (scaledWidth, scaledHeight) = scaledSize(width, height)
-         reader = ImageReader.newInstance(scaledWidth, scaledHeight, PixelFormat.RGBA_8888, 2)
+         reader = newReader(scaledWidth, scaledHeight)
          display = requireNotNull(granted.createVirtualDisplay("QQQ consented device screen", scaledWidth, scaledHeight,
             resources.configuration.densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, reader!!.surface, null, handler))
          ContextCompat.registerReceiver(this, stopReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED)
@@ -129,8 +132,10 @@ class DeviceScreenCaptureService : Service()
       if(owner != grantOwner || projection == null || lease.captureMode != CaptureMode.DEVICE_SCREEN) return@withContext null
       val capturedProjection = projection
       if(getSystemService(KeyguardManager::class.java).isDeviceLocked) { finishProjection(); return@withContext null }
-      val image = reader?.acquireLatestImage() ?: return@withContext null
-      val bitmap = try {
+      val image = latestImage.image ?: return@withContext null
+      val capturedAt = latestCapturedAt
+      // The main-thread listener cannot replace this image while its pixels are copied.
+      val bitmap = run {
          val plane = image.planes.single()
          if(plane.pixelStride != 4 || plane.rowStride < image.width * 4 || plane.rowStride.toLong() * image.height > 8388608L)
             return@withContext null
@@ -151,7 +156,7 @@ class DeviceScreenCaptureService : Service()
             copied.copyPixelsFromBuffer(packed)
             copied
          } catch(exception: Exception) { copied.recycle(); throw exception }
-      } finally { image.close() }
+      }
       try {
          if(bitmap.width > lease.maxWidth || bitmap.height > lease.maxHeight) return@withContext null
          withContext(Dispatchers.Default) {
@@ -160,7 +165,7 @@ class DeviceScreenCaptureService : Service()
                val bytes = ByteArrayOutputStream()
                bitmap.compress(Bitmap.CompressFormat.JPEG, quality, bytes)
                if(bytes.size() <= lease.maxBytes) {
-                  frame = ScreenFrame(bytes.toByteArray(), bitmap.width, bitmap.height, Instant.now().toString(), CaptureMode.DEVICE_SCREEN)
+                  frame = ScreenFrame(bytes.toByteArray(), bitmap.width, bitmap.height, capturedAt, CaptureMode.DEVICE_SCREEN)
                   break
                }
             }
@@ -196,12 +201,31 @@ class DeviceScreenCaptureService : Service()
       if(reader?.width == targetWidth && reader?.height == targetHeight) return
       val previous = reader
       try {
-         val replacement = ImageReader.newInstance(targetWidth, targetHeight, PixelFormat.RGBA_8888, 2)
+         latestImage.close()
+         val replacement = newReader(targetWidth, targetHeight)
          reader = replacement
          current.surface = replacement.surface
          current.resize(targetWidth, targetHeight, resources.configuration.densityDpi)
       } catch(exception: Exception) { finishProjection() }
       finally { runCatching { previous?.close() } }
+   }
+
+   /** Drain continuously so first demand gets current pixels; encode only on leased polls. */
+   private fun newReader(width: Int, height: Int): ImageReader
+   {
+      // One retained image plus two free slots lets acquireLatestImage discard older queued frames.
+      return ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3).also { created ->
+         created.setOnImageAvailableListener({ source ->
+            if(source === reader && projection != null) {
+               try {
+                  source.acquireLatestImage()?.let { image ->
+                     latestImage.replace(image)
+                     latestCapturedAt = Instant.now().toString()
+                  }
+               } catch(exception: Exception) { finishProjection() }
+            }
+         }, handler)
+      }
    }
 
    private fun finishProjection()
@@ -216,6 +240,8 @@ class DeviceScreenCaptureService : Service()
       foregroundReady = false
       if(screenReceiverRegistered) { runCatching { unregisterReceiver(stopReceiver) }; screenReceiverRegistered = false }
       runCatching { display?.release() }; display = null
+      runCatching { latestImage.close() }
+      latestCapturedAt = ""
       runCatching { reader?.close() }; reader = null
       projectionCallback?.let { callback -> runCatching { prior?.unregisterCallback(callback) } }
       projectionCallback = null
