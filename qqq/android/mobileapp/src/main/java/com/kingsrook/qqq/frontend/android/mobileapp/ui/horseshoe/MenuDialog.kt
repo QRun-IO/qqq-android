@@ -1,34 +1,31 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,138 +34,37 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.kingsrook.qqq.frontend.android.mobileapp.R
 import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Dropdown
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ ** Secondary settings preserve the active process until a server change is confirmed.
+ *******************************************************************************/
 @Composable
-fun MenuDialog(qViewModel: QViewModel, appTitle: String, isMenuDialogOpen: MutableState<Boolean>)
-{
-   val isSwitchingEnvironment = remember { mutableStateOf(false) }
-   val selectedEnvironment = remember { mutableStateOf(qViewModel.environment) }
-
+fun MenuDialog(qViewModel: QViewModel, appTitle: String, isMenuDialogOpen: MutableState<Boolean>) {
+   val selected = remember { mutableStateOf(qViewModel.environment) }
    AlertDialog(
-      title = { Text(appTitle, modifier = Modifier.testTag("menuDialog.title")) },
-      text = {
-         LazyColumn()
-         {
-            ///////////////////////
-            // current user name //
-            ///////////////////////
-            item()
-            {
-               Column(Modifier.padding(bottom = 16.dp))
-               {
-                  if(qViewModel.isAuthenticated)
-                  {
-                     Text("Current User:  ${qViewModel.sessionUserFullName}")
-                  }
-                  else
-                  {
-                     Text("Not currently logged in")
-                  }
-
-                  Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth())
-                  {
-                     TextButton(
-                        onClick =
-                        {
-                           qViewModel.requestLogout()
-                           isMenuDialogOpen.value = false
-                        }, enabled = qViewModel.isAuthenticated
-                     ) { Text("Log Out") }
-                  }
-
-                  HorizontalDivider()
-               }
-            }
-
-            //////////////////////////
-            // environment dropdown //
-            //////////////////////////
-            item()
-            {
-               Column(Modifier.padding(bottom = 16.dp))
-               {
-                  Text("Environment:", modifier = Modifier.padding(bottom = 8.dp))
-
-                  Dropdown(value = qViewModel.environment, options = QAppContainer.availableEnvironments, labelExtractor = { it.label }, onClick = { selectedEnvironment.value = it })
-
-                  Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth())
-                  {
-                     TextButton(
-                        onClick = {
-                           if(selectedEnvironment.value != qViewModel.environment)
-                           {
-                              isSwitchingEnvironment.value = true
-                              qViewModel.switchEnvironment(selectedEnvironment.value)
-                              {
-                                 isMenuDialogOpen.value = false
-                              }
-                           }
-                           else
-                           {
-                              isMenuDialogOpen.value = false
-                           }
-                        },
-                        enabled = (selectedEnvironment.value != qViewModel.environment && !isSwitchingEnvironment.value)
-                     ) { Text(if(isSwitchingEnvironment.value) "Switching..." else "Switch") }
-                  }
-
-                  HorizontalDivider()
-               }
-            }
-
-            //////////////////
-            // Reset button //
-            //////////////////
-            item()
-            {
-               Column(Modifier.padding(bottom = 16.dp))
-               {
-                  Text("In case of issues, you may try:")
-
-                  Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth())
-                  {
-                     TextButton(
-                        onClick =
-                        {
-                           qViewModel.resetApp()
-                           isMenuDialogOpen.value = false
-                        }
-                     ) { Text("Reset App") }
-                  }
-
-                  HorizontalDivider()
-               }
-            }
-
-            /////////////////
-            // app version //
-            /////////////////
-            item()
-            {
-               Column(Modifier.padding(bottom = 16.dp))
-               {
-                  Text("Application version:  ${QViewModel.applicationVersion}")
-                  if(QViewModel.applicationBuildTimestamp != null)
-                  {
-                     Text("Built at:  ${QViewModel.applicationBuildTimestamp}")
-                  }
-                  Text("QQQ Android version:  ${stringResource(R.string.qqq_android_version)}")
-                  HorizontalDivider(Modifier.padding(top = 16.dp))
-               }
-            }
-         }
-      },
       onDismissRequest = { isMenuDialogOpen.value = false },
-      dismissButton = { TextButton(onClick = { isMenuDialogOpen.value = false }) { Text("Dismiss") } },
-      confirmButton = { }
-   )
+      title = { Text("Settings", Modifier.testTag("menuDialog.title")) },
+      text = {
+         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(appTitle)
+            Text("Server: ${qViewModel.environment.baseUrl}")
+            LocalDeviceSettings.current()
+            if (QAppContainer.availableEnvironments.size > 1) {
+               Dropdown(
+                  value = selected.value, options = QAppContainer.availableEnvironments,
+                  labelExtractor = { it.label }, onClick = { selected.value = it })
+               TextButton(enabled = selected.value != qViewModel.environment, onClick = {
+                  isMenuDialogOpen.value = false
+                  qViewModel.qNavigator.requestLeave("Change server and sign out?", "Change server", alwaysConfirm = true) {
+                     qViewModel.switchEnvironment(selected.value) {}
+                  }
+               }) { Text("Switch") }
+            }
+            Text("Application version: ${QViewModel.applicationVersion}")
+         }
+      }, confirmButton = { TextButton(onClick = { isMenuDialogOpen.value = false }) { Text("Close") } })
 }

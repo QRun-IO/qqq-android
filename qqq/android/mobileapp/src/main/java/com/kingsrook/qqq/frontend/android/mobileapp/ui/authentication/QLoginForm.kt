@@ -1,22 +1,22 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication
@@ -31,27 +31,27 @@ import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.Auth0AuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.BaseAuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.FullyAnonymousAuthenticationMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.TableBasedAuthenticationMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullSizedAllCenteredColumn
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import java.util.UUID
 
 
-/***************************************************************************
+/*******************************************************************************
  ** Display an appropriate login form, based on the authenticationMetaData
  ** type.
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun QLoginForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticationMetaData, modifier: Modifier = Modifier)
-{
-   when (authenticationMetaData)
-   {
-      is Auth0AuthenticationMetaData ->
-      {
+fun QLoginForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticationMetaData, modifier: Modifier = Modifier) {
+   when (authenticationMetaData) {
+      is TableBasedAuthenticationMetaData -> QPasswordLogin(qViewModel, modifier)
+      is OAuth2AuthenticationMetaData -> QOAuth2Login(qViewModel, authenticationMetaData, modifier)
+      is Auth0AuthenticationMetaData -> {
          QAuth0Login(qViewModel, modifier)
       }
 
-      is FullyAnonymousAuthenticationMetaData ->
-      {
+      is FullyAnonymousAuthenticationMetaData -> {
          FullSizedAllCenteredColumn()
          {
             Text("Click to log in Anonymously:", modifier = Modifier.padding(bottom = 16.dp))
@@ -63,8 +63,7 @@ fun QLoginForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticatio
          }
       }
 
-      else ->
-      {
+      else -> {
          Text("Error: Unrecognized AuthenticationMetaData type: ${authenticationMetaData.javaClass.simpleName}", color = Color.Red)
       }
    }

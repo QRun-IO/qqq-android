@@ -1,0 +1,268 @@
+{
+  "reviewedAt": "2026-10-31",
+  "verifiedApk": "scanner-host/build/outputs/apk/e2e/scanner-host-e2e.apk",
+  "verifiedApkSha256": "38A91781F4B4DDBD4260FEE34A5C2362D46ACB9F2E602C6582C31A9E462616AA",
+  "ndkRevision": "25.2.9519653",
+  "ndkPrebuiltRevision": "1622e087e1b881a0c7c744091d314662d12f0997",
+  "llvmRevision": "4c603efb0cca074e9238af8b4106c30add4418f6",
+  "bionicReferenceRevision": "0b981d1ec055efaef86d8a5d402cf1b3167ba10b",
+  "artifacts": [
+    {
+      "artifact": "graphics-path-1.0.1",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/graphics/graphics-path/1.0.1/graphics-path-1.0.1.aar",
+      "aarSha256": "8CA4032B6D79B351F0B59AD4B580EDDBB9423E1652F7C958830687F1EEE2EC03",
+      "entry": "jni/x86_64/libandroidx.graphics.path.so",
+      "bytes": 10760,
+      "nativeSha256": "4E56C996F13670E70082658DE7880C4020EABF4F25E43387F88ED78A713FC9F0",
+      "apkEntry": "lib/x86_64/libandroidx.graphics.path.so",
+      "neededLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "sourceRevision": "8a05a22af450d589ef911d772a001a49dcb05b71"
+    },
+    {
+      "artifact": "graphics-path-1.0.1",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/graphics/graphics-path/1.0.1/graphics-path-1.0.1.aar",
+      "aarSha256": "8CA4032B6D79B351F0B59AD4B580EDDBB9423E1652F7C958830687F1EEE2EC03",
+      "entry": "jni/arm64-v8a/libandroidx.graphics.path.so",
+      "bytes": 10096,
+      "nativeSha256": "41E9A793C43A0F4FDDB19E33F346BACE464F30F888BA7B9EAF96294EA115BFB6",
+      "apkEntry": "lib/arm64-v8a/libandroidx.graphics.path.so",
+      "neededLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "sourceRevision": "8a05a22af450d589ef911d772a001a49dcb05b71"
+    },
+    {
+      "artifact": "graphics-path-1.0.1",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/graphics/graphics-path/1.0.1/graphics-path-1.0.1.aar",
+      "aarSha256": "8CA4032B6D79B351F0B59AD4B580EDDBB9423E1652F7C958830687F1EEE2EC03",
+      "entry": "jni/armeabi-v7a/libandroidx.graphics.path.so",
+      "bytes": 7252,
+      "nativeSha256": "41399EBA6FC2A60F6F14642375C1824F3CF25EB8FEC7397D753730A3CEDA3E2B",
+      "apkEntry": "lib/armeabi-v7a/libandroidx.graphics.path.so",
+      "neededLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "sourceRevision": "8a05a22af450d589ef911d772a001a49dcb05b71"
+    },
+    {
+      "artifact": "graphics-path-1.0.1",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/graphics/graphics-path/1.0.1/graphics-path-1.0.1.aar",
+      "aarSha256": "8CA4032B6D79B351F0B59AD4B580EDDBB9423E1652F7C958830687F1EEE2EC03",
+      "entry": "jni/x86/libandroidx.graphics.path.so",
+      "bytes": 9284,
+      "nativeSha256": "EB0570B41FD3BFF25D8204A967C03BD7550719E768B791F680CC40CBE35F29AF",
+      "apkEntry": "lib/x86/libandroidx.graphics.path.so",
+      "neededLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "sourceRevision": "8a05a22af450d589ef911d772a001a49dcb05b71"
+    },
+    {
+      "artifact": "datastore-core-android-1.1.1",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-core-android/1.1.1/datastore-core-android-1.1.1.aar",
+      "aarSha256": "883ABC911E4B14119959E44E20A520523F59C303E834D6B325007B3EE5E9CB6C",
+      "entry": "jni/arm64-v8a/libdatastore_shared_counter.so",
+      "bytes": 7112,
+      "nativeSha256": "D3E48717C9AA147E0AB21063BA0E8E0211CABF8BF40B222640829519EDBF58E1",
+      "apkEntry": "lib/arm64-v8a/libdatastore_shared_counter.so",
+      "neededLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "sourceRevision": "4e91af5f5597ac6275559f2ce4bc2f5cc852bddb"
+    },
+    {
+      "artifact": "datastore-core-android-1.1.1",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-core-android/1.1.1/datastore-core-android-1.1.1.aar",
+      "aarSha256": "883ABC911E4B14119959E44E20A520523F59C303E834D6B325007B3EE5E9CB6C",
+      "entry": "jni/armeabi-v7a/libdatastore_shared_counter.so",
+      "bytes": 4416,
+      "nativeSha256": "716C5D8D2CAC8CA0EDF65DA8F139C7886B726AC79D542A14EDEB94994BA6D3DC",
+      "apkEntry": "lib/armeabi-v7a/libdatastore_shared_counter.so",
+      "neededLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "sourceRevision": "4e91af5f5597ac6275559f2ce4bc2f5cc852bddb"
+    },
+    {
+      "artifact": "datastore-core-android-1.1.1",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-core-android/1.1.1/datastore-core-android-1.1.1.aar",
+      "aarSha256": "883ABC911E4B14119959E44E20A520523F59C303E834D6B325007B3EE5E9CB6C",
+      "entry": "jni/x86/libdatastore_shared_counter.so",
+      "bytes": 5148,
+      "nativeSha256": "CD4A1649E2C8350703146F94A6EE2BF4C3C8C9F172159F805B61A4A2ABDF0659",
+      "apkEntry": "lib/x86/libdatastore_shared_counter.so",
+      "neededLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "sourceRevision": "4e91af5f5597ac6275559f2ce4bc2f5cc852bddb"
+    },
+    {
+      "artifact": "datastore-core-android-1.1.1",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-core-android/1.1.1/datastore-core-android-1.1.1.aar",
+      "aarSha256": "883ABC911E4B14119959E44E20A520523F59C303E834D6B325007B3EE5E9CB6C",
+      "entry": "jni/x86_64/libdatastore_shared_counter.so",
+      "bytes": 6224,
+      "nativeSha256": "FB6C9208988C49AE94943BC3236FA763BA584722E044FA4EA9A12D2941027105",
+      "apkEntry": "lib/x86_64/libdatastore_shared_counter.so",
+      "neededLibraries": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "sourceRevision": "4e91af5f5597ac6275559f2ce4bc2f5cc852bddb"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/4e91af5f5597ac6275559f2ce4bc2f5cc852bddb/datastore/datastore-core/src/androidMain/cpp/jni/androidx_datastore_core_SharedCounter.cc",
+      "sha256": "ADDE5C7D79854F584E413277A03BD25BA4055C110D70C327D42F496E8FC4CE93"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/4e91af5f5597ac6275559f2ce4bc2f5cc852bddb/datastore/datastore-core/src/androidMain/cpp/shared_counter.cc",
+      "sha256": "DE6380BC98DF78F37DEAFF1B85B03D0309D911EA973449B2E828115145D02166"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/4e91af5f5597ac6275559f2ce4bc2f5cc852bddb/datastore/datastore-core/src/androidMain/cpp/shared_counter.h",
+      "sha256": "81A607D69505F760D51CC1C4477FFB6F5269EDA72811B3E9D71C7F1117A5A158"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/math/compiler.h",
+      "sha256": "D53E85383580E5DBF81CBCB24426B0FE1BF419B4837540242DBDCA3F1DF4CF66"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/Conic.cpp",
+      "sha256": "49B3DA93AA43480CF9CD481590BE48705CB9340C52E5D09635EFBD0ECE07BE83"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/Conic.h",
+      "sha256": "CD315AD7C8D030C72E96893E9A0FEEC463D72D2066209A203DEDCF0925398A6F"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/Path.h",
+      "sha256": "4EE841338063D8C6F71FF4C655ECF52559F6C6DF9AF79835388DAE1EBCD8B982"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/PathIterator.cpp",
+      "sha256": "3705946B43BF894E013F46CCC940F9923F43285340F8FC2128F95C59238EC7F8"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/PathIterator.h",
+      "sha256": "A16E99B0273FB7205607EB0CF51FC7BE518A55F3446A304F92ECAB353E77BE6F"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/pathway.cpp",
+      "sha256": "4BE68D6FDB6376E95560F7C49A79AA0CD97218D758CF11EA3230AC9124485800"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/scalar.h",
+      "sha256": "B1D2BBA80A4C9272D84473B6F09F700972B016F7579842D3A87BDBBDB2AF1EDC"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/math/TVecHelpers.h",
+      "sha256": "1B0D6B06C5BBD6B438F9D8440AC78CF93FB8A713761BADC59A4412B6457C1014"
+    },
+    {
+      "url": "https://android.googlesource.com/platform/frameworks/support/+/8a05a22af450d589ef911d772a001a49dcb05b71/graphics/graphics-path/src/main/cpp/math/vec2.h",
+      "sha256": "09E1A8EB3F8FDF9C1071500F1A4933F67CAEB6D0F765D5C44BA968370DE9FCB1"
+    }
+  ],
+  "supportSources": [
+    {
+      "url": "https://android.googlesource.com/toolchain/llvm-project/+/4c603efb0cca074e9238af8b4106c30add4418f6/libcxx/LICENSE.TXT",
+      "sha256": "539DD7AED86E8A4F12CBDD0E6C50C189C7D74847E4FECC64CE2C6EE3A01DA38B"
+    },
+    {
+      "url": "https://android.googlesource.com/toolchain/llvm-project/+/4c603efb0cca074e9238af8b4106c30add4418f6/compiler-rt/LICENSE.TXT",
+      "sha256": "1A8F1058753F1BA890DE984E48F0242A3A5C29A6A8F2ED9FD813F36985387E8D"
+    },
+    {
+      "url": "https://android.googlesource.com/toolchain/prebuilts/ndk/r25/+/1622e087e1b881a0c7c744091d314662d12f0997/NOTICE",
+      "sha256": "31B13387E6BDE5C7E7006B63EA762020CE583BE32E4D62417584C03AC3D3F19A"
+    },
+    {
+      "url": "https://android.googlesource.com/toolchain/prebuilts/ndk/r25/+/1622e087e1b881a0c7c744091d314662d12f0997/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/21/crtbegin_so.o",
+      "sha256": "2AF3D92CFCB5A8521AD75A0F838CFAD752F7D5656566C43B0B447C972DEBED27"
+    }
+  ],
+  "packagedArtifacts": [
+    {
+      "variant": "debug",
+      "apk": "scanner-host/build/outputs/apk/debug/scanner-host-debug.apk",
+      "apkSha256": "E12CFB7F078AD0C5F28EED717880187F394379C9532EA2D5828A228D1E4A134F",
+      "apkBytes": 18751646,
+      "noticeEntry": "res/raw/aboutlibraries.json",
+      "noticeSha256": "336FABEE90462B49E639247029F53260A6CD21BD5090F0F74F79A556E212552F",
+      "noticeEntries": 130,
+      "fullLicenseTexts": 9,
+      "nativeHashesVerified": 8,
+      "unknownMp3Files": 0
+    },
+    {
+      "variant": "e2e",
+      "apk": "scanner-host/build/outputs/apk/e2e/scanner-host-e2e.apk",
+      "apkSha256": "733285E6BE30B67A46BF2810F07376379C94E4AE529746F321262AB86CCF0740",
+      "apkBytes": 18810342,
+      "noticeEntry": "res/raw/aboutlibraries.json",
+      "noticeSha256": "666D3E7648DA96B26760E5D3FD41F2ABFE5B08E0E56BD5D4B0C7748A754FB474",
+      "noticeEntries": 130,
+      "fullLicenseTexts": 9,
+      "nativeHashesVerified": 8,
+      "unknownMp3Files": 0
+    },
+    {
+      "variant": "release",
+      "apk": "scanner-host/build/outputs/apk/release/scanner-host-release-unsigned.apk",
+      "apkSha256": "924D7EC15F93957073F0D9B47348F0E4CF7F272FBB4EBE4100FEDCBD8DB027A2",
+      "apkBytes": 14447558,
+      "noticeEntry": "res/M7.json",
+      "noticeSha256": "3EAA50C774B452BA89CE7516F695BDE9788088767F6A1B9A54DCC87F31394758",
+      "noticeEntries": 130,
+      "fullLicenseTexts": 9,
+      "nativeHashesVerified": 8,
+      "unknownMp3Files": 0
+    }
+  ],
+  "packagingQualification": {
+    "date": "2026-10-31",
+    "gradleResult": "BUILD SUCCESSFUL",
+    "duration": "2m 32s",
+    "actionableTasks": 273,
+    "maxWorkers": 2,
+    "parallel": false,
+    "lintReleaseErrors": 0,
+    "lintReleaseWarnings": 0,
+    "releaseSigning": "unsigned; apksigner verify returns DOES NOT VERIFY / Missing META-INF/MANIFEST.MF",
+    "releaseDebuggable": false,
+    "releaseAllowBackup": false,
+    "releaseFullBackupContent": false,
+    "releaseUsesCleartextTraffic": false,
+    "releaseNetworkSecurityConfigOverride": false,
+    "releaseDataExtractionPolicy": "cloud-backup and device-transfer each exclude root/file/database/sharedpref/external at path .",
+    "manifestValidationTools": [
+      "Android SDK apkanalyzer",
+      "Android SDK Build Tools 35.0.0 aapt2",
+      "Android SDK Build Tools 35.0.0 apksigner"
+    ]
+  },
+  "instrumentationApk": {
+    "apk": "scanner-host/build/outputs/apk/androidTest/e2e/scanner-host-e2e-androidTest.apk",
+    "sha256": "E697023F2F31F98F5F4A9A82E4A91FE8A8F5B48B08687DD784FE9960947EED35",
+    "bytes": 1060060
+  }
+}

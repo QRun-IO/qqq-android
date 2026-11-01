@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and discussion
+    url: https://github.com/orgs/QRun-IO/discussions
+    about: Ask the QQQ community about application development.
+  - name: Security reporting
+    url: https://github.com/QRun-IO/qqq-android/blob/main/SECURITY.md
+    about: Report vulnerabilities privately rather than opening a public issue.

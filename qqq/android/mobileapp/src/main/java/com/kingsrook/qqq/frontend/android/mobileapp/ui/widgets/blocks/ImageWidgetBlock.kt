@@ -1,22 +1,22 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -38,28 +40,29 @@ import coil3.svg.SvgDecoder
 import com.kingsrook.qqq.frontend.android.mobileapp.R
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.BlockStyleUtils
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun ImageWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier)
-{
+fun ImageWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier) {
    val widgetBlock = params.widgetBlock
    val qViewModel = params.qViewModel
 
-   // todo - should this go elsewhere?  in some singleton?
-   ImageLoader.Builder(context = LocalContext.current)
-      .components { add(SvgDecoder.Factory()) }
-      .build()
+   val context = LocalContext.current
+   val imageLoader = remember(context)
+   {
+      ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+   }
+   DisposableEffect(imageLoader) { onDispose { imageLoader.shutdown() } }
 
    val imageModifier: Modifier = Modifier.size(BlockStyleUtils.getSizeFromStyleMap(widgetBlock.styles))
-   val boxModifier = Modifier.padding(BlockStyleUtils.getPaddingValuesFromStyleMap(widgetBlock.styles))
+   val boxModifier = modifier.padding(BlockStyleUtils.getPaddingValuesFromStyleMap(widgetBlock.styles))
 
    Box(modifier = boxModifier)
    {
       AsyncImage(
+         imageLoader = imageLoader,
          model = ImageRequest.Builder(context = LocalContext.current)
-            .data(qViewModel?.getURI(widgetBlock.values["path"]?.toString() ?: ""))
+            .data(runCatching { qViewModel?.getURI(widgetBlock.values["path"]?.toString() ?: "") }.getOrNull())
             .crossfade(true)
             .build(),
          contentDescription = null,

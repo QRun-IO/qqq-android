@@ -1,22 +1,22 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -43,12 +43,10 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.BlockStyleUtils
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.DynamicIcon
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.makeIcon
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false)
-{
+fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false) {
    val widgetBlock = params.widgetBlock
    val actionCallback = params.actionCallback
 
@@ -57,41 +55,35 @@ fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifi
    val startIcon: QIcon? = makeIcon(widgetBlock.values["startIcon"])
    val endIcon: QIcon? = makeIcon(widgetBlock.values["endIcon"])
 
-   /***************************************************************************
+   /*******************************************************************************
     ** handle the button being clicked - basically, just go to the actionCallback.
-    ***************************************************************************/
-   fun onClick()
-   {
+    *******************************************************************************/
+   fun onClick() {
       val values = mutableMapOf("widgetBlock" to widgetBlock)
-      if(actionCallback != null)
-      {
-         if(widgetBlock.values["actionCode"] != null || widgetBlock.values["controlCode"] != null)
-         {
+      if (actionCallback != null) {
+         if (widgetBlock.values["actionCode"] != null || widgetBlock.values["controlCode"] != null) {
             actionCallback(values)
          }
       }
    }
 
-   val textColor = if(format == "outlined" || format == "text") color else Color.White
-   val bgColor = if(format == "outlined") Color.White else color
+   val textColor = if (format == "outlined" || format == "text") color else Color.White
+   val bgColor = if (format == "outlined") Color.White else color
 
-   /***************************************************************************
+   /*******************************************************************************
     ** row of <startIcon> text <endIcon>, to display inside the button
-    ***************************************************************************/
+    *******************************************************************************/
    @Composable
-   fun ButtonContent()
-   {
+   fun ButtonContent() {
       Row(verticalAlignment = Alignment.CenterVertically)
       {
-         if(startIcon != null)
-         {
+         if (startIcon != null) {
             DynamicIcon(startIcon, null, tint = textColor, modifier = Modifier.padding(end = 4.dp))
          }
 
          Text("${widgetBlock.values["label"] ?: widgetBlock.values["actionCode"] ?: "Button"}", color = textColor)
 
-         if(endIcon != null)
-         {
+         if (endIcon != null) {
             DynamicIcon(endIcon, null, tint = textColor, modifier = Modifier.padding(start = 4.dp))
          }
       }
@@ -102,10 +94,8 @@ fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifi
    ////////////////////////////////////////////////////////
    // choose different button composable based on format //
    ////////////////////////////////////////////////////////
-   when (format)
-   {
-      "outlined" ->
-      {
+   when (format) {
+      "outlined" -> {
          OutlinedButton(
             onClick = ::onClick,
             modifier = modifier,
@@ -118,8 +108,7 @@ fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifi
          }
       }
 
-      "filled" ->
-      {
+      "filled" -> {
          FilledTonalButton(
             onClick = ::onClick,
             modifier = modifier,
@@ -132,16 +121,14 @@ fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifi
          }
       }
 
-      "text" ->
-      {
+      "text" -> {
          TextButton(onClick = ::onClick, modifier = modifier, enabled = !disableControls)
          {
             ButtonContent()
          }
       }
 
-      else ->
-      {
+      else -> {
          Button(onClick = ::onClick, modifier = modifier, shape = shape, enabled = !disableControls)
          {
             ButtonContent()

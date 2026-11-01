@@ -1,35 +1,47 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.kingsrook.qqq.frontend.android.core.model.metadata.authentication
 
 import kotlinx.serialization.Serializable
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Serializable
 data class ManageSessionRequest(
-   val accessToken: String,
-   val uuid: String?
-)
-{
+   val accessToken: String? = null,
+   val uuid: String? = null,
+   val code: String? = null,
+   val codeVerifier: String? = null,
+   val redirectUri: String? = null,
+   val authenticationFlow: String? = null,
+   val expectedNonce: String? = null
+) {
+   /*******************************************************************************
+    ** Redact authentication material so incidental object rendering cannot expose credentials.
+    *******************************************************************************/
+   override fun toString(): String = "ManageSessionRequest(credentials redacted)"
 }
+
+/*******************************************************************************
+ ** AppAuth generates unpadded base64url; bound the semantic nonce before any code exchange.
+ *******************************************************************************/
+fun isValidExpectedNonce(value: String?): Boolean = value != null && Regex("[A-Za-z0-9_-]{16,512}").matches(value)

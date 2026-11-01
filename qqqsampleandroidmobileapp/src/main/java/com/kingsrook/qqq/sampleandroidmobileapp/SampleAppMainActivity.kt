@@ -1,22 +1,22 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -32,7 +32,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.kingsrook.qqq.frontend.android.core.model.Environment
@@ -41,17 +41,16 @@ import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.QAuth0Service
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import com.kingsrook.qqq.sampleandroidmobileapp.ui.theme.AppTheme
+import java.io.File
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-class SampleAppMainActivity : ComponentActivity()
-{
-   /***************************************************************************
+ *******************************************************************************/
+class SampleAppMainActivity : ComponentActivity() {
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override fun onCreate(savedInstanceState: Bundle?)
-   {
+    *******************************************************************************/
+   override fun onCreate(savedInstanceState: Bundle?) {
       /////////////////////////////////////////////////////////////////////////////////////////////
       // configure your application:                                                             //
       // availableEnvironments: list of Environments - labels & Urls of your application servers //
@@ -67,9 +66,10 @@ class SampleAppMainActivity : ComponentActivity()
          Environment("Production", "https://live.coldtrack.com/"),
          Environment("Staging", "https://live.coldtrack-staging.com/"),
          Environment("Development", "https://live.coldtrack-dev.com/"),
+      ) + if (BuildConfig.DEBUG) listOf(
          Environment("Local Dev", "http://192.168.4.122:8000/"),
          Environment("Bad URL", "http://no.such.domain.dot.dot/"),
-      )
+      ) else emptyList()
       val splashResourceId: Int? = null // R.drawable.kingsrook_logo
 
       ///////////////////////////////////////////////////////////
@@ -93,10 +93,20 @@ class SampleAppMainActivity : ComponentActivity()
 
          AppTheme()
          {
-            QMobileAppMain(qViewModel, title = title, if(splashResourceId == null) null else painterResource(splashResourceId))
+            QMobileAppMain(qViewModel, title = title, if (splashResourceId == null) null else painterResource(splashResourceId))
          }
       }
    }
 }
 
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private var settingsStore: DataStore<Preferences>? = null
+
+// Do not migrate the old backup-eligible store: upgraded/restored samples require fresh login.
+val Context.dataStore: DataStore<Preferences>
+   get() = synchronized(SampleAppMainActivity::class.java)
+   {
+      settingsStore ?: run {
+         val file = File(applicationContext.noBackupFilesDir, "settings.preferences_pb")
+         PreferenceDataStoreFactory.create { file }.also { settingsStore = it }
+      }
+   }

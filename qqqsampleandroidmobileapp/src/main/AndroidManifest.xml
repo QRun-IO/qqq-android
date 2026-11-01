@@ -4,15 +4,16 @@
    <uses-permission android:name="android.permission.INTERNET" />
    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
 
-   <!-- Not clear if we want the usesCleartextTraffic below in the long term! -->
    <application
          android:name="com.kingsrook.qqq.frontend.android.mobileapp.QMobileApplication"
-         android:allowBackup="true"
+         android:allowBackup="false"
+         android:fullBackupContent="false"
+         android:dataExtractionRules="@xml/data_extraction_rules"
          android:icon="@mipmap/ic_launcher"
          android:label="@string/app_name"
          android:roundIcon="@mipmap/ic_launcher_round"
          android:supportsRtl="true"
-         android:usesCleartextTraffic="true"
+         android:usesCleartextTraffic="false"
          android:theme="@style/Theme.AndroidDevProject">
 
       <activity

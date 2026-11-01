@@ -1,173 +1,102 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
 package com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication
 
-import android.util.Log
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import com.auth0.android.Auth0
 import com.auth0.android.authentication.AuthenticationException
 import com.auth0.android.callback.Callback
-import com.auth0.android.provider.WebAuthProvider
 import com.auth0.android.result.Credentials
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.Auth0AuthenticationMetaData
-import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.BaseAuthenticationMetaData
-import com.kingsrook.qqq.frontend.android.core.utils.firstN
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullScreenLoading
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullSizedAllCenteredColumn
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-private const val TAG = "QAuth0Form"
-
-/***************************************************************************
- ** form for logging in using auth0
- ***************************************************************************/
+/*******************************************************************************
+ ** Bind the provider browser result to the current server/login attempt before exchanging it for QQQ identity.
+ *******************************************************************************/
 @Composable
-fun QAuth0Login(qViewModel: QViewModel, modifier: Modifier = Modifier)
-{
-   val authenticationMetaData = (qViewModel.authenticationMetaDataLoadState as LoadState.Success<BaseAuthenticationMetaData>).value as Auth0AuthenticationMetaData
-   val auth0Instance: Auth0 = QAuth0Service.makeAuth0Instance(qViewModel)
-
-   val auth0Success = remember { mutableStateOf(false) }
-   val auth0Failure = remember { mutableStateOf(false) }
-
-   val callback = object : Callback<Credentials, AuthenticationException>
+fun QAuth0Login(qViewModel: QViewModel, modifier: Modifier = Modifier) {
+   val metadata = (qViewModel.authenticationMetaDataLoadState as? LoadState.Success)?.value as? Auth0AuthenticationMetaData ?: return
+   val context = LocalContext.current
+   val launcher = LocalAuth0Browser.current
+   val scope = rememberCoroutineScope()
+   var retry by remember { mutableIntStateOf(0) }
+   var failed by remember { mutableStateOf(false) }
+   var exchanging by remember { mutableStateOf(false) }
+   DisposableEffect(qViewModel, qViewModel.environment.baseUrl, metadata, retry)
    {
-      /***************************************************************************
-       **
-       ***************************************************************************/
-      override fun onFailure(error: AuthenticationException)
-      {
-         Log.w(TAG, "Auth0 Called back to failure", error)
-         error.printStackTrace()
-         qViewModel.logInFailed()
-         auth0Failure.value = true
-      }
+      val attempt = qViewModel.prepareAuthentication()
+      if (attempt != null) {
+         val callback = object : Callback<Credentials, AuthenticationException> {
+            /*******************************************************************************
+             ** Cancel only the owning attempt and display a safe failure without exposing provider exception text.
+             *******************************************************************************/
+            override fun onFailure(error: AuthenticationException) {
+               scope.launch {
+                  if (qViewModel.isCurrentAuthentication(attempt)) {
+                     qViewModel.cancelAuthentication(attempt)
+                     failed = true
+                  }
+               }
+            }
 
-      /***************************************************************************
-       **
-       ***************************************************************************/
-      override fun onSuccess(result: Credentials)
-      {
-         Log.d(TAG, "Auth0 Called back success, accessToken: ${result.accessToken.firstN(8)}")
-         auth0Success.value = true
-
-         qViewModel.doSetSessionUserFullName(result.user.nickname ?: "Unknown")
-         qViewModel.manageSession(result.accessToken)
-      }
-   }
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun tryAgain()
-   {
-      /////////////////////////////////////////////////////////////////////////
-      // just by resetting these flags, we should re-run the WebAuthProvider //
-      /////////////////////////////////////////////////////////////////////////
-      auth0Failure.value = false
-      auth0Success.value = false
-   }
-
-   //////////////////////////////////////////////////////////////////////////////////////////////////////
-   // do a little count-down before going to auth0 - probably just for dev, so we can see it happening //
-   //////////////////////////////////////////////////////////////////////////////////////////////////////
-   val countdown = remember { mutableStateOf(0) }
-
-   LaunchedEffect(key1 = countdown.value)
-   {
-      if(countdown.value > 0)
-      {
-         delay(100)
-         countdown.value = countdown.value - 1
-      }
-   }
-
-   //////////////////////////////////////////////////////////////////////////////
-   // pick what we show based on state - later states at the top of the switch //
-   //////////////////////////////////////////////////////////////////////////////
-   if(qViewModel.isAuthenticated)
-   {
-      Log.d(TAG, "User is authenticated - should be seeing apps now")
-
-      FullScreenLoading("Login Successful.  You should be taken to your apps now.")
-   }
-   else if(auth0Success.value)
-   {
-      Log.d(TAG, "Auth0Success is true - looking at manageSessionLoadState now...")
-
-      when (val state = qViewModel.manageSessionLoadState)
-      {
-         is LoadState.Loading ->
-         {
-            FullScreenLoading("Creating Application Session...")
+            /*******************************************************************************
+             ** Accept browser credentials only through the original current authentication attempt.
+             *******************************************************************************/
+            override fun onSuccess(result: Credentials) {
+               scope.launch {
+                  if (qViewModel.isCurrentAuthentication(attempt)) {
+                     exchanging = true
+                     qViewModel.completeAuth0Login(attempt, result.accessToken, result.user.nickname ?: "Unknown")
+                  }
+               }
+            }
          }
-
-         is LoadState.Error -> Text("Error creating session: ${state.message}")
-         is LoadState.Success ->
-         {
-            FullScreenLoading("Login Successful.  You should be taken to your apps now.")
+         try {
+            launcher.login(context, QAuth0Service.makeAuth0Instance(qViewModel), metadata.values.audience, QAuth0Service.scheme, callback)
+         } catch (exception: Exception) {
+            qViewModel.cancelAuthentication(attempt); failed = true
          }
       }
+      onDispose { if (attempt != null) qViewModel.cancelAuthentication(attempt) }
    }
-   else if(auth0Failure.value)
-   {
-      Log.d(TAG, "Auth0Failure is true - Offering try-again button")
-
-      FullSizedAllCenteredColumn()
-      {
-         Text("Login failed... ", modifier = Modifier.padding(bottom = 16.dp))
-         Button(onClick = { tryAgain() })
-         {
-            Text("Try again")
-         }
+   if (failed || (exchanging && qViewModel.manageSessionLoadState is LoadState.Error)) {
+      FullSizedAllCenteredColumn(modifier) {
+         Text("Sign-in failed. Please try again.")
+         Button(onClick = { failed = false; exchanging = false; retry++ }) { Text("Try again") }
       }
-   }
-   else if(countdown.value > 0)
-   {
-      Log.d(TAG, "Sleeping before Auth0 login")
-      FullScreenLoading("Taking you to login in ${countdown.value} moment${if(countdown.value == 1) "" else "s"}...")
-   }
-   else
-   {
-      FullScreenLoading("Logging in...")
-
-      Log.d(TAG, "Going to Auth0 login (WebAuthProvider)")
-      WebAuthProvider
-         .login(auth0Instance)
-         .withAudience(authenticationMetaData.values.audience)
-         .withScheme(QAuth0Service.scheme)
-         .start(LocalContext.current, callback)
-   }
-
+   } else FullScreenLoading(if (exchanging) "Creating Application Session…" else "Logging in…", modifier)
 }
