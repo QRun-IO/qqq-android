@@ -1,4 +1,15 @@
+## November 1 — Echo native semantic choices verified on TC22
+
+Claude implemented named process possible values using the actual published `searchProcessPossibleValues` JSON contract, dependent-field metadata, cancellation/error/retry and stale-response rejection. The unchanged Echo fixture now completes login, enrollment/approval, printer/media selection once, two accepted synthetic scans, rotation/recreation without duplicates, and Apps/Leave closing the run on the real TC22. All86observed requests matched published semantic operations. Disposable-package cleanup passed; normal package/data and real printers were preserved.
+
+Validation:169JVMtests,8Nodeguards,236-file source standards, zero lint errors/warnings and bothE2EAPKs pass. This is simulated printing, not EMDK or physical output qualification. The remaining immediate blocker is the real Generation/Printing adapter and template/host composition, followed by physical print/rescan. Normal installed APK remains625a275; normal server API1.9/mobile1.1. Production signing remains deferred.
 # Session state
+
+## Echo semantic presentation source checkpoint
+
+The optional extension 1.4 acknowledgmentLabel and manualEntryEnabled hints are published on feature/echo-scanner-presentation (draft PR9). Existing defaults remain Saved scan/manual enabled; Echo uses Print queued/manual disabled. Strict compilation, 167 JVM cases, lint zero errors/warnings and debug assembly pass. Hardware, lifecycle and receipt predicates are unchanged. The server companion passes 69 consumer cases plus two contract cases; the optional Echo module passes 15 strict QQQ/H2 tests.
+
+The normal TC22 remains the separately installed 625a275 build (APK AF13778A…3E9216), preserving sign-in/data. Its About screen was opened and Query artwork, both public links and licenses verified through filtered accessibility data. New Echo-native UI/actual owner adapters/physical printing remain unqualified; printing and document/scripting owners have acknowledged their implementation lanes. The running normal server remains API1.9/mobile1.1. Production signing/distribution stays the owner's final step.
 
 ## November 1 standards fixes and About update
 

@@ -18,7 +18,7 @@ The host first requests `GET /qqq/v1/version` through a public client with no se
 
 Compatibility is cached for the selected server's host lifetime and isolated between server origins. Missing features/extensions or Android channel, malformed discovery or unsupported versions stop startup with an explanation and retry option. Unknown optional properties and feature names are tolerated; supported enum models retain an unknown value so an added enum does not crash JSON decoding. Unknown authentication providers and required UI controls remain explicitly unsupported.
 
-The app sends `X-QQQ-Client: android/qqq-mobile`. The QQQ software release and semantic API version are distinct: the local demo currently uses QQQ `4.1.0-RC.20` and advertises semantic API `1.8.0`.
+The app sends `X-QQQ-Client: android/qqq-mobile`. The QQQ software release and semantic API version are distinct: clients use discovery rather than inferring compatibility from artifact versions. Current installed-runtime and source-qualification checkpoints are recorded in [session state](SESSION-STATE.md).
 
 ## API operations
 
@@ -46,14 +46,14 @@ Core structured errors retain their code, message, field errors and trace ID. Fi
 | --- | --- |
 | App navigation | Server-defined apps and process links, including root processes and section app links |
 | Process lifecycle | Init, step submission, asynchronous polling, server-directed completion and backend cancellation |
-| `EDIT_FORM` | Metadata field subsets, labels, hidden/editable/required flags, text/password, Boolean, integer/long/decimal, inline possible values and validation errors; explicit null clearing is preserved |
+| `EDIT_FORM` | Metadata field subsets, labels, hidden/editable/required flags, text/password, Boolean, integer/long/decimal, inline possible values, named possible-value sources searched through the core operation `searchProcessPossibleValues` (`POST /qqq/v1/processes/{process}/possibleValues/{field}`, JSON `values`/`processValues`/`useCase: form`; contingent fields honor `possibleValueSourceDependsOn` and `possibleValueSourceDependencyBehavior`, re-query on parent change and drop stale selections) and validation errors; explicit null clearing is preserved |
 | Date/time fields | ISO text inputs with format hints and validation; no native date/time picker |
 | `VIEW_FORM` | Read-only values for the declared field subset |
 | Dynamic metadata | Updated frontend steps and updated fields applied to the active process |
 | `HELP_TEXT`, `HTML` | Plain semantic text, with text fallback for markup; no embedded web application |
 | `PROCESS_SUMMARY_RESULTS` | Status, counts and messages; link destinations displayed as text, without assuming a web route is a native action |
 | Composite/ad-hoc widgets | Existing text, button, input, image, audio, divider and nested composite controls |
-| `SCANNER` extension block | Native DataWedge/manual input; server title, instructions, labels and maximum length; standard process submission and acknowledgment |
+| `SCANNER` extension block | Trusted Zebra EMDK/manual input; server title, instructions, labels and maximum length; standard process submission and acknowledgment |
 | `RECORD_FILES_CAPTURE` extension block | Server-selected parent record; optional Record Files 1.x capability discovery; native camera/photo picker; checksummed resumable online upload and exact committed receipt |
 | Unsupported required controls | Explicit unsupported message; Next and process widget submission blocked |
 
@@ -84,3 +84,7 @@ JVM checks cover compatibility rejection before credentials, origin isolation, a
 The native E2E runner in [EMULATOR.md](EMULATOR.md) forwards the real host's requests through a test-only OpenAPI audit. Scenarios cover incompatible core major, missing extension, missing Android channel, the real supported server scan flow, additive future metadata, native administrative forms, session activity/viewing/forced logout, and actual PixelCopy image contents. The audit records operation IDs and safe request metadata, never headers or bodies. Passing runs must prove that all observed requests match published operations and rejected servers receive no credentials. Precise revision boundaries and results are tracked in [SESSION-STATE.md](SESSION-STATE.md); implementation of a check is not evidence that its latest run passed.
 
 Server changes using existing supported components can reach the shared APK through metadata. New required native controls or an incompatible major contract require a shared client update and conformance tests. Customer name, theme and logo changes remain server configuration and do not require customer-specific builds. During this initial migration, update the companion server and APK together; preserve the demo database and install with `adb install -r` to retain local device enrollment.
+
+## Echo scanner presentation hints
+
+Mobile-scanners 1.4 adds optional SCANNER acknowledgmentLabel and manualEntryEnabled. Existing servers retain Saved scan and manual entry. Echo supplies Print queued and false, hiding manual controls because typed text has no decoder-provided symbology. Explicitly malformed labels or nonboolean flags disable the control. These presentation hints never change the matching event/scanSaved/scanId acknowledgment rules, and queue acceptance does not mean physical output completed. No application or process name selects this behavior.

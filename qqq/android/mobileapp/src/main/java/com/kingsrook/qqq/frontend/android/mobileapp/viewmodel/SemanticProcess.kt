@@ -58,8 +58,8 @@ internal object SemanticProcess {
             QComponentType.HELP_TEXT, QComponentType.HTML, QComponentType.PROCESS_SUMMARY_RESULTS, QComponentType.VIEW_FORM -> Unit
             QComponentType.EDIT_FORM -> {
                val unsupportedField = fields(step, component).firstOrNull {
-                  it.type.name in setOf("BLOB", "UNKNOWN") ||
-                     (it.possibleValueSourceName != null && it.inlinePossibleValueSource == null)
+                  // Named possible-value sources are resolved through the semantic possibleValues operation.
+                  it.type.name in setOf("BLOB", "UNKNOWN")
                }
                if (unsupportedField != null) return "${unsupportedField.label} requires an input control unavailable in this client."
             }
