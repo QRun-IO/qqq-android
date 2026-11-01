@@ -2,6 +2,8 @@
 
 This test application has no network permission, target permissions, Activity, shared UID or external runtime dependency. Its exported control receiver creates new DataWedge-shaped intents under its own ordinary Android UID. It only accepts the disposable `.qa` and `.e2e` scanner package names and synthetic `probe-...` markers. It cannot target the normal scanner package.
 
+Accepted target requests select explicit compile-time package literals before any intent is constructed. The caller's package string is never forwarded to `setPackage`; every other target returns without sending.
+
 Build the QA target against the production factory, its test APK, and the probe:
 
 ```text

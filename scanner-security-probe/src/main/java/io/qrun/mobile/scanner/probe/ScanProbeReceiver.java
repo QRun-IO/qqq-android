@@ -17,10 +17,23 @@ public final class ScanProbeReceiver extends BroadcastReceiver
       {
          return;
       }
-      String target = control.getStringExtra("targetPackage");
+      String requestedTarget = control.getStringExtra("targetPackage");
+      final String target;
+      if("io.qrun.mobile.scanner.qa".equals(requestedTarget))
+      {
+         target = "io.qrun.mobile.scanner.qa";
+      }
+      else if("io.qrun.mobile.scanner.e2e".equals(requestedTarget))
+      {
+         target = "io.qrun.mobile.scanner.e2e";
+      }
+      else
+      {
+         setResultCode(2);
+         return;
+      }
       String marker = control.getStringExtra("marker");
-      if(!("io.qrun.mobile.scanner.qa".equals(target) || "io.qrun.mobile.scanner.e2e".equals(target)) ||
-         marker == null || !marker.matches("probe-[A-Za-z0-9-]{1,80}"))
+      if(marker == null || !marker.matches("probe-[A-Za-z0-9-]{1,80}"))
       {
          setResultCode(2);
          return;

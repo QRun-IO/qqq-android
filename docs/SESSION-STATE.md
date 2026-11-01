@@ -1,5 +1,9 @@
 # Session state
 
+## October 31 — published client checkpoint and probe target clarity
+
+Signed client checkpoint `d316567` is published to existing draftPR8 and the clean canonical feature checkout is fast-forwarded to it. Fresh hosted checks found two CodeQL intent-redirection annotations in the separate permissionless test probe. Inline static triage at that exact revision classified both as not actionable: the exact QA/E2E package allowlist dominates both fixed-action broadcast sends, no arbitrary activity/service is launched, and the probe adds no sender authority. No alert was dismissed or completed audit rewritten. The probe now maps accepted requests to explicit final package literals rather than forwarding even the validated caller string. Probe-only build/lint and repeated ordinary-UID eight-forgery/manual-positive acceptance pass; production APK hashes are unchanged. Publish this source clarity follow-up and inspect fresh CodeQL/client checks before release. Physical trigger and whole-handheld viewing scope questions remain pending.
+
 ## October 31 — final SDK/navigation candidate verified for publication
 
 All three Android Back handlers and the toolbar arrow now use one live Main-owned drawer-first action, preserving standalone fallbacks. The native regression first proved a real process-level bypass opening Leave behind the drawer; the corrected case passes with one actual Android Back, preserved process/draft and zero cancellations. It also covers seven other overlay/focus gates. Current source passes127 JVM tests,34 TC22 shared cases in115.717s and the additional overlay case in17.948s. A distinct-signer ordinary-UID test passes against the exact current QA APK: eight forged broadcasts cause zero extra process steps/records, while a manual positive control saves through the real API. Actual physical trigger proof is still false/pending; the barcode-visibility question is unanswered.
