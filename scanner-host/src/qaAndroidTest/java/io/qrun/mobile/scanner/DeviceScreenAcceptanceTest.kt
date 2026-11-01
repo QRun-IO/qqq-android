@@ -15,6 +15,8 @@ import android.os.PowerManager
 import android.util.Base64
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -204,9 +206,16 @@ class DeviceScreenAcceptanceTest
    }
    private fun click(text: String, scroll: Boolean = false)
    {
+      if(text == "Log back in") await("completed-logout", 15) {
+         ui.onAllNodesWithText("Signed out.").fetchSemanticsNodes().isNotEmpty() ||
+            ui.onAllNodesWithText("Signed out on this device.", substring = true).fetchSemanticsNodes().isNotEmpty()
+      }
+      await("enabled-app-control", 15) {
+         ui.onAllNodes(hasText(text, substring = false) and hasClickAction() and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+      }
       val node = ui.onNode(hasText(text, substring = false) and hasClickAction())
       if(scroll) node.performScrollTo()
-      node.performClick()
+      node.assertIsEnabled().performClick()
    }
    private fun waitFor(text: String) = await("app-control") { ui.onAllNodesWithText(text, substring = false).fetchSemanticsNodes().isNotEmpty() }
    private fun stage(name: String) = instrumentation.sendStatus(0, Bundle().apply { putString("qqqStage", name) })

@@ -2,6 +2,8 @@
 
 Status: release automation is prepared, but the signing identity, complete native acceptance, final security review and first release are not yet qualified. Current installed demo APKs use a development certificate. Do not label them production releases.
 
+The [November 1 independent automation review](RELEASE-AUTOMATION-REVIEW.md) found no actionable finding in the exact reviewed workflow/build files. External GitHub protections, the production identity and actual signed-device acceptance remain unverified.
+
 Owner decision, October 31: leave signing and distribution until the final step because the distribution channel has not been chosen. Do not generate signing keys, populate production signing secrets, create release tags or treat the candidate GitHub APK workflow as a selected distribution channel. Complete implementation, audits, tests, documentation and ordinary CI first; then return to the owner for the distribution decision.
 
 The shared library keeps its existing main-only CircleCI publication. The scanner application uses a separate `scanner-v<semantic-version>` tag and GitHub release. One APK serves customers through the selected server's runtime branding. The application ID and launcher identity remain `io.qrun.mobile.scanner` / QQQ Mobile.

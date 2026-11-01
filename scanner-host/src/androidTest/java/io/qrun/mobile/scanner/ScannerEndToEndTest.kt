@@ -18,6 +18,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -300,7 +301,16 @@ class ScannerEndToEndTest
       if(applied.optString("nextStep") == "result") processCall("mobileSessionEnd", "/${launch.getString("processUUID")}/step/result", JSONObject())
       waitFor("Log back in")
       assertEquals("ENDED", sessionRows().single { it.getString("id") == sessionId }.getString("status"))
-      ui.onNodeWithText("Log back in").performClick()
+      // The label is rendered during asynchronous logout while its button is disabled.
+      // Clicking that disabled control is a no-op, not a request for a fresh login.
+      ui.waitUntil(timeoutMillis = 15_000)
+      {
+         val signedOut = ui.onAllNodesWithText("Signed out.").fetchSemanticsNodes().isNotEmpty() ||
+            ui.onAllNodesWithText("Signed out on this device.", substring = true).fetchSemanticsNodes().isNotEmpty()
+         signedOut && ui.onAllNodes(hasText("Log back in") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+      }
+      stage("session-login-action-ready")
+      ui.onNodeWithText("Log back in").assertIsEnabled().performClick()
       signIn()
       waitForTag("appHome.rowForApp:mobileScanApp")
       waitForServer { sessionRows().any { it.optString("deviceId") == device.deviceId && it.optString("status") == "ACTIVE" && it.optString("id") != sessionId } }

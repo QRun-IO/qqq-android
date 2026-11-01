@@ -1,6 +1,7 @@
 # TODO
 
-- [ ] Verify the synchronized rotation/recreation session test in fresh native execution; both prior GitHub failures lost the draft at the old back-to-back transition.
+- [x] Verify the synchronized rotation/recreation assertions in both5ba GitHub native runs; one entire run passed and the other reached a later fresh-login timeout.
+- [ ] Verify final fresh-login readiness in native CI: wait for the completed logout message and enabled button before clicking once. Both isolated test packages must compile; hosted execution is the acceptance gate.
 - [ ] Finish the operator walkthrough on the newly updated normal TC22 app; private data/enrollment and the development signing identity were preserved.
 - [x] Compile the opt-in screen-consent QA harness and ordinary E2E tests; verify early opt-in/protected-port safety gates. Actual permission/display acceptance remains open.
 - [x] Compile/review additive consent-based device-screen client and paired1.2 server:137 JVM, package/lint/APK inspection, ordinary-UID TC22 scan-input rejection,39 server/six demo/all15 browser cases and strict provenance pass. Actual projection acceptance remains separate.
@@ -27,7 +28,8 @@
 
 - [x] Implement and verify [navigation UX](NAVIGATION-UX.md): primary Apps/app/process navigation, secondary Account/Settings/diagnostics, shared Back/leave policy, protected in-flight operations and sign-out lifecycle.
 - [x] Prepare independent scanner release workflow and environment-only signing/version configuration; actionlint passes.
-- [ ] Independently review release automation, configure the organization signing identity, verify actual signed APK and upgrade/migration, and publish only after all [release prerequisites](RELEASING.md) pass.
+- [x] Independently review the exact release workflow, reusable verification and Gradle signing configuration; see [review scope and hashes](RELEASE-AUTOMATION-REVIEW.md). No actionable source finding; external protection settings are not verified by this review.
+- [ ] Configure reviewed GitHub release protections and the organization signing identity, verify the actual signed APK and upgrade/migration, and publish only after all [release prerequisites](RELEASING.md) pass. Signing/distribution remains owner-deferred until the final step.
 
 - [x] Correct false legacy network blocking while the scanner's server is reachable; preserve multi-network connectivity for shared clients.
 - [x] Persist workstation host-GPU configuration and document cold-start commands.

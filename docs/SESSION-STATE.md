@@ -1,5 +1,15 @@
 # Session state
 
+## November 1 native CI — rotation passes, fresh-login test readiness under correction
+
+Android5ba PR run41297344726 passed:35 shared native cases, PixelCopy and all seven semantic scenarios, including session-monitor. The duplicate push run41297340376 also passed rotation/recreation/mirroring/administrator termination, then timed out waiting for Username after clicking Log back in. Its request audit shows completed Android logout200 and no second Android manageSession. Static review confirms that the test awaited only the label, which also renders while the logout action is disabled. This supports a test-readiness race; the failure artifact does not record the button state at the click, so no production cause is asserted. The correction waits for a final signed-out message and enabled action, asserts enabled and clicks once; it retains all fresh-login/session assertions. The opt-in device-screen test uses the same readiness requirement. Fresh native execution remains required.
+
+Independent release automation review of three exact5ba files found no actionable source finding; [scope and hashes](RELEASE-AUTOMATION-REVIEW.md) retain external-configuration limits. A separate API1.9/mobile1.2 backend-only smoke passed readiness and shutdown with private credentials removed. Its launcher initially failed closed on the Node shim PID; actual Node resolution corrected the helper, and the unsuccessful fixture also cleaned up. No TC22 QA test, ordinary-app cleanup or normal-server replacement occurred.
+
+## November 1 TC22 walkthrough — reported disappearance investigated
+
+After the operator reported that touching the handheld crashed or moved the app, direct ADB inspection found the normal scanner process alive and its Activity resumed/focused, with no crash-buffer entries. A direct screen capture showed the connected sign-in screen; the black desktop mirror was not reliable evidence of an app crash. Restored the existing scanner demo login using locally encrypted credentials, and a subsequent direct capture confirmed the Apps menu. Opened Scan Capture to resume the manual walkthrough. No production defect has been reproduced or fixed by this inspection; physical trigger/navigation acceptance remains pending. No QA instrumentation or app cleanup was launched over the operator's normal app.
+
 ## November 1 morning — normal app updated; native test correction pending hosted verification
 
 The normal TC22 application is now updated in place to the reviewed development APK `F3AF638E…E9FAA`. Matching signing identity and a new owner-only private-data backup were verified; app data/enrollment were not cleared. Non-streaming installation completed and the normal process is running against the preserved API1.9/mobile1.1 demo. This supersedes older unchanged-normal-APK statements below. Operator login/navigation/scanning confirmation is pending; no production release is claimed.
