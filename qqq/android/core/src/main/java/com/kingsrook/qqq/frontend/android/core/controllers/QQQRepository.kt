@@ -60,6 +60,16 @@ interface QQQRepository
    /** End the server session before discarding local credentials. */
    suspend fun logout() { }
 
+   /** Public discovery only. Absence retains ordinary local sign-out. */
+   suspend fun supportsNativeSessionLogout(): Boolean = false
+
+   /** Explicit optional company sign-out. Unsupported repositories still perform ordinary logout. */
+   suspend fun logoutWithProvider(postLogoutRedirectUri: String): com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.NativeLogoutData?
+   {
+      logout()
+      return null
+   }
+
    suspend fun getMetaData(frontendName: String, frontendVersion: String, applicationName: String, applicationVersion: String): QInstance
 
    suspend fun getProcessMetaData(processName: String): QProcessMetaData

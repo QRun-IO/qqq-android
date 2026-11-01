@@ -15,6 +15,8 @@ import androidx.compose.ui.test.performClick
 import androidx.navigation.compose.rememberNavController
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kingsrook.qqq.frontend.android.core.controllers.QQQRepository
+import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
+import com.kingsrook.qqq.frontend.android.core.controllers.UiApiVersion
 import com.kingsrook.qqq.frontend.android.core.model.Environment
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.ManageSessionRequest
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.ManageSessionResponse
@@ -53,32 +55,42 @@ class OAuth2LoginTests : BaseTest()
 
    private class Fixture(val model: QViewModel, val checks: AtomicInteger, val exchanges: AtomicInteger,
       val adopted: AtomicReference<String?>, val releaseExchange: CompletableDeferred<Unit>,
-      val discarded: AtomicReference<String?>)
+      val discarded: AtomicReference<String?>, val originalNonce: AtomicReference<String?>)
 
-   private fun start(configured: Boolean = true, discoveryIssuer: String = issuer, holdExchange: Boolean = false): Fixture
+   private fun start(configured: Boolean = true, discoveryIssuer: String = issuer, holdExchange: Boolean = false,
+      apiVersion: String = "1.10.0", nonceFeature: Boolean = true, noncePolicy: String = "REQUIRED"): Fixture
    {
       QAppContainer.availableEnvironments = listOf(Environment("Organization", "https://qqq.example.test/"))
       val callback = oauth2RedirectUri(instrumentation.targetContext.packageName)
       val metadata = OAuth2AuthenticationMetaData("organization", values = OAuth2AuthenticationMetaData.Values(
          clientId = "public-configuration-id", scopes = "openid profile",
          nativeSessionLogin = if(configured) OAuth2AuthenticationMetaData.NativeSessionLogin(
-            OAuth2AuthenticationMetaData.SESSION_FLOW, "S256", issuer, "$issuer/discovery", listOf(callback), prompt = "login") else null))
+            OAuth2AuthenticationMetaData.SESSION_FLOW, "S256", issuer, "$issuer/discovery", listOf(callback),
+            prompt = "login", nonceValidation = noncePolicy) else null))
       val checks = AtomicInteger()
       val exchanges = AtomicInteger()
       val adopted = AtomicReference<String?>()
       val discarded = AtomicReference<String?>()
+      val originalNonce = AtomicReference<String?>()
       val releaseExchange = CompletableDeferred<Unit>()
       if(!holdExchange) releaseExchange.complete(Unit)
       val base = SampleAppMockQQQRepository()
       val repository = object : QQQRepository by base
       {
          override suspend fun getAuthenticationMetaData() = metadata
-         override suspend fun verifyNativeSessionLogin() { checks.incrementAndGet() }
+         override suspend fun verifyNativeSessionLogin()
+         {
+            checks.incrementAndGet()
+            UiApiCompatibility.validateNativeSessionLogin(UiApiVersion(apiVersion,
+               listOf("nativeSessionLogin") + if(nonceFeature) listOf("nativeSessionNonceValidation") else emptyList()))
+         }
          override suspend fun exchangeNativeSession(body: ManageSessionRequest): ManageSessionResponse
          {
             assertEquals(OAuth2AuthenticationMetaData.SESSION_FLOW, body.authenticationFlow)
             assertEquals(callback, body.redirectUri)
             assertEquals("synthetic-authorization-code", body.code)
+            assertTrue(Regex("[A-Za-z0-9_-]{16,512}").matches(requireNotNull(body.expectedNonce)))
+            originalNonce.get()?.let { assertEquals(it, body.expectedNonce) }
             assertTrue(Regex("[A-Za-z0-9._~-]{43,128}").matches(requireNotNull(body.codeVerifier)))
             exchanges.incrementAndGet()
             // Model an HTTP response that arrives after cancellation has already been requested.
@@ -108,7 +120,7 @@ class OAuth2LoginTests : BaseTest()
             QMobileAppMain(model, "Organization")
          }
       }
-      return Fixture(model, checks, exchanges, adopted, releaseExchange, discarded)
+      return Fixture(model, checks, exchanges, adopted, releaseExchange, discarded, originalNonce)
    }
 
    private fun browser(result: (AuthorizationRequest) -> Instrumentation.ActivityResult,
@@ -134,6 +146,7 @@ class OAuth2LoginTests : BaseTest()
    {
       val fixture = start()
       browser({ request ->
+         fixture.originalNonce.set(requireNotNull(request.nonce))
          assertEquals("S256", request.codeVerifierChallengeMethod)
          assertEquals("login", request.prompt)
          assertEquals(listOf("login"), request.toUri().getQueryParameters("prompt"))
@@ -223,7 +236,7 @@ class OAuth2LoginTests : BaseTest()
    @Test fun missingNativeAdvertisementDoesNotOfferPasswordOrBrowserLogin()
    {
       val fixture = start(configured = false)
-      ui.onNodeWithText("This server has not configured a compatible native browser sign-in flow for this app. Ask your administrator to enable it.").assertIsDisplayed()
+      ui.onNodeWithText("This server has not configured compatible native browser sign-in with required nonce validation. Ask your administrator to enable it.").assertIsDisplayed()
       ui.onNodeWithTag("oauth2.signIn").assertDoesNotExist()
       ui.onNodeWithText("Username").assertDoesNotExist()
       assertFalse(fixture.model.isAuthenticated)
@@ -239,6 +252,58 @@ class OAuth2LoginTests : BaseTest()
          ui.waitUntil(10000) { fixture.model.oauth2LoginMessage != null }
          assertEquals(0, launches.get())
          assertEquals(0, fixture.exchanges.get())
+         assertFalse(fixture.model.isAuthenticated)
+      }
+   }
+
+   @Test fun oldApiCannotLaunchBrowserEvenWithNewMetadata()
+   {
+      assertVersionRejected(start(apiVersion = "1.9.0"))
+   }
+
+   @Test fun missingNonceFeatureCannotLaunchBrowserEvenWithRequiredDescriptor()
+   {
+      assertVersionRejected(start(nonceFeature = false))
+   }
+
+   private fun assertVersionRejected(fixture: Fixture)
+   {
+      browser({ error("Unsupported nonce contract must not launch the browser") }) { launches ->
+         ui.onNodeWithTag("oauth2.signIn").performClick()
+         ui.waitUntil(10000) { fixture.model.oauth2LoginMessage != null }
+         ui.onNodeWithText("This server does not support native sign-in with required nonce validation. Ask your administrator to upgrade or enable it.").assertIsDisplayed()
+         assertEquals(0, launches.get())
+         assertEquals(0, fixture.exchanges.get())
+         assertFalse(fixture.model.isAuthenticated)
+         ui.onNodeWithText("Username").assertDoesNotExist()
+      }
+   }
+
+   @Test fun missingNoncePolicyDoesNotOfferBrowserOrPasswordFallback()
+   {
+      val fixture = start(noncePolicy = "")
+      ui.onNodeWithText("This server has not configured compatible native browser sign-in with required nonce validation. Ask your administrator to enable it.").assertIsDisplayed()
+      ui.onNodeWithTag("oauth2.signIn").assertDoesNotExist()
+      ui.onNodeWithText("Username").assertDoesNotExist()
+      assertEquals(0, fixture.checks.get())
+      assertEquals(0, fixture.exchanges.get())
+   }
+
+   @Test fun callbackRequestCannotReplaceTheRetainedOriginalNonce()
+   {
+      val fixture = start()
+      browser({ request ->
+         val changed = AuthorizationRequest.Builder(request.configuration, request.clientId, request.responseType, request.redirectUri)
+            .setState(request.state).setNonce("replacement-nonce-must-fail").setCodeVerifier(requireNotNull(request.codeVerifier))
+            .setScope(request.scope).setPrompt(request.prompt).build()
+         Instrumentation.ActivityResult(Activity.RESULT_OK, AuthorizationResponse.Builder(changed)
+            .setState(request.state).setAuthorizationCode("synthetic-authorization-code").build().toIntent())
+      }) { launches ->
+         ui.onNodeWithTag("oauth2.signIn").performClick()
+         ui.waitUntil(10000) { fixture.model.oauth2LoginMessage != null }
+         assertEquals(1, launches.get())
+         assertEquals(0, fixture.exchanges.get())
+         assertNull(fixture.adopted.get())
          assertFalse(fixture.model.isAuthenticated)
       }
    }

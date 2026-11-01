@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.LocalCompanySignOutEnabled
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.SideEffect
@@ -230,6 +231,7 @@ class ScannerActivity : ComponentActivity()
          if(approved && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested) sessions.run()
       }
       CompositionLocalProvider(
+         LocalCompanySignOutEnabled provides true,
          LocalBusinessNavigationEnabled provides approved,
          LocalDeviceSettings provides {
             OrientationSetting(this@ScannerActivity)

@@ -8,7 +8,7 @@ import org.junit.Test
 class OAuth2LoginAttemptTest
 {
    private val binding = OAuth2LoginBinding("https://qqq.example/", "company", "https://id.example/application/o/scanner/",
-      "https://id.example/application/o/scanner/.well-known/openid-configuration", "server-client", "openid profile", oauth2RedirectUri("io.qrun.mobile.scanner"), "login")
+      "https://id.example/application/o/scanner/.well-known/openid-configuration", "server-client", "openid profile", oauth2RedirectUri("io.qrun.mobile.scanner"), "login", "REQUIRED")
    private val state = "state-random-at-least-sixteen"
    private val nonce = "nonce-random-at-least-sixteen"
    private val verifier = "v".repeat(64)
@@ -25,7 +25,9 @@ class OAuth2LoginAttemptTest
       val exchange = requireNotNull(consume(attempt))
       assertEquals(verifier, exchange.verifier)
       assertEquals(binding.redirectUri, exchange.redirectUri)
+      assertEquals(nonce, exchange.expectedNonce)
       assertFalse(exchange.toString().contains(verifier))
+      assertFalse(exchange.toString().contains(nonce))
       assertNull(consume(attempt))
    }
 
@@ -33,7 +35,8 @@ class OAuth2LoginAttemptTest
    {
       for(context in listOf(binding.copy(server = "https://other.example/"), binding.copy(providerName = "other"),
          binding.copy(issuer = "https://other.example/"), binding.copy(discoveryUrl = "https://other.example/discovery"), binding.copy(clientId = "other"),
-         binding.copy(scopes = "openid admin"), binding.copy(redirectUri = "other:/callback"), binding.copy(prompt = "none")))
+         binding.copy(scopes = "openid admin"), binding.copy(redirectUri = "other:/callback"), binding.copy(prompt = "none"),
+         binding.copy(nonceValidation = ""), binding.copy(nonceValidation = "OPTIONAL")))
       {
          val attempt = OAuth2LoginAttempt()
          attempt.begin(binding, state, nonce, verifier)
@@ -94,15 +97,32 @@ class OAuth2LoginAttemptTest
    @Test fun onlyAnExplicitSupportedSessionGrantForThisPackageEnablesLogin()
    {
       val grant = OAuth2AuthenticationMetaData.NativeSessionLogin(OAuth2AuthenticationMetaData.SESSION_FLOW, "S256",
-         binding.issuer, binding.discoveryUrl, listOf(binding.redirectUri), prompt = "login")
+         binding.issuer, binding.discoveryUrl, listOf(binding.redirectUri), prompt = "login", nonceValidation = "REQUIRED")
       val metadata = OAuth2AuthenticationMetaData(binding.providerName, values = OAuth2AuthenticationMetaData.Values(
          clientId = binding.clientId, scopes = binding.scopes, nativeClientId = "different-public-client", nativeSessionLogin = grant))
       assertEquals(binding, oauth2LoginBinding(metadata, binding.server, "io.qrun.mobile.scanner"))
       for(invalid in listOf(null, grant.copy(flow = "BEARER"), grant.copy(codeChallengeMethod = "plain"),
          grant.copy(prompt = ""), grant.copy(prompt = "none"), grant.copy(prompt = "select_account"), grant.copy(prompt = "login consent"),
+         grant.copy(nonceValidation = ""), grant.copy(nonceValidation = "OPTIONAL"), grant.copy(nonceValidation = "required"),
          grant.copy(issuer = "http://id.example/"), grant.copy(discoveryUrl = "https://user@id.example/"),
          grant.copy(redirectUris = listOf("io.qrun.mobile.scanner.e2e.oauth://callback/oauth2redirect"))))
          assertNull(oauth2LoginBinding(metadata.copy(values = metadata.values.copy(nativeSessionLogin = invalid)), binding.server, "io.qrun.mobile.scanner"))
       assertNull(oauth2LoginBinding(metadata, "http://qqq.example/", "io.qrun.mobile.scanner"))
+   }
+
+   @Test fun nonceShapeIsBoundedAndCallbackCannotReplaceTheOriginal()
+   {
+      for(invalid in listOf("n".repeat(15), "n".repeat(513), "invalid nonce value", "n".repeat(20) + "=", "n".repeat(20) + "+"))
+         assertTrue(runCatching { OAuth2LoginAttempt().begin(binding, state, invalid, verifier) }.isFailure)
+      for(valid in listOf("n".repeat(16), "n".repeat(512), "A_z-0123456789abc"))
+      {
+         val attempt = OAuth2LoginAttempt()
+         attempt.begin(binding, state, valid, verifier)
+         assertEquals(valid, consume(attempt, requestNonce = valid)?.expectedNonce)
+      }
+      val replaced = OAuth2LoginAttempt()
+      replaced.begin(binding, state, nonce, verifier)
+      assertNull(consume(replaced, requestNonce = "different-valid-nonce"))
+      assertNull(consume(replaced))
    }
 }

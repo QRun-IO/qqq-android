@@ -59,8 +59,17 @@ class UiApiCompatibility(val server: String, private val requireMobileScanners: 
       fun validateNativeSessionLogin(version: UiApiVersion)
       {
          val parts = Regex("1\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)").matchEntire(version.apiVersion)?.groupValues
-         if(parts == null || (parts[1].toIntOrNull() ?: 0) < 9 || "nativeSessionLogin" !in version.features)
-            throw UiApiCompatibilityException("This server does not advertise native browser sign-in. Ask your administrator to enable the supported login flow.")
+         if(parts == null || (parts[1].toIntOrNull() ?: 0) < 10 ||
+            !version.features.containsAll(listOf("nativeSessionLogin", "nativeSessionNonceValidation")))
+            throw UiApiCompatibilityException("This server does not advertise native browser sign-in with required nonce validation. Ask your administrator to enable the supported login flow.")
+      }
+
+      /** The logout capability is additive and must never be inferred from native login support. */
+      fun validateNativeSessionLogout(version: UiApiVersion)
+      {
+         val parts = Regex("1\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)").matchEntire(version.apiVersion)?.groupValues
+         if(parts == null || (parts[1].toIntOrNull() ?: 0) < 10 || "nativeSessionLogout" !in version.features)
+            throw UiApiCompatibilityException("This server does not advertise company sign-out.")
       }
 
       fun validate(version: UiApiVersion, requireMobileScanners: Boolean)

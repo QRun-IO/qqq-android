@@ -48,6 +48,10 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LoginAttempt
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LoginBinding
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LoginPhase
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LogoutAttempt
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LogoutBinding
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LogoutPhase
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.NativeLogoutData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -142,6 +146,14 @@ open class QViewModel(
    private var oauth2Metadata: BaseAuthenticationMetaData? = null
    private var oauth2ExchangeJob: Job? = null
 
+   var companyLogoutBinding: OAuth2LogoutBinding? by mutableStateOf(null)
+      private set
+   var companyLogoutPhase: OAuth2LogoutPhase by mutableStateOf(OAuth2LogoutPhase.IDLE)
+      private set
+   var companyLogoutGeneration = 0L
+      private set
+   private val companyLogoutAttempt = OAuth2LogoutAttempt()
+
    /** Opaque login identity: callbacks and responses belong to their initiating server and generation. */
    class AuthenticationAttempt internal constructor(internal val generation: Long, internal val server: String,
       internal val metadata: BaseAuthenticationMetaData?)
@@ -152,6 +164,7 @@ open class QViewModel(
    private var authenticationAttempt: AuthenticationAttempt? = null
    private var authenticationJob: Job? = null
    private var logoutJob: Job? = null
+   private var lastLogoutServerConfirmed = false
    private var auth0ProviderLogoutJob: Job? = null
    private val settingsMutex = Mutex()
 
@@ -293,6 +306,7 @@ open class QViewModel(
    {
       cancelAuthentication()
       cancelOAuth2Login()
+      if(!preserveLogoutScreen) cancelCompanyLogout()
       ////////////////////////////////////////////
       // reset all the things to initial values //
       ////////////////////////////////////////////
@@ -373,6 +387,7 @@ open class QViewModel(
     ***************************************************************************/
    fun requestLogout()
    {
+      cancelCompanyLogout()
       cancelAuthentication()
       cancelOAuth2Login()
       isLogoutRequested = true
@@ -384,6 +399,8 @@ open class QViewModel(
     ***************************************************************************/
    fun requestLogin()
    {
+      if(companyLogoutPhase == OAuth2LogoutPhase.PREPARING || companyLogoutPhase == OAuth2LogoutPhase.BROWSER || logoutInProgress) return
+      cancelCompanyLogout()
       isLogoutRequested = false
    }
 
@@ -552,6 +569,7 @@ open class QViewModel(
     ***************************************************************************/
    fun switchEnvironment(environment: Environment, postSwitchCallback: () -> Unit)
    {
+      cancelCompanyLogout()
       cancelAuthentication()
       cancelOAuth2Login()
       qNavigator.goHome(cancelActiveProcess = false)
@@ -615,7 +633,10 @@ open class QViewModel(
    /***************************************************************************
     **
     ***************************************************************************/
-   fun logOut(): Job
+   fun logOut(): Job = performLogout()
+
+   /** Optional provider material is captured only by the initiating coroutine, never by ViewModel state. */
+   private fun performLogout(providerLogout: (suspend () -> Unit)? = null): Job
    {
       logoutJob?.takeIf { it.isActive || (!isAuthenticated && sessionUUID.isBlank() &&
          authenticationAttempt == null && oauth2LoginPhase == OAuth2LoginPhase.READY) }?.let { return it }
@@ -623,6 +644,9 @@ open class QViewModel(
       cancelOAuth2Login()
       isAuthenticated = false
       logoutInProgress = true
+      lastLogoutServerConfirmed = false
+      val logoutGeneration = authenticationGeneration
+      val logoutServer = environment.baseUrl
       return viewModelScope.launch()
       {
          val capturedIsLogoutRequested = isLogoutRequested
@@ -636,24 +660,112 @@ open class QViewModel(
             try { kotlinx.coroutines.withTimeoutOrNull(3000) { beforeLogout() } }
             catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
             catch(exception: Exception) { /* Core logout and local clearing still run. */ }
-            serverConfirmed = kotlinx.coroutines.withTimeoutOrNull(3000) { qqqRepository.logout(); true } ?: false
+            serverConfirmed = kotlinx.coroutines.withTimeoutOrNull(3000) {
+               if(providerLogout == null) qqqRepository.logout() else providerLogout()
+               true
+            } ?: false
          }
          catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
          catch(exception: Exception) { /* Local sign-out still completes when the network is unavailable. */ }
          finally
          {
-            clearAll(preserveLogoutScreen = true)
-            qqqRepository.setSessionUUID("")
+            val current = logoutGeneration == authenticationGeneration && logoutServer == environment.baseUrl
+            if(current)
+            {
+               clearAll(preserveLogoutScreen = true)
+               qqqRepository.setSessionUUID("")
+            }
             kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                settingsMutex.withLock { settingsRepository.setSessionUUID(""); settingsRepository.setSessionUserFullName("") }
             }
-            isLogoutRequested = capturedIsLogoutRequested
-            authenticationMetaDataLoadState = capturedAuthLoadState
+            if(current)
+            {
+               isLogoutRequested = capturedIsLogoutRequested
+               authenticationMetaDataLoadState = capturedAuthLoadState
+            }
             logoutInProgress = false
+            lastLogoutServerConfirmed = current && serverConfirmed
             logoutMessage = if(serverConfirmed) "Signed out."
                else "Signed out on this device. Server sign-out could not be confirmed."
+            if(companyLogoutPhase == OAuth2LogoutPhase.FINISHED)
+               logoutMessage += " Company sign-out did not complete. Your organization may still be signed in in the browser."
          }
       }.also { logoutJob = it }
+   }
+
+   /** Invoked only by an explicit host opt-in; ordinary requestLogout remains local-only. */
+   fun requestCompanyLogout(binding: OAuth2LogoutBinding)
+   {
+      if(!isAuthenticated || logoutInProgress || binding.login.server != environment.baseUrl) return
+      val metadata = (authenticationMetaDataLoadState as? LoadState.Success)?.value as? OAuth2AuthenticationMetaData ?: return
+      val logout = metadata.values.nativeSessionLogout ?: return
+      val login = metadata.values.nativeSessionLogin ?: return
+      if(binding.login != OAuth2LoginBinding(environment.baseUrl, metadata.name, login.issuer, login.discoveryUrl,
+            metadata.values.clientId, metadata.values.scopes, binding.login.redirectUri, login.prompt, login.nonceValidation) ||
+         login.flow != OAuth2AuthenticationMetaData.SESSION_FLOW || login.codeChallengeMethod != "S256" || login.prompt != "login" ||
+         login.nonceValidation != "REQUIRED" ||
+         binding.login.redirectUri !in login.redirectUris || binding.postLogoutRedirectUri != binding.login.redirectUri ||
+         logout.flow != OAuth2AuthenticationMetaData.LOGOUT_FLOW || binding.postLogoutRedirectUri !in logout.postLogoutRedirectUris) return
+      requestLogout()
+      companyLogoutBinding = binding
+      companyLogoutPhase = OAuth2LogoutPhase.PREPARING
+   }
+
+   fun isCurrentCompanyLogout(generation: Long, binding: OAuth2LogoutBinding): Boolean =
+      generation == companyLogoutGeneration && companyLogoutBinding == binding &&
+         binding.login.server == environment.baseUrl && isLogoutRequested
+
+   /** Local invalidation finishes before the browser sees the optional transient hint. */
+   suspend fun logOutWithProvider(generation: Long, binding: OAuth2LogoutBinding): NativeLogoutData?
+   {
+      if(!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.PREPARING) return null
+      var material: NativeLogoutData? = null
+      try
+      {
+         performLogout { material = qqqRepository.logoutWithProvider(binding.postLogoutRedirectUri) }.join()
+         return material.takeIf { isCurrentCompanyLogout(generation, binding) && companyLogoutPhase == OAuth2LogoutPhase.PREPARING &&
+            lastLogoutServerConfirmed && !isAuthenticated && !logoutInProgress }
+      }
+      finally { material = null }
+   }
+
+   fun beginCompanyLogoutBrowser(generation: Long, binding: OAuth2LogoutBinding, endpoint: String, state: String): Boolean
+   {
+      if(!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.PREPARING ||
+         isAuthenticated || logoutInProgress) return false
+      companyLogoutAttempt.begin(binding, endpoint, state)
+      companyLogoutPhase = OAuth2LogoutPhase.BROWSER
+      return true
+   }
+
+   /** Dedicated end-session responses never establish QQQ identity or restore cleared private screens. */
+   fun completeCompanyLogout(generation: Long, binding: OAuth2LogoutBinding, state: String?, requestState: String?,
+      requestEndpoint: String?, requestRedirect: String?)
+   {
+      if(!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.BROWSER) return
+      val verified = companyLogoutAttempt.consume(binding, state, requestState, requestEndpoint, requestRedirect)
+      setCompanyLogoutResult(generation, binding, verified)
+   }
+
+   /** Cancellation/unavailable paths cannot claim successful provider logout. */
+   fun finishCompanyLogout(generation: Long, binding: OAuth2LogoutBinding) = setCompanyLogoutResult(generation, binding, false)
+
+   private fun setCompanyLogoutResult(generation: Long, binding: OAuth2LogoutBinding, completed: Boolean)
+   {
+      if(!isCurrentCompanyLogout(generation, binding)) return
+      if(companyLogoutPhase == OAuth2LogoutPhase.FINISHED) return
+      companyLogoutAttempt.cancel()
+      companyLogoutPhase = OAuth2LogoutPhase.FINISHED
+      logoutMessage += if(completed) " Company sign-out completed."
+         else " Company sign-out did not complete. Your organization may still be signed in in the browser."
+   }
+
+   private fun cancelCompanyLogout()
+   {
+      companyLogoutGeneration++
+      companyLogoutAttempt.cancel()
+      companyLogoutBinding = null
+      companyLogoutPhase = OAuth2LogoutPhase.IDLE
    }
 
    /** Activity recreation may render logout again; each logical sign-out opens the provider only once. */
@@ -692,7 +804,8 @@ open class QViewModel(
 
    fun prepareOAuth2Login(binding: OAuth2LoginBinding): Long?
    {
-      if(oauth2LoginPhase != OAuth2LoginPhase.READY || isAuthenticated || isLogoutRequested || logoutInProgress || binding.server != environment.baseUrl) return null
+      if(oauth2LoginPhase != OAuth2LoginPhase.READY || isAuthenticated || isLogoutRequested || logoutInProgress ||
+         binding.server != environment.baseUrl || binding.nonceValidation != "REQUIRED") return null
       cancelAuthentication()
       oauth2Generation++
       oauth2Binding = binding
@@ -745,7 +858,7 @@ open class QViewModel(
          {
             val response = qqqRepository.exchangeNativeSession(ManageSessionRequest(code = exchange.code,
                codeVerifier = exchange.verifier, redirectUri = exchange.redirectUri,
-               authenticationFlow = OAuth2AuthenticationMetaData.SESSION_FLOW))
+               authenticationFlow = OAuth2AuthenticationMetaData.SESSION_FLOW, expectedNonce = exchange.expectedNonce))
             newSession = response.uuid?.takeIf { it.isNotBlank() }
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
             if(!isCurrentOAuth2Login(generation, binding)) return@launch

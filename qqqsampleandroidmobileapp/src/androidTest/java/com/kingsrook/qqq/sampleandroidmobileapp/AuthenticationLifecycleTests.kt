@@ -313,7 +313,7 @@ class AuthenticationLifecycleTests : BaseTest()
          assertTrue(fixture.model.logoutInProgress)
          assertNull(fixture.model.prepareOAuth2Login(OAuth2LoginBinding(first.baseUrl, "provider",
             "https://identity.example.test/", "https://identity.example.test/discovery", "public-client",
-            "openid", "qqq-test://callback", "login")))
+            "openid", "qqq-test://callback", "login", "REQUIRED")))
       }
       ui.waitUntil(5000) { fixture.logoutCalls.get() == 1 }
       assertEquals(1, fixture.calls.get())

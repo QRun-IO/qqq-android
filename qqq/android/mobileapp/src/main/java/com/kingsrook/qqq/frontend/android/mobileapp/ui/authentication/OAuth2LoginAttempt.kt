@@ -3,6 +3,7 @@ package com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication
 
 import java.net.URI
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.isValidExpectedNonce
 
 enum class OAuth2LoginPhase { READY, PREPARING, BROWSER, EXCHANGING }
 
@@ -15,7 +16,8 @@ data class OAuth2LoginBinding(
    val clientId: String,
    val scopes: String,
    val redirectUri: String,
-   val prompt: String
+   val prompt: String,
+   val nonceValidation: String = ""
 )
 
 /** Only an explicit compatible semantic grant enables sign-in; a bearer client is never a fallback. */
@@ -24,11 +26,12 @@ fun oauth2LoginBinding(metadata: OAuth2AuthenticationMetaData, server: String, p
    val grant = metadata.values.nativeSessionLogin ?: return null
    val redirect = oauth2RedirectUri(packageName)
    if(grant.flow != OAuth2AuthenticationMetaData.SESSION_FLOW || grant.codeChallengeMethod != "S256" || grant.prompt != "login" ||
+      grant.nonceValidation != "REQUIRED" ||
       redirect !in grant.redirectUris || !isOAuth2HttpsUrl(server) || !isOAuth2HttpsUrl(grant.issuer) ||
       !isOAuth2HttpsUrl(grant.discoveryUrl) || metadata.values.clientId.isBlank() ||
       "openid" !in metadata.values.scopes.split(' ')) return null
    return OAuth2LoginBinding(server, metadata.name, grant.issuer, grant.discoveryUrl, metadata.values.clientId,
-      metadata.values.scopes, redirect, grant.prompt)
+      metadata.values.scopes, redirect, grant.prompt, grant.nonceValidation)
 }
 
 /** One in-memory browser attempt. Activity recreation retains it; process death requires a new login. */
@@ -40,7 +43,7 @@ class OAuth2LoginAttempt(private val nowMillis: () -> Long = { System.nanoTime()
 
    fun begin(binding: OAuth2LoginBinding, state: String, nonce: String, verifier: String)
    {
-      require(state.length >= 16 && nonce.length >= 16)
+      require(state.length >= 16 && isValidExpectedNonce(nonce) && binding.nonceValidation == "REQUIRED")
       require(Regex("[A-Za-z0-9._~-]{43,128}").matches(verifier))
       check(pending == null)
       pending = Pending(binding, state, nonce, verifier, nowMillis())
@@ -56,13 +59,13 @@ class OAuth2LoginAttempt(private val nowMillis: () -> Long = { System.nanoTime()
       if(age !in 0..300_000 || binding != attempt.binding || state != attempt.state || requestState != attempt.state ||
          requestNonce != attempt.nonce || requestClientId != binding.clientId || requestRedirectUri != binding.redirectUri ||
          requestPrompt != binding.prompt || code.isNullOrBlank()) return null
-      return Exchange(code, attempt.verifier, attempt.binding.redirectUri)
+      return Exchange(code, attempt.verifier, attempt.binding.redirectUri, attempt.nonce)
    }
 
    fun cancel() { pending = null }
 
    /** Not a data class: credentials must not appear in an automatically generated toString(). */
-   class Exchange(val code: String, val verifier: String, val redirectUri: String)
+   class Exchange(val code: String, val verifier: String, val redirectUri: String, val expectedNonce: String)
 }
 
 /** Fixed package identity is the callback transport; the server must explicitly advertise this exact URI. */

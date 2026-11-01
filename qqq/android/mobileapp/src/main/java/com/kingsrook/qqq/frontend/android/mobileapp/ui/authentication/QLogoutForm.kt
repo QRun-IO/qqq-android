@@ -44,6 +44,10 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 @Composable
 fun QLogoutForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticationMetaData, modifier: Modifier = Modifier)
 {
+   qViewModel.companyLogoutBinding?.let {
+      QOAuth2Logout(qViewModel, it)
+      return
+   }
    when (authenticationMetaData)
    {
       is Auth0AuthenticationMetaData ->

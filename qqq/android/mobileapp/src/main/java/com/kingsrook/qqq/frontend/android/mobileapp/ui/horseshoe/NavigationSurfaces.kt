@@ -11,11 +11,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.LocalCompanySignOutEnabled
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.oauth2LogoutBinding
 
 /** Host-owned device settings and diagnostics; these surfaces do not change the business route. */
 val LocalDeviceSettings = compositionLocalOf<@Composable () -> Unit> { {} }
@@ -25,6 +34,17 @@ val LocalBusinessNavigationEnabled = compositionLocalOf { true }
 @Composable
 internal fun AccountDialog(model: QViewModel, dismiss: () -> Unit)
 {
+   val companyLogout = if(LocalCompanySignOutEnabled.current)
+      ((model.authenticationMetaDataLoadState as? LoadState.Success)?.value as? OAuth2AuthenticationMetaData)?.let {
+         oauth2LogoutBinding(it, model.environment.baseUrl, LocalContext.current.packageName)
+      } else null
+   var supportsCompanyLogout by remember(model, companyLogout) { mutableStateOf(false) }
+   LaunchedEffect(model, companyLogout)
+   {
+      if(companyLogout != null) try { supportsCompanyLogout = model.qqqRepository.supportsNativeSessionLogout() }
+      catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
+      catch(exception: Exception) { supportsCompanyLogout = false }
+   }
    AlertDialog(onDismissRequest = dismiss, title = { Text("Account", Modifier.testTag("accountDialog.title")) },
       text = { Column {
          Text(if(model.isAuthenticated) "Current User:  ${model.sessionUserFullName}" else "Not currently logged in")
@@ -32,6 +52,11 @@ internal fun AccountDialog(model: QViewModel, dismiss: () -> Unit)
             dismiss()
             model.qNavigator.requestSignOut()
          }) { Text("Sign out") }
+         if(companyLogout != null && supportsCompanyLogout)
+            TextButton(enabled = model.isAuthenticated && !model.isLogoutRequested, onClick = {
+               dismiss()
+               model.qNavigator.requestCompanySignOut(companyLogout)
+            }) { Text("Sign out of company") }
       } }, confirmButton = { TextButton(onClick = dismiss) { Text("Close") } })
 }
 
@@ -53,6 +78,8 @@ internal fun LeaveProcessDialog(model: QViewModel)
                Text("The last request's result is unknown. Cancellation does not undo saved changes. Ask your administrator to check process ${process.processUUID}.")
          }
          else if(request.confirmLabel == "Sign out") Text("Sign out of this account on this device?")
+         if(request.confirmLabel == "Sign out of company")
+            Text("Sign out of QQQ and continue in your browser to sign out of your organization? This may affect other company applications in that browser.")
          blocked?.let { Text(it) }
          if(cancelling) Text("Waiting for the server to confirm cancellation…")
          if(process?.cancellationFailed == true)

@@ -14,15 +14,21 @@ data class OAuth2AuthenticationMetaData(
    @Serializable
    data class Values(val clientId: String = "", val baseUrl: String = "", val scopes: String = "",
       val nativeClientId: String? = null, val nativeClientBaseUrl: String? = null,
-      val bearerTokensAccepted: Boolean = false, val nativeSessionLogin: NativeSessionLogin? = null)
+      val bearerTokensAccepted: Boolean = false, val nativeSessionLogin: NativeSessionLogin? = null,
+      val nativeSessionLogout: NativeSessionLogout? = null)
 
    @Serializable
    data class NativeSessionLogin(val flow: String = "", val codeChallengeMethod: String = "",
-      val issuer: String = "", val discoveryUrl: String = "", val redirectUris: List<String> = emptyList(), val prompt: String = "")
+      val issuer: String = "", val discoveryUrl: String = "", val redirectUris: List<String> = emptyList(), val prompt: String = "",
+      val nonceValidation: String = "")
+
+   @Serializable
+   data class NativeSessionLogout(val flow: String = "", val postLogoutRedirectUris: List<String> = emptyList())
 
    companion object
    {
       const val TYPE = "OAUTH2"
       const val SESSION_FLOW = "AUTHORIZATION_CODE_PKCE_SESSION"
+      const val LOGOUT_FLOW = "OIDC_RP_INITIATED_LOGOUT"
    }
 }

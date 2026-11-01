@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData
+import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibilityException
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -40,7 +41,7 @@ import kotlin.coroutines.resumeWithException
 /** Hosts/tests may supply discovery transport; returned metadata is still validated before authorization. */
 val LocalOAuth2Discovery = staticCompositionLocalOf<suspend (OAuth2LoginBinding) -> AuthorizationServiceConfiguration> { ::discoverOAuth2 }
 
-/** Browser authorization is standard AppAuth; the semantic QQQ API alone exchanges the code. */
+/** Browser authorization is standard AppAuth; API1.10 exchanges the code and validates the retained original nonce. */
 @Composable
 fun QOAuth2Login(viewModel: QViewModel, metadata: OAuth2AuthenticationMetaData, modifier: Modifier = Modifier)
 {
@@ -75,7 +76,7 @@ fun QOAuth2Login(viewModel: QViewModel, metadata: OAuth2AuthenticationMetaData, 
       Text("Sign in")
       if(binding == null)
       {
-         Text("This server has not configured a compatible native browser sign-in flow for this app. Ask your administrator to enable it.")
+         Text("This server has not configured compatible native browser sign-in with required nonce validation. Ask your administrator to enable it.")
       }
       else
       {
@@ -104,6 +105,11 @@ fun QOAuth2Login(viewModel: QViewModel, metadata: OAuth2AuthenticationMetaData, 
                      if(viewModel.isCurrentOAuth2Login(generation, binding) && viewModel.oauth2LoginPhase == OAuth2LoginPhase.PREPARING)
                         viewModel.cancelOAuth2Login()
                      throw exception
+                  }
+                  catch(exception: UiApiCompatibilityException)
+                  {
+                     if(viewModel.isCurrentOAuth2Login(generation, binding))
+                        viewModel.cancelOAuth2Login("This server does not support native sign-in with required nonce validation. Ask your administrator to upgrade or enable it.")
                   }
                   catch(exception: Exception)
                   {

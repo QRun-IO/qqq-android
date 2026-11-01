@@ -1,5 +1,8 @@
 # TODO
 
+- [x] Verify the API1.10 original-nonce and optional company-logout client patch: 151 JVM tests, zero-warning lint/build and 28 disposable TC22 native authentication/lifecycle tests pass; independent 26-file source review completed with no findings.
+- [ ] Qualify the paired strict server policy and actual Authentik A-to-company-logout-to-B handoff, including the exported native callback and real SDK/browser logging boundary; synthetic native tests do not close this gate.
+
 - [x] Verify current TC22 Code128 hardware trigger-to-save on the trusted EMDK path with operator Saved scan, matching backend source/model and distinct event identities; see [physical evidence](PHYSICAL-TC22-ACCEPTANCE.md).
 - [ ] Finish current EMDK leading-zero QR, repeat-intent, lifecycle/ownership and retry/leave acceptance; historical DataWedge scans do not qualify these checks.
 

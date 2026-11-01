@@ -32,8 +32,12 @@ data class ManageSessionRequest(
    val code: String? = null,
    val codeVerifier: String? = null,
    val redirectUri: String? = null,
-   val authenticationFlow: String? = null
+   val authenticationFlow: String? = null,
+   val expectedNonce: String? = null
 )
 {
    override fun toString(): String = "ManageSessionRequest(credentials redacted)"
 }
+
+/** AppAuth generates unpadded base64url; bound the semantic nonce before any code exchange. */
+fun isValidExpectedNonce(value: String?): Boolean = value != null && Regex("[A-Za-z0-9_-]{16,512}").matches(value)

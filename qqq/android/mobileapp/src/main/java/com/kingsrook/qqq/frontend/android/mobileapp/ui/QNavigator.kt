@@ -114,6 +114,10 @@ class QNavigator(initialController: NavHostController?, val qViewModel: QViewMod
 
    fun requestSignOut() = requestLeave("Sign out?", "Sign out", alwaysConfirm = true) { qViewModel.requestLogout() }
 
+   /** The same guarded leave/cancel policy applies to explicitly enabled provider sign-out. */
+   fun requestCompanySignOut(binding: com.kingsrook.qqq.frontend.android.mobileapp.ui.authentication.OAuth2LogoutBinding) =
+      requestLeave("Sign out of company?", "Sign out of company", alwaysConfirm = true) { qViewModel.requestCompanyLogout(binding) }
+
    private val destinationListener = NavController.OnDestinationChangedListener { controller, _, _ -> reconcile(controller) }
    var navController: NavHostController? = null
       set(value)

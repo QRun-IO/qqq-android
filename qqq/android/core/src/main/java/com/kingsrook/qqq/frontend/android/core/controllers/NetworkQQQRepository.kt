@@ -28,6 +28,10 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.QProcessMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.BaseAuthenticationMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.ManageSessionRequest
 import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.ManageSessionResponse
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.NativeLogout
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.NativeLogoutRequest
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.NativeLogoutResponse
+import com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.NativeLogoutData
 import com.kingsrook.qqq.frontend.android.core.model.processes.ProcessStepResult
 import kotlinx.serialization.json.Json
 import okhttp3.Credentials
@@ -152,6 +156,10 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
 
    override suspend fun exchangeNativeSession(body: ManageSessionRequest): ManageSessionResponse
    {
+      require(body.authenticationFlow == com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData.SESSION_FLOW &&
+         com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.isValidExpectedNonce(body.expectedNonce)) {
+         "Native sign-in requires its original nonce"
+      }
       val server = baseUrl
       val service = requireNotNull(qqqApiServiceMap[server])
       verifyNativeSessionLoginAt(server)
@@ -191,6 +199,48 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
       val session = sessionUUIDs[server]
       try { if(!session.isNullOrBlank()) discardNativeSession(server, session) }
       finally { if(session != null) sessionUUIDs.remove(server, session) }
+   }
+
+   /** Capture the original origin/cookie; neither a response cookie nor a server switch can adopt a session. */
+   override suspend fun logoutWithProvider(postLogoutRedirectUri: String): NativeLogoutData?
+   {
+      val server = baseUrl
+      val session = sessionUUIDs[server] ?: return null
+      try
+      {
+         val supported = supportsNativeSessionLogoutAt(server)
+         if(!supported)
+         {
+            discardNativeSession(server, session)
+            return null
+         }
+         return requireNotNull(qqqApiServiceMap[server]).logoutWithProvider("sessionUUID=$session",
+            NativeLogoutRequest(NativeLogout(postLogoutRedirectUri)), DeferredSessionCookie()).use { response ->
+            // Parse privately: serialization errors may include input fragments, so never propagate them.
+            val source = response.source()
+            source.request(65537)
+            if(source.buffer.size > 65536) return@use null
+            try { retroJson.decodeFromString<NativeLogoutResponse>(source.readUtf8()).nativeLogoutData }
+            catch(exception: Exception) { null }
+         }
+      }
+      catch(exception: UiApiException) { throw java.io.IOException("Company sign-out request failed") }
+      finally { sessionUUIDs.remove(server, session) }
+   }
+
+   override suspend fun supportsNativeSessionLogout(): Boolean = supportsNativeSessionLogoutAt(baseUrl)
+
+   private suspend fun supportsNativeSessionLogoutAt(server: String): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO)
+   {
+      try
+      {
+         val version = compatibilityByServer.getOrPut(server) {
+            compatibility?.takeIf { it.server == server } ?: UiApiCompatibility(server, observer = { requestObserver(it) })
+         }.verify()
+         UiApiCompatibility.validateNativeSessionLogout(version)
+         true
+      }
+      catch(exception: UiApiCompatibilityException) { false }
    }
 
    /***************************************************************************

@@ -1,5 +1,13 @@
 # Session state
 
+## November 1 native authentication checkpoint
+
+The optional company sign-out and original-nonce client changes pass 151 JVM tests, zero-error/zero-warning lint, debug assembly and native-test compilation. All 28 selected OAuth2 login/logout and authentication-lifecycle native tests also pass on the TC22 in the disposable sample application, with no failures or skips. The normal scanner package/data were preserved and its Activity is foreground again. These native tests use synthetic provider adapters; they do not establish real Authentik or external-browser acceptance.
+
+Independent review covered all 26 implementation/test/documentation files in the frozen patch and found no security candidates (completed scan c358cde3-b51d-4451-b07d-8d1afe6c4485). This is a patch review, not a fresh audit of every unchanged file. Native OAuth now requires API1.10, the advertised nonce-validation feature and REQUIRED policy; TABLE authentication remains compatible. Company sign-out is separately advertised and explicitly selected; the automatic sign-out policy remains undecided.
+
+The paired server changes and real A-to-company-logout-to-B acceptance remain in progress. Earlier real-provider testing established operator A and local QQQ invalidation, but retained browser SSO silently reused A; that failed handoff remains failed. This checkpoint is source publication, not a production release or installation of these bytes on the normal TC22 package. Signing/distribution remain the owner's final step. All historical entries below retain their original scope.
+
 ## November 1 status and visible QR fixture
 
 All eleven hosted checks at portrait-default7de2b508 passed. Public QR fixture checkpoint2e0fd962 is signed and pushed; docs/TEST-BARCODES.md records independent ZXing decoding of001234567890. Physical QR acceptance is still pending. Normal TC22 APK C89161C…C6340 remains installed with portrait requested, and the backend now has nine trusted EMDK Code128 events (eight on prior F3AF and one after the portrait update).

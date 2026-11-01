@@ -69,6 +69,12 @@ interface QQQApiService
    suspend fun logout(): ResponseBody
 
    @POST(BASE_PATH + "logout")
+   @retrofit2.http.Streaming
+   suspend fun logoutWithProvider(@Header("Cookie") cookie: String,
+      @Body body: com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.NativeLogoutRequest,
+      @retrofit2.http.Tag cookiePolicy: DeferredSessionCookie): ResponseBody
+
+   @POST(BASE_PATH + "logout")
    suspend fun discardNativeSession(@Header("Cookie") cookie: String,
       @retrofit2.http.Tag cookiePolicy: DeferredSessionCookie): ResponseBody
 
