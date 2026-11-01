@@ -9,6 +9,48 @@ import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startSemanticApiProxy } from './semantic-api-proxy.mjs';
 
+/*******************************************************************************
+ ** Admit only the explicitly simulated private Echo fixture, before any ADB call.
+ *******************************************************************************/
+export function validateEchoFixtureDescriptor(fixture) {
+   let url;
+   try { url = new URL(fixture?.baseUrl); } catch { throw new Error('Echo requires its private isolated loopback fixture.'); }
+   if (fixture.fixtureType !== 'echo-ui-e2e' || fixture.simulatedPrinting !== true ||
+         url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port || ['57832', '51631', '18081', '18086'].includes(url.port) ||
+         url.username || url.password || url.search || url.hash || url.pathname !== '/' ||
+         fixture.username !== 'scanner' || fixture.adminUsername !== 'admin' ||
+         typeof fixture.password !== 'string' || fixture.password.length < 16 || typeof fixture.adminPassword !== 'string' || fixture.adminPassword.length < 16) {
+      throw new Error('Echo requires fixtureType echo-ui-e2e, simulated printing and isolated private credentials; normal and printing runtimes are forbidden.');
+   }
+   return url;
+}
+
+/*******************************************************************************
+ ** An Echo descriptor cannot substitute an ordinary demo or another contract.
+ *******************************************************************************/
+export function validateEchoFixtureContract(version, branding) {
+   const extension = Array.isArray(version?.extensions) ? version.extensions.find(value => value.name === 'mobile-scanners') : null;
+   if (version?.apiVersion !== '1.10.0' || extension?.version !== '1.4.0' || extension.pathPrefix !== '/qbit/mobile-scanners' ||
+         branding?.displayName !== 'Echo UI E2E — simulated printing') {
+      throw new Error('Echo requires the simulated Echo fixture with core UI API1.10 and mobile-scanners1.4.');
+   }
+}
+
+/*******************************************************************************
+ ** Compare raw identity only internally; never return it as command evidence.
+ *******************************************************************************/
+export function physicalSerialMatches(expected, output) {
+   return typeof expected === 'string' && expected.length > 0 && typeof output === 'string' && output.trim() === expected;
+}
+
+/*******************************************************************************
+ ** Strip selected device and opaque identifiers from Echo reports and errors.
+ *******************************************************************************/
+export function redactEchoOutput(text, serial) {
+   return text.replaceAll(serial, '<DEVICE>').replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '<ID>')
+      .replace(/\b[0-9a-f]{32,64}\b/gi, '<ID>').replace(/\bscanner-[0-9a-f]{24}\b/gi, '<DEVICE>');
+}
+
 /** Shared implementation; physical execution is exposed only by the explicit device entry point. */
 export async function runScannerE2e(options = {}) {
    const repository = resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -19,14 +61,18 @@ export async function runScannerE2e(options = {}) {
    const selectedScenario = options.scenario ?? process.env.E2E_SCENARIO;
    const physical = options.physical === true;
    const deviceScreen = selectedScenario === 'device-screen';
+   const echo = selectedScenario === 'echo';
+   if (echo && (!physical || !options.fixture || !serial || serial.startsWith('emulator-') || !/^[A-Za-z0-9._:-]+$/.test(serial))) {
+      throw new Error('Echo acceptance requires an explicit TC22 serial and private Echo fixture.');
+   }
    if (deviceScreen && (!physical || options.operatorConsent !== true || !options.fixture || !serial || !/^[A-Za-z0-9._:-]+$/.test(serial))) {
       throw new Error('Device-screen acceptance requires an explicit physical serial, private fixture and operator-consent opt-in.');
    }
    const fixture = options.fixture ? JSON.parse(await readFile(options.fixture, 'utf8')) : null;
    if (fixture) {
-      const url = new URL(fixture.baseUrl);
+      const url = echo ? validateEchoFixtureDescriptor(fixture) : new URL(fixture.baseUrl);
       const purposeValid = deviceScreen ? fixture.purpose === 'device-screen-qa' && !['57832', '51631'].includes(url.port) :
-         selectedScenario === 'photos' && fixture.processName === 'mobileRecordPhotos' && fixture.tableName === 'document' && String(fixture.recordId) === '1';
+         echo || selectedScenario === 'photos' && fixture.processName === 'mobileRecordPhotos' && fixture.tableName === 'document' && String(fixture.recordId) === '1';
       if (!physical || !purposeValid || url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port || url.username || url.password || url.search || url.hash || url.pathname !== '/' ||
             fixture.username !== 'scanner' || fixture.adminUsername !== 'admin' ||
             typeof fixture.password !== 'string' || fixture.password.length < 16 || typeof fixture.adminPassword !== 'string' || fixture.adminPassword.length < 16) {
@@ -41,8 +87,11 @@ export async function runScannerE2e(options = {}) {
    const stages = new Set();
    const adminPassword = fixture?.adminPassword ?? randomBytes(24).toString('base64url');
    const scannerPassword = fixture?.password ?? randomBytes(24).toString('base64url');
-   const redact = (text) => text.replaceAll(adminPassword, '<REDACTED>').replaceAll(scannerPassword, '<REDACTED>');
-   const run = (command, args, input) => new Promise((resolveRun, reject) => {
+   const redact = (text) => {
+      const safe = text.replaceAll(adminPassword, '<REDACTED>').replaceAll(scannerPassword, '<REDACTED>');
+      return echo ? redactEchoOutput(safe, serial) : safe;
+   };
+   const run = (command, args, input, checkOutput) => new Promise((resolveRun, reject) => {
       const child = spawn(command, args, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
       // Native Compose instrumentation includes emulator startup and transport shutdown after the test finishes.
       const timeout = args.includes('instrument') ? (deviceScreen ? 720_000 : 300_000) : 180_000;
@@ -68,7 +117,7 @@ export async function runScannerE2e(options = {}) {
       child.on('error', (error) => { clearTimeout(deadline); reject(error); });
       child.on('close', (code) => {
          clearTimeout(deadline);
-         if (code === 0) resolveRun(redact(output)); else reject(new Error(redact(`${command} failed (${code}): ${output}`)));
+         if (code === 0) resolveRun(checkOutput ? checkOutput(output) === true : redact(output)); else reject(new Error(redact(`${command} failed (${code}): ${output}`)));
       });
       child.stdin.end(input);
    });
@@ -76,14 +125,15 @@ export async function runScannerE2e(options = {}) {
    const grantE2eLocationPermissions = async () => {
       // These scenarios exercise scanner/navigation behavior, not the Android permission dialog.
       // Never grant permissions to the operator's normal app or the separate consent-based QA app.
-      if (packageName !== 'io.qrun.mobile.scanner.e2e') return;
+      if (packageName !== 'io.qrun.mobile.scanner.e2e' || echo) return;
       await adbRun('shell', 'pm', 'grant', packageName, 'android.permission.ACCESS_COARSE_LOCATION');
       await adbRun('shell', 'pm', 'grant', packageName, 'android.permission.ACCESS_FINE_LOCATION');
    };
 
    const emulated = (await adbRun('shell', 'getprop', 'ro.kernel.qemu')).trim() === '1';
    if (physical) {
-      if (!serial || serial.startsWith('emulator-') || emulated || (await adbRun('get-serialno')).trim() !== serial) {
+      if (!serial || serial.startsWith('emulator-') || emulated ||
+            !await run(adb, [...adbPrefix, 'get-serialno'], undefined, output => physicalSerialMatches(serial, output))) {
          throw new Error('Physical acceptance requires an explicitly selected non-emulator serial.');
       }
       const manufacturer = (await adbRun('shell', 'getprop', 'ro.product.manufacturer')).trim();
@@ -114,7 +164,7 @@ export async function runScannerE2e(options = {}) {
       }
       console.log(`Native ${scenario} acceptance passed (local UI, no server).`);
    };
-   const allowedScenarios = [...(physical ? ['navigation', 'photos', 'device-screen'] : []), ...Object.keys(localScenarios), 'pixel-copy', 'unsupported-api', 'missing-extension', 'missing-channel', 'compatible', 'additive', 'admin-forms', 'session-monitor'];
+   const allowedScenarios = [...(physical ? ['navigation', 'photos', 'device-screen', 'echo'] : []), ...Object.keys(localScenarios), 'pixel-copy', 'unsupported-api', 'missing-extension', 'missing-channel', 'compatible', 'additive', 'admin-forms', 'session-monitor'];
    if (selectedScenario && !allowedScenarios.includes(selectedScenario)) throw new Error('Unknown native E2E scenario.');
    if (Object.hasOwn(localScenarios, selectedScenario)) {
       const temporary = [];
@@ -172,6 +222,8 @@ export async function runScannerE2e(options = {}) {
    let reverseAdded = false;
    let screenEvidence;
    let screenArtifacts;
+   let echoEvidence;
+   let echoArtifacts;
    server?.on('error', (error) => { serverError = error; });
    try {
       for (const setting of physical ? [] : ['window_animation_scale', 'transition_animation_scale', 'animator_duration_scale']) {
@@ -192,22 +244,34 @@ export async function runScannerE2e(options = {}) {
       proxy = await startSemanticApiProxy(origin);
       const apkPaths = [join(repository, `scanner-host/build/outputs/apk/${variant}/scanner-host-${variant}.apk`),
          join(repository, `scanner-host/build/outputs/apk/androidTest/${variant}/scanner-host-${variant}-androidTest.apk`)];
-      if (deviceScreen) {
+      if (deviceScreen || echo) {
          if (!sdk) throw new Error('ANDROID_HOME is required for APK identity verification.');
          const tool = join(sdk, 'build-tools', '35.0.0', process.platform === 'win32' ? 'aapt2.exe' : 'aapt2');
          for (const [index, apk] of apkPaths.entries()) {
             const actual = /^package: name='([^']+)'/m.exec(await run(tool, ['dump', 'badging', apk]))?.[1];
-            if (actual !== packageName + (index ? '.test' : '')) throw new Error('Refusing an APK outside the disposable QA target.');
+            if (actual !== packageName + (index ? '.test' : '')) throw new Error('Refusing an APK outside the exact disposable acceptance target.');
          }
          const version = await fetch(`${origin}/qqq/v1/version`, { signal: AbortSignal.timeout(10_000) }).then(response => {
             if (!response.ok) throw new Error('Fixture discovery failed.'); return response.json();
          });
          const extension = version.extensions?.find(value => value.name === 'mobile-scanners');
-         if (extension?.version !== '1.2.0' || extension.pathPrefix !== '/qbit/mobile-scanners') throw new Error('Device-screen fixture must serve the qualified mobile-scanners1.2 contract.');
-         screenArtifacts = await Promise.all(apkPaths.map(async (apk, index) => ({ applicationId: packageName + (index ? '.test' : ''), sha256: createHash('sha256').update(await readFile(apk)).digest('hex') })));
-         screenEvidence = join(repository, `scanner-host/build/native-device-screen-${Date.now()}`);
-         await mkdir(screenEvidence, { recursive: true });
-         await writeFile(join(screenEvidence, 'proof.json'), JSON.stringify({ status: 'PREPARING', artifacts: screenArtifacts }, null, 2));
+         if (deviceScreen) {
+            if (extension?.version !== '1.2.0' || extension.pathPrefix !== '/qbit/mobile-scanners') throw new Error('Device-screen fixture must serve the qualified mobile-scanners1.2 contract.');
+            screenArtifacts = await Promise.all(apkPaths.map(async (apk, index) => ({ applicationId: packageName + (index ? '.test' : ''), sha256: createHash('sha256').update(await readFile(apk)).digest('hex') })));
+            screenEvidence = join(repository, `scanner-host/build/native-device-screen-${Date.now()}`);
+            await mkdir(screenEvidence, { recursive: true });
+            await writeFile(join(screenEvidence, 'proof.json'), JSON.stringify({ status: 'PREPARING', artifacts: screenArtifacts }, null, 2));
+         } else {
+            const branding = await fetch(`${origin}/qqq/v1/qbit/mobile-scanners/branding`, { signal: AbortSignal.timeout(10_000) }).then(response => {
+               if (!response.ok) throw new Error('Echo fixture branding discovery failed.'); return response.json();
+            });
+            validateEchoFixtureContract(version, branding);
+            if (['57832', '51631', '18081', '18086'].includes(String(proxy.port))) throw new Error('Refusing a protected reverse port.');
+            echoArtifacts = await Promise.all(apkPaths.map(async (apk, index) => ({ applicationId: packageName + (index ? '.test' : ''), sha256: createHash('sha256').update(await readFile(apk)).digest('hex') })));
+            echoEvidence = join(repository, 'scanner-host/build/native-device-e2e');
+            await mkdir(echoEvidence, { recursive: true });
+            await writeFile(join(echoEvidence, 'echo-proof.json'), JSON.stringify({ status: 'PREPARING', fixtureType: 'echo-ui-e2e', simulatedPrinting: true, artifacts: echoArtifacts }, null, 2));
+         }
       }
       await adbRun('reverse', '--no-rebind', `tcp:${proxy.port}`, `tcp:${proxy.port}`);
       reverseAdded = true;
@@ -260,12 +324,18 @@ export async function runScannerE2e(options = {}) {
          { mode: 'compatible', name: 'admin-forms', test: 'adminFormsApproveRevokeAndCancel', requireCancel: true },
          { mode: 'compatible', name: 'session-monitor', test: 'sessionActivityMirrorsActualScreenAndAdminEndForcesFreshLogin', requireSession: true },
          ...(fixture ? [{ mode: 'compatible', name: 'photos', test: 'cameraAutoUploadsAndPendingGallerySurvivesRotationThenCleansOnRemoteLogout', requirePhotos: true }] : []),
+         ...(echo ? [{ mode: 'compatible', name: 'echo', test: 'echoSelectsOnceQueuesTwoScansAndClosesOnAppsLeave', requireCancel: true }] : []),
       ]) {
          if (selectedScenario && selectedScenario !== (phase.name ?? phase.mode)) continue;
          proxy.setMode(phase.mode);
          await adbRun('shell', 'pm', 'clear', packageName);
          // Clearing disposable app data also resets runtime permissions on fresh Android images.
-         if ((phase.name ?? phase.mode) === 'session-monitor' && packageName === 'io.qrun.mobile.scanner.e2e') {
+         if (echo) {
+            // Echo does not qualify GPS: keep reporting off only in this new disposable app.
+            await adbRun('shell', 'run-as', packageName, 'mkdir', '-p', 'shared_prefs');
+            await run(adb, [...adbPrefix, 'shell', 'run-as', packageName, 'sh', '-c', "'cat > shared_prefs/host.xml'"],
+               '<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map><boolean name="locationReportingEnabled" value="false" /><boolean name="locationPermissionRequested" value="true" /></map>');
+         } else if ((phase.name ?? phase.mode) === 'session-monitor' && packageName === 'io.qrun.mobile.scanner.e2e') {
             // Preserve this scenario's real denied-location telemetry assertion without an OS dialog.
             await adbRun('shell', 'pm', 'revoke', packageName, 'android.permission.ACCESS_FINE_LOCATION');
             await adbRun('shell', 'pm', 'revoke', packageName, 'android.permission.ACCESS_COARSE_LOCATION');
@@ -277,7 +347,8 @@ export async function runScannerE2e(options = {}) {
          }
          await adbRun('shell', 'run-as', packageName, 'mkdir', '-p', 'files');
          await run(adb, [...adbPrefix, 'shell', 'run-as', packageName, 'sh', '-c', "'cat > files/e2e.json'"],
-            JSON.stringify({ serverUrl: `http://127.0.0.1:${proxy.port}/`, adminPassword, scannerPassword, expectedError: phase.expectedError }));
+            JSON.stringify({ serverUrl: `http://127.0.0.1:${proxy.port}/`, adminPassword, scannerPassword, expectedError: phase.expectedError,
+               ...(echo ? { fixtureType: 'echo-ui-e2e', simulatedPrinting: true } : {}) }));
          const test = phase.test ?? (phase.expectedError ? 'incompatibleServerStopsBeforeLogin' : 'loginEnrollApproveCaptureAndRevoke');
          const output = await adbRun('shell', 'am', 'instrument', '-w', '-r',
             '-e', 'class', `io.qrun.mobile.scanner.ScannerEndToEndTest#${test}`,
@@ -288,29 +359,40 @@ export async function runScannerE2e(options = {}) {
             throw new Error(`Native scanner E2E (${phase.mode}) failed:\n${output}`);
          }
          reports.push({ scenario: phase.name ?? phase.mode, ...proxy.verify(!phase.expectedError, Boolean(phase.requireCancel), Boolean(phase.requireSession), Boolean(phase.requirePhotos)) });
+         if (echo) {
+            const expectedStages = ['echo-setup-selected', 'echo-first-queued', 'echo-second-queued', 'echo-recreation-stable', 'echo-run-closed'];
+            if (expectedStages.some(stage => !stages.has(stage))) throw new Error('Echo did not complete every setup/queue/recreation/cancellation stage.');
+            await writeFile(join(echoEvidence, 'echo-proof.json'), JSON.stringify({ status: 'PASSED', fixtureType: 'echo-ui-e2e', simulatedPrinting: true,
+               artifacts: echoArtifacts, completedStages: expectedStages, acceptedScans: 2, ...reports.at(-1), physicalScannerQualified: false, physicalPrintingQualified: false }, null, 2));
+         }
          console.log(`Native semantic E2E passed: ${phase.name ?? phase.mode}.`);
       }
       await writeFile(join(evidence, 'semantic-contract.json'), `${JSON.stringify(reports, null, 2)}\n`);
       console.log('All native requests in the selected scenarios matched the published semantic API.');
    } catch (error) {
+      if (echo && echoEvidence) await writeFile(join(echoEvidence, 'echo-proof.json'), JSON.stringify({
+         status: 'FAILED', fixtureType: 'echo-ui-e2e', simulatedPrinting: true, artifacts: echoArtifacts, completedStages: [...stages],
+      }, null, 2));
       if (deviceScreen && screenEvidence) await writeFile(join(screenEvidence, 'proof.json'), JSON.stringify({
          status: 'FAILED', artifacts: screenArtifacts, completedStages: [...stages], physicalDisplayVerified: false,
       }, null, 2));
       throw error;
    } finally {
       const screenCleanupFailures = [];
+      if (echo && echoEvidence && proxy) await writeFile(join(echoEvidence, 'echo-operations.json'), JSON.stringify(proxy.evidence(), null, 2))
+         .catch(() => { screenCleanupFailures.push('Echo semantic evidence'); });
       if (deviceScreen && screenEvidence && proxy) await writeFile(join(screenEvidence, 'operations.json'), JSON.stringify(proxy.evidence(), null, 2))
          .catch(() => { screenCleanupFailures.push('semantic evidence'); });
       for (const [setting, previous] of animationScales) {
          if (previous === 'null') await adbRun('shell', 'settings', 'delete', 'global', setting).catch(() => {});
          else await adbRun('shell', 'settings', 'put', 'global', setting, previous).catch(() => {});
       }
-      if (installedByRun.has(packageName)) await adbRun('shell', 'run-as', packageName, 'rm', '-f', 'files/e2e.json').catch(() => {});
+      if (installedByRun.has(packageName)) await adbRun('shell', 'run-as', packageName, 'rm', '-f', 'files/e2e.json').catch(() => { if (echo) screenCleanupFailures.push('Echo credential file'); });
       if (deviceScreen && installedByRun.has(packageName)) await adbRun('shell', 'run-as', packageName, 'rm', '-f', 'files/qa-screen.json')
          .catch(() => { screenCleanupFailures.push('QA credential file'); });
-      for (const installed of [...installedByRun].reverse()) await adbRun('uninstall', installed).catch(() => { if (deviceScreen) screenCleanupFailures.push('QA package'); });
+      for (const installed of [...installedByRun].reverse()) await adbRun('uninstall', installed).catch(() => { if (deviceScreen || echo) screenCleanupFailures.push('disposable package'); });
       if (proxy) {
-         if (reverseAdded) await adbRun('reverse', '--remove', `tcp:${proxy.port}`).catch(() => { if (deviceScreen) screenCleanupFailures.push('owned reverse'); });
+         if (reverseAdded) await adbRun('reverse', '--remove', `tcp:${proxy.port}`).catch(() => { if (deviceScreen || echo) screenCleanupFailures.push('owned reverse'); });
          await proxy.close();
       }
       const stopped = new Promise((done) => { if (!server || server.exitCode !== null || serverError) done(); else server.once('exit', done); });
@@ -323,7 +405,13 @@ export async function runScannerE2e(options = {}) {
          throw new Error('Refusing cleanup outside the isolated demo temporary directory.');
       }
       if (directory) await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
-      if (screenCleanupFailures.length) throw new Error(`QA cleanup/evidence incomplete: ${screenCleanupFailures.join(', ')}`);
+      if (screenCleanupFailures.length) {
+         if (echo && echoEvidence) await writeFile(join(echoEvidence, 'echo-proof.json'), JSON.stringify({
+            status: 'CLEANUP_FAILED', fixtureType: 'echo-ui-e2e', simulatedPrinting: true, artifacts: echoArtifacts,
+            completedStages: [...stages], cleanupFailures: screenCleanupFailures,
+         }, null, 2));
+         throw new Error(`Disposable acceptance cleanup/evidence incomplete: ${screenCleanupFailures.join(', ')}`);
+      }
    }
 
 }

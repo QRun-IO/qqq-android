@@ -46,7 +46,7 @@ Core structured errors retain their code, message, field errors and trace ID. Fi
 | --- | --- |
 | App navigation | Server-defined apps and process links, including root processes and section app links |
 | Process lifecycle | Init, step submission, asynchronous polling, server-directed completion and backend cancellation |
-| `EDIT_FORM` | Metadata field subsets, labels, hidden/editable/required flags, text/password, Boolean, integer/long/decimal, inline possible values and validation errors; explicit null clearing is preserved |
+| `EDIT_FORM` | Metadata field subsets, labels, hidden/editable/required flags, text/password, Boolean, integer/long/decimal, inline possible values, named possible-value sources searched through the core operation `searchProcessPossibleValues` (`POST /qqq/v1/processes/{process}/possibleValues/{field}`, JSON `values`/`processValues`/`useCase: form`; contingent fields honor `possibleValueSourceDependsOn` and `possibleValueSourceDependencyBehavior`, re-query on parent change and drop stale selections) and validation errors; explicit null clearing is preserved |
 | Date/time fields | ISO text inputs with format hints and validation; no native date/time picker |
 | `VIEW_FORM` | Read-only values for the declared field subset |
 | Dynamic metadata | Updated frontend steps and updated fields applied to the active process |

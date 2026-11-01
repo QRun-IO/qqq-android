@@ -91,3 +91,6 @@ Offline queue/background synchronization is deliberately outside version one.
 - [x] Add and run real-server scanner-host E2E: login, pending enrollment, approval, native app/process selection, manual scan persistence and revoked-device denial. Use an isolated app ID and database.
 - [x] Run and verify native real-server E2E on pushes and pull requests; current7de hosted checks pass.
 - [ ] Complete the final operator walkthrough on TC22 after updating the preserved demo/runtime, including outage/reconnect and real camera capture.
+
+- [x] Implement named semantic process choices and qualify Echo native setup/two scans/rotation/Apps Leave onTC22 (169JVM,8guards,86documentedrequests; printing simulated).
+- [ ] Finish real Echo host/owner adapters, print a physical label and rescan exact value/type; then preserved-data demo upgrade.

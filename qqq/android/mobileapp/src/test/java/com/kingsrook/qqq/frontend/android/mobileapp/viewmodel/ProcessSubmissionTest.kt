@@ -526,6 +526,78 @@ class ProcessSubmissionTest {
 
 
    /*******************************************************************************
+    ** Echo-style setup: named possible-value sources are resolved through the repository, and dependent
+    ** choices are requested with the current parent value rather than being rendered as free text.
+    *******************************************************************************/
+   @Test
+   fun namedPossibleValueSourcesLoadWithDependentValuesAndReportFailures() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try {
+         // As published by the server: media declares its explicit dependency on printerId (default DISABLE_UNTIL_SET).
+         val printer = QFieldMetaData("printerId", "Printer", type = QFieldType.STRING, isRequired = true, possibleValueSourceName = "printers")
+         val media = QFieldMetaData(
+            "mediaId", "Paper or label size", type = QFieldType.STRING, isRequired = true, possibleValueSourceName = "media",
+            possibleValueSourceDependsOn = listOf("printerId"), possibleValueSourceDependencyBehavior = "DISABLE_UNTIL_SET"
+         )
+         val repository = SubmissionRepository().apply {
+            inputOverride = QFrontendStepMetaData("input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)), formFields = listOf(printer, media))
+         }
+         val model = model(repository)
+         model.doInit()
+         advanceUntilIdle()
+         assertNull("Remote choices are supported, not an unsupported control", model.unsupportedReason())
+
+         model.loadRemoteOptions(printer)
+         model.loadRemoteOptions(media)
+         advanceUntilIdle()
+         assertEquals(listOf("Simulated printer"), model.remoteOptions["printerId"]?.map { it.label })
+         assertEquals("Choose Printer first.", model.remoteOptionsBlockedReason(media))
+         assertEquals("A blocked dependent field is not searched", listOf("printerId"), repository.possibleValueRequests.map { it.first })
+
+         model.processValues["printerId"] = "printer"
+         model.fieldChanged("printerId")
+         advanceUntilIdle()
+         assertNull(model.remoteOptionsBlockedReason(media))
+         assertEquals(listOf("4 x 6 in"), model.remoteOptions["mediaId"]?.map { it.label })
+         assertEquals("printer", repository.possibleValueRequests.last().second["printerId"])
+         assertFalse("The requested field's own value is not sent as a dependency", repository.possibleValueRequests.last().second.containsKey("mediaId"))
+
+         // Changing the parent drops the dependent selection immediately, and a late reply for the old parent is ignored.
+         model.processValues["mediaId"] = "4x6"
+         val gate = CompletableDeferred<Unit>()
+         repository.possibleValueGate = gate
+         model.loadRemoteOptions(media)
+         runCurrent()
+         model.processValues["printerId"] = "other"
+         model.fieldChanged("printerId")
+         assertNull("Stale child selection is cleared when its parent changes", model.processValues["mediaId"])
+         assertEquals(1, model.fieldResets["mediaId"])
+         assertNull(model.remoteOptions["mediaId"])
+         repository.possibleValueGate = null
+         gate.complete(Unit)
+         advanceUntilIdle()
+         assertEquals("Only the newest request may publish", emptyList<String>(), model.remoteOptions["mediaId"]?.map { it.label })
+
+         // A failed load is reported without blocking Cancel, and can be retried.
+         repository.possibleValueFailure = true
+         model.loadRemoteOptions(media)
+         advanceUntilIdle()
+         assertNull(model.remoteOptions["mediaId"])
+         assertNotNull(model.remoteOptionErrors["mediaId"])
+         assertNull(model.clientWorkBlockReason)
+         repository.possibleValueFailure = false
+         model.processValues["printerId"] = "printer"
+         model.loadRemoteOptions(media)
+         advanceUntilIdle()
+         assertNull(model.remoteOptionErrors["mediaId"])
+         assertEquals(listOf("4 x 6 in"), model.remoteOptions["mediaId"]?.map { it.label })
+      } finally {
+         Dispatchers.resetMain()
+      }
+   }
+
+   /*******************************************************************************
     **
     *******************************************************************************/
    private fun model(repository: SubmissionRepository) = ProcessViewModel().apply()
@@ -554,6 +626,9 @@ class ProcessSubmissionTest {
       var statusFailures = 0
       var statusCalls = 0
       var inputOverride: QFrontendStepMetaData? = null
+      val possibleValueRequests = mutableListOf<Pair<String, Map<String, Any?>>>()
+      var possibleValueFailure = false
+      var possibleValueGate: CompletableDeferred<Unit>? = null
       private val input = QFrontendStepMetaData(
          "input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
          formFields = listOf(QFieldMetaData("eventId", "Event", type = QFieldType.STRING, isRequired = true, isHidden = hiddenEventId))
@@ -585,6 +660,20 @@ class ProcessSubmissionTest {
          stepGate?.await()
          if (stepFailures-- > 0) throw java.io.IOException("Response lost")
          return if (asynchronous) QJobStarted("process", "job") else QJobComplete("process", responseValues, nextStep)
+      }
+
+      /*******************************************************************************
+       ** Printer choices are independent; media choices depend on the supplied printer.
+       *******************************************************************************/
+      override suspend fun processPossibleValues(processName: String, fieldName: String, values: Map<String, Any?>, processValues: Map<String, Any?>): List<com.kingsrook.qqq.frontend.android.core.model.QPossibleValue> {
+         possibleValueRequests.add(fieldName to values.toMap())
+         possibleValueGate?.await()
+         if (possibleValueFailure) throw java.io.IOException("Choices unavailable")
+         return when {
+            fieldName == "printerId" -> listOf(com.kingsrook.qqq.frontend.android.core.model.QPossibleValue("printer", "Simulated printer"))
+            values["printerId"] == "printer" -> listOf(com.kingsrook.qqq.frontend.android.core.model.QPossibleValue("4x6", "4 x 6 in"))
+            else -> emptyList()
+         }
       }
 
       /*******************************************************************************

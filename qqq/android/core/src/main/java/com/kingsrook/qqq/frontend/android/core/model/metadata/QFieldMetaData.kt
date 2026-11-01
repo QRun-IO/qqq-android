@@ -39,6 +39,9 @@ data class QFieldMetaData(
    val isHeavy: Boolean = false,
    val possibleValueSourceName: String? = null,
    val inlinePossibleValueSource: List<QPossibleValue>? = null,
+   // Contingent fields only: DISABLE_UNTIL_SET (default when depending) or SHOW_ALL_UNTIL_SET.
+   val possibleValueSourceDependsOn: List<String>? = null,
+   val possibleValueSourceDependencyBehavior: String? = null,
    val displayFormat: String? = null,
    val adornments: List<FieldAdornment>? = null,
    val helpContents: List<QHelpContent>? = null,

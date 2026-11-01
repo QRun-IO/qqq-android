@@ -41,6 +41,36 @@ class NetworkQQQRepositoryTest {
    }
 
    /*******************************************************************************
+    ** Published `searchProcessPossibleValues`: JSON body with the parent values and FORM use case; the response is
+    ** `{options:[{id,label}]}` and the server omits `options` entirely when nothing matches.
+    *******************************************************************************/
+   @Test
+   fun processPossibleValuesUsesThePublishedJsonOperation() = runBlocking()
+   {
+      MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
+         server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("""{"options":[{"id":"4x6","label":"4 x 6 in"},{"id":7,"label":"Seven"}]}"""))
+         server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("{}"))
+         val origin = server.url("/").toString()
+         val repository = NetworkQQQRepository(origin)
+         repository.setEnvironment(Environment("test", origin))
+         val options = repository.processPossibleValues("echoPrint", "mediaId", mapOf("printerId" to "printer"), mapOf("echoRunId" to "run"))
+         assertEquals("/qqq/v1/version", server.takeRequest().path)
+         val request = server.takeRequest()
+         assertEquals("POST", request.method)
+         assertEquals("/qqq/v1/processes/echoPrint/possibleValues/mediaId", request.path)
+         assertTrue(request.getHeader("Content-Type")!!.startsWith("application/json"))
+         val body = org.json.JSONObject(request.body.readUtf8())
+         assertEquals("printer", body.getJSONObject("values").getString("printerId"))
+         assertEquals("run", body.getJSONObject("processValues").getString("echoRunId"))
+         assertEquals("form", body.getString("useCase"))
+         assertEquals(listOf("4x6", "7"), options.map { it.id.toString() })
+         assertEquals(listOf("4 x 6 in", "Seven"), options.map { it.label })
+         assertTrue(repository.processPossibleValues("echoPrint", "mediaId", emptyMap(), emptyMap()).isEmpty())
+      }
+   }
+
+   /*******************************************************************************
     **
     *******************************************************************************/
    @Test

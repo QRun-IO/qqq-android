@@ -1,3 +1,8 @@
+## November 1 — Echo native semantic choices verified on TC22
+
+Claude implemented named process possible values using the actual published `searchProcessPossibleValues` JSON contract, dependent-field metadata, cancellation/error/retry and stale-response rejection. The unchanged Echo fixture now completes login, enrollment/approval, printer/media selection once, two accepted synthetic scans, rotation/recreation without duplicates, and Apps/Leave closing the run on the real TC22. All86observed requests matched published semantic operations. Disposable-package cleanup passed; normal package/data and real printers were preserved.
+
+Validation:169JVMtests,8Nodeguards,236-file source standards, zero lint errors/warnings and bothE2EAPKs pass. This is simulated printing, not EMDK or physical output qualification. The remaining immediate blocker is the real Generation/Printing adapter and template/host composition, followed by physical print/rescan. Normal installed APK remains625a275; normal server API1.9/mobile1.1. Production signing remains deferred.
 # Session state
 
 ## Echo semantic presentation source checkpoint

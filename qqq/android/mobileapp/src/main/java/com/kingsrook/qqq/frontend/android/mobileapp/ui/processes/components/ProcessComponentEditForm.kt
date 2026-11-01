@@ -78,17 +78,25 @@ fun ProcessComponentEditForm(processViewModel: ProcessViewModel, component: QFro
          fun change(newValue: Any?) {
             value = newValue
             processViewModel.processValues[field.name] = newValue
+            // Dependent possible-value sources (for example media for a printer) re-query, disable or drop their selection.
+            processViewModel.fieldChanged(field.name)
          }
+         val remote = field.possibleValueSourceName != null && field.inlinePossibleValueSource.isNullOrEmpty()
+         val blocked = processViewModel.remoteOptionsBlockedReason(field)
+         val reset = processViewModel.fieldResets[field.name]
          LaunchedEffect(processViewModel.stepInstanceCounter, field.name) {
             if (!processViewModel.processValues.containsKey(field.name)) processViewModel.processValues[field.name] = value
             if (field.isEditable) processViewModel.registerFormFieldName(field.name)
+            if (remote) processViewModel.loadRemoteOptions(field)
          }
+         // The view model cleared this selection because its controlling field changed or the choice no longer exists.
+         LaunchedEffect(reset) { if (reset != null) value = processViewModel.processValues[field.name] }
          Column(Modifier.fillMaxWidth().padding(8.dp)) {
-            val options = field.inlinePossibleValueSource
-            if (!options.isNullOrEmpty()) {
+            val options = if (remote) processViewModel.remoteOptions[field.name].orEmpty() else field.inlinePossibleValueSource.orEmpty()
+            if (remote || options.isNotEmpty()) {
                var expanded by remember { mutableStateOf(false) }
                Text(field.label)
-               OutlinedButton(onClick = { expanded = true }, enabled = enabled) {
+               OutlinedButton(onClick = { expanded = true }, enabled = enabled && blocked == null) {
                   Text(options.firstOrNull { it.id.toString() == value?.toString() }?.label ?: "Choose a value")
                }
                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -114,6 +122,11 @@ fun ProcessComponentEditForm(processViewModel: ProcessViewModel, component: QFro
                )
             }
             if (error != null) Text(error, color = MaterialTheme.colorScheme.error)
+            blocked?.let { Text(it) }
+            processViewModel.remoteOptionErrors[field.name]?.let { message ->
+               Text(message, color = MaterialTheme.colorScheme.error)
+               OutlinedButton(onClick = { processViewModel.loadRemoteOptions(field) }) { Text("Retry choices") }
+            }
             semanticFieldHint(field)?.let { Text(it) }
             field.helpContents.orEmpty().forEach { Text(it.contentAsText ?: plainText(it.content)) }
          }

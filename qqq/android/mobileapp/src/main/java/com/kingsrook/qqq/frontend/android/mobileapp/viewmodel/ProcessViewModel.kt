@@ -34,6 +34,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.kingsrook.qqq.frontend.android.core.controllers.QQQRepository
+import com.kingsrook.qqq.frontend.android.core.model.QPossibleValue
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFieldMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendStepMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QProcessMetaData
@@ -69,6 +71,86 @@ open class ProcessViewModel : ViewModel() {
       private set
    private var processComplete: Boolean by mutableStateOf(false)
    private var initializing = false
+
+   /** Options from server possible-value sources (`searchProcessPossibleValues`), keyed by field name. */
+   val remoteOptions = mutableStateMapOf<String, List<QPossibleValue>>()
+   val remoteOptionErrors = mutableStateMapOf<String, String>()
+
+   /** Incremented when this model clears a field's value, so the rendered control can follow. */
+   val fieldResets = mutableStateMapOf<String, Int>()
+   private var dependencyVersion by mutableIntStateOf(0)
+   private val remoteOptionJobs = mutableMapOf<String, Job>()
+   private val remoteOptionGenerations = mutableMapOf<String, Int>()
+
+   /*******************************************************************************
+    ** Fields whose choices come from a named possible-value source rather than inline metadata.
+    *******************************************************************************/
+   private fun isRemote(field: QFieldMetaData) = field.possibleValueSourceName != null && field.inlinePossibleValueSource.isNullOrEmpty()
+
+   /*******************************************************************************
+    ** DISABLE_UNTIL_SET (the default for contingent fields) offers no choices until every declared parent has a value.
+    *******************************************************************************/
+   fun remoteOptionsBlockedReason(field: QFieldMetaData): String? {
+      dependencyVersion // process values are not observable state; this makes dependent controls recompose
+      if (!isRemote(field) || field.possibleValueSourceDependencyBehavior == "SHOW_ALL_UNTIL_SET") return null
+      val missing = field.possibleValueSourceDependsOn.orEmpty().filter { processValues[it].let { value -> value == null || value.toString().isEmpty() } }
+      if (missing.isEmpty()) return null
+      val labels = missing.map { name -> activeStep?.formFields?.firstOrNull { it.name == name }?.label ?: name }
+      return "Choose ${labels.joinToString(" and ")} first."
+   }
+
+   /*******************************************************************************
+    ** Search the field's server source with the current form values. Only the newest request may publish, so a late
+    ** response for a replaced parent value can never restore choices (or a selection) that no longer apply.
+    *******************************************************************************/
+   fun loadRemoteOptions(field: QFieldMetaData) {
+      if (!isRemote(field)) return
+      val generation = (remoteOptionGenerations[field.name] ?: 0) + 1
+      remoteOptionGenerations[field.name] = generation
+      remoteOptionJobs.remove(field.name)?.cancel()
+      remoteOptionErrors.remove(field.name)
+      remoteOptions.remove(field.name)
+      if (remoteOptionsBlockedReason(field) != null) return
+
+      val formNames = activeStep?.formFields.orEmpty().map { it.name }.toSet()
+      val values = formNames.filter { it != field.name }.associateWith { processValues[it] }
+      val scalars = processValues.filter { (key, value) -> key !in formNames && (value is String || value is Number || value is Boolean) }
+      remoteOptionJobs[field.name] = viewModelScope.launch {
+         try {
+            val options = qqqRepository.processPossibleValues(processName, field.name, values, scalars)
+            if (remoteOptionGenerations[field.name] != generation) return@launch
+            remoteOptions[field.name] = options
+            val chosen = processValues[field.name]
+            if (chosen != null && options.none { it.id.toString() == chosen.toString() }) clearSelection(field.name)
+         } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+         } catch (e: Exception) {
+            if (remoteOptionGenerations[field.name] != generation) return@launch
+            remoteOptionErrors[field.name] = semanticError(e, "The available choices could not be loaded. Try again.")
+         }
+      }
+   }
+
+   /*******************************************************************************
+    ** After a field changes, dependents re-query (or disable) and drop selections that belonged to the old parent value.
+    *******************************************************************************/
+   fun fieldChanged(name: String) {
+      dependencyVersion++
+      for (dependent in activeStep?.formFields.orEmpty().filter { isRemote(it) && name in it.possibleValueSourceDependsOn.orEmpty() }) {
+         if (processValues[dependent.name] != null) clearSelection(dependent.name)
+         loadRemoteOptions(dependent)
+      }
+   }
+
+   /*******************************************************************************
+    ** Clear a selection that no longer fits, then apply the same rule to fields depending on it.
+    *******************************************************************************/
+   private fun clearSelection(name: String) {
+      processValues[name] = null
+      fieldResets[name] = (fieldResets[name] ?: 0) + 1
+      fieldChanged(name)
+   }
+
    private val clientWork = mutableStateMapOf<String, String>()
    val clientWorkBlockReason: String? get() = clientWork.values.firstOrNull()
 
@@ -248,6 +330,11 @@ open class ProcessViewModel : ViewModel() {
     *******************************************************************************/
    fun reset() {
       viewModelScope.coroutineContext.cancelChildren()
+      remoteOptionJobs.clear()
+      remoteOptionGenerations.clear()
+      fieldResets.clear()
+      remoteOptions.clear()
+      remoteOptionErrors.clear()
       initializing = false
       unconfirmedSubmission = false
       clientWork.clear()
