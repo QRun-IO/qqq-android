@@ -1,5 +1,11 @@
 # Session state
 
+## Echo semantic presentation source checkpoint
+
+The optional extension 1.4 acknowledgmentLabel and manualEntryEnabled hints are published on feature/echo-scanner-presentation (draft PR9). Existing defaults remain Saved scan/manual enabled; Echo uses Print queued/manual disabled. Strict compilation, 167 JVM cases, lint zero errors/warnings and debug assembly pass. Hardware, lifecycle and receipt predicates are unchanged. The server companion passes 69 consumer cases plus two contract cases; the optional Echo module passes 15 strict QQQ/H2 tests.
+
+The normal TC22 remains the separately installed 625a275 build (APK AF13778A…3E9216), preserving sign-in/data. Its About screen was opened and Query artwork, both public links and licenses verified through filtered accessibility data. New Echo-native UI/actual owner adapters/physical printing remain unqualified; printing and document/scripting owners have acknowledged their implementation lanes. The running normal server remains API1.9/mobile1.1. Production signing/distribution stays the owner's final step.
+
 ## November 1 standards fixes and About update
 
 Applied the scoped standards review: copyright/SPDX, explicit imports, declaration headers, native official/three-space formatter profile, mechanical CI source gate and Kotlin warnings-as-errors. Strict compilation and163 JVM tests pass; all46 disposable sample native tests pass on TC22, and production QA instrumentation compiles. The native suite uses fixture providers; actual Android external-browser/provider acceptance remains separate. The existing formatter reports one unstable Gradle script and full formatter CI runner provisioning remains explicit in the review.

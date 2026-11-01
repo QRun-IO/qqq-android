@@ -1,5 +1,9 @@
 # TODO
 
+- [x] Add metadata-driven Echo acknowledgment/manual-entry hints with old defaults; 167 JVM tests, strict compilation, lint zero errors/warnings and debug build pass.
+- [ ] Qualify native Echo setup/scan/print-acceptance/leave with the actual owner adapters and independently decoded physical output; source tests are not physical printing evidence.
+- [x] Verify Query artwork, Dogfooding/Query links and licenses on the normal TC22 About screen using filtered accessibility data.
+
 - [x] Apply scoped copyright/import/header/formatter corrections, mechanical CI gate and Kotlin warnings-as-errors;163JVM plus46TC22 sample native cases pass. See [review](CODING-STANDARDS-REVIEW-2026-11-01.md) for the remaining formatter CI limitation.
 - [x] Add Query artwork, app version, Dogfooding/Query links and license access under Settings → About QQQ Mobile.
 - [x] Qualify real Authentik desktop nonce rejection and retained-browser A → company logout → fresh B; actual Android callback acceptance remains separate.
