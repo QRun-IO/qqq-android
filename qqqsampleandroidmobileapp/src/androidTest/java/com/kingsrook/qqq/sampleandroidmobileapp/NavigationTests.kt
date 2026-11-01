@@ -41,7 +41,26 @@ class NavigationTests : BaseTest()
    {
       ui.waitForIdle()
       // Dialog dismissal is asynchronous at the Android window layer, even after Compose settles.
-      ui.waitUntil(5000) { ui.activity.hasWindowFocus() }
+      try
+      {
+         ui.waitUntil(5000) { ui.activity.hasWindowFocus() }
+      }
+      catch(error: androidx.compose.ui.test.ComposeTimeoutException)
+      {
+         var windowState = "unavailable"
+         // Collect only state flags on the main thread; never include UI text or device/account identifiers.
+         runCatching {
+            ui.activityRule.scenario.onActivity { activity ->
+               val power = activity.getSystemService(android.os.PowerManager::class.java)
+               val keyguard = activity.getSystemService(android.app.KeyguardManager::class.java)
+               windowState = "interactive=${power.isInteractive}, keyguard=${keyguard.isKeyguardLocked}, " +
+                  "deviceLocked=${keyguard.isDeviceLocked}, activityFocus=${activity.hasWindowFocus()}, " +
+                  "decorFocus=${activity.window.decorView.hasWindowFocus()}, lifecycle=${activity.lifecycle.currentState}, " +
+                  "finishing=${activity.isFinishing}, destroyed=${activity.isDestroyed}"
+            }
+         }
+         throw AssertionError("Back requires a focused Activity: $windowState", error)
+      }
       InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
       ui.waitForIdle()
    }

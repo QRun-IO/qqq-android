@@ -4,10 +4,15 @@
    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+   <uses-permission android:name="com.symbol.emdk.permission.EMDK" />
+   <queries>
+      <package android:name="com.symbol.emdk.emdkservice" />
+   </queries>
    <application android:allowBackup="false" android:fullBackupContent="false"
          android:dataExtractionRules="@xml/data_extraction_rules" android:usesCleartextTraffic="false"
          android:icon="@drawable/ic_scanner"
          android:label="QQQ Mobile" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+      <uses-library android:name="com.symbol.emdk" android:required="false" />
       <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.photos"
             android:exported="false" android:grantUriPermissions="true">
          <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/photo_paths" />

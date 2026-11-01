@@ -76,6 +76,10 @@ jobs:
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    env:
+      QQQ_CORE_SHA: ecf0f550a0357cec6387c2b54efca128a405a629
+      SCANNER_SERVER_SHA: b14d925b741e815d1cfa4f62301f19207f25b03f
+      MAVEN_OPTS: -XX:ActiveProcessorCount=2 -Xmx768m
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -85,18 +89,39 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: Check out the pinned QQQ core source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: QRun-IO/qqq
+          ref: ${{ env.QQQ_CORE_SHA }}
+          path: .e2e-core
+          persist-credentials: false
       - name: Check out the pinned real QQQ demo
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: QRun-IO/qbit-mobile-scanners
-          ref: 1df7bbd18047c6c3a20cf1c2b990d4bcde9860e8
+          ref: ${{ env.SCANNER_SERVER_SHA }}
           path: .e2e-server
           persist-credentials: false
-      - name: Build the isolated server fixture
-        working-directory: .e2e-server
+      - name: Verify and build the isolated source-pinned server fixture
+        env:
+          JAVA_TOOL_OPTIONS: -XX:ActiveProcessorCount=2 -Xmx768m
         run: |
-          ./mvnw --batch-mode --no-transfer-progress verify install
-          ./mvnw --batch-mode --no-transfer-progress -f demo/pom.xml verify dependency:build-classpath -Dmdep.outputFile=target/e2e-classpath.txt
+          test "$(git -C .e2e-core rev-parse HEAD)" = "$QQQ_CORE_SHA"
+          test "$(git -C .e2e-server rev-parse HEAD)" = "$SCANNER_SERVER_SHA"
+          fixture_m2=$(mktemp -d "$RUNNER_TEMP/scanner-fixture-m2.XXXXXX")
+          core_revision="4.1.0-ci.$QQQ_CORE_SHA"
+          (cd .e2e-core && ./mvnw --batch-mode --no-transfer-progress \
+            -Dmaven.repo.local="$fixture_m2" -Drevision="$core_revision" \
+            -pl qqq-bom,qqq-middleware-api -am clean install)
+          (cd .e2e-server && ./mvnw --batch-mode --no-transfer-progress \
+            -Dmaven.repo.local="$fixture_m2" -Dqqq.version="$core_revision" clean install)
+          (cd .e2e-server && ./mvnw --batch-mode --no-transfer-progress -f demo/pom.xml \
+            -Dmaven.repo.local="$fixture_m2" -Dqqq.version="$core_revision" clean verify \
+            dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=target/e2e-classpath.txt \
+            dependency:tree -Dscope=runtime -DoutputFile=target/fixture-dependencies.txt \
+            help:effective-pom -Doutput=target/fixture-effective-pom.xml)
+          node scripts/ci/verify-fixture-provenance.mjs .e2e-server "$fixture_m2" "$QQQ_CORE_SHA" "$SCANNER_SERVER_SHA"
       - name: Enable hosted-runner hardware acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -117,8 +142,14 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scanner-emulator-${{ github.sha }}
+          include-hidden-files: true
           path: |
             qqqsampleandroidmobileapp/build/reports/androidTests/
             qqqsampleandroidmobileapp/build/outputs/androidTest-results/
             scanner-host/build/native-e2e/
+            .e2e-server/demo/target/fixture-provenance.json
+            .e2e-server/demo/target/fixture-dependencies.txt
+            .e2e-server/demo/target/fixture-effective-pom.xml
+            .e2e-core/**/target/surefire-reports/TEST-*.xml
+            .e2e-server/**/target/surefire-reports/TEST-*.xml
           retention-days: 14

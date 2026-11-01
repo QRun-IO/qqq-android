@@ -1,5 +1,12 @@
 # TODO
 
+- [x] Verify five client audit fixes: password/legacy callback origin binding, independent local Auth0 sign-out, sample release HTTPS and no-backup session storage. The batch passes 109 JVM tests and all 32 selected TC22 native cases; packaged release controls are inspected. See [review scope and evidence](SECURITY-REVIEW-2026-10-31.md).
+- [ ] Close the remaining unauthenticated scanner-ingress finding using actual EMDK hardware/adversarial acceptance. The approved implementation passes 49 scanner JVM tests, lint and all package builds; no production input change is installed yet.
+- [x] Correct the demo's mixed RC.20 runtime and test-engine dependencies; qualify exact-source core `ecf0f550a0357cec6387c2b54efca128a405a629` with server `b14d925b741e815d1cfa4f62301f19207f25b03f`. Fresh37 server/five demo, strict provenance and all15 nullable-admin/session-monitor/browser cases pass. Core full closure:4,507 discovered/16 existing skips/zero failures/errors.
+- [ ] Diagnose hosted Back-test window-focus failures from bounded state flags while retaining real Back injection and the focus guard.
+- [x] Qualify stable Auth03.0.0/Coil3.0.4, notice-generator incremental inputs and overlay/window-focus scan gating:127 JVM,34 shared TC22 cases, an additional eight-overlay native regression, ordinary-UID injection rejection and all package/lint/notice gates pass. See [candidate acceptance](TRUSTED-SCANNER-ACCEPTANCE.md).
+- [ ] Resolve entire-handheld versus QQQ-app viewing scope. Current capture covers QQQ Mobile; it must not be represented as Android Home/other-app capture. Implement and qualify full-device consent/capture if that is required.
+
 - [x] Verify the unconfirmed-scan exit correction: 46 mobile JVM tests and all 21 selected TC22 native cases pass, including failed cancellation and explicit Leave anyway with preserved receipt/retry identity and in-flight/photo guards.
 - [ ] Finish the operator walkthrough of the unconfirmed-scan exit correction on the normal scanner installation.
 

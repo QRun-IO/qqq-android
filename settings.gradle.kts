@@ -16,6 +16,10 @@ dependencyResolutionManagement {
    repositories {
       google()
       mavenCentral()
+      exclusiveContent {
+         forRepository { maven { url = uri("https://zebratech.jfrog.io/artifactory/EMDK-Android/") } }
+         filter { includeModule("com.symbol", "emdk") }
+      }
    }
 }
 
@@ -24,3 +28,4 @@ include(":qqq:android:core")
 include(":qqq:android:mobileapp")
 include(":qqqsampleandroidmobileapp")
 include(":scanner-host")
+include(":scanner-security-probe")

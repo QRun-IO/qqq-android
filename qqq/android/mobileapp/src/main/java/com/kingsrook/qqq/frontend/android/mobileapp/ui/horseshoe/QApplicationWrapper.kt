@@ -35,6 +35,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalNavigationBackAction
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.apps.QAppHome
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullSizedAllCenteredColumn
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.QProcessHome
@@ -54,7 +55,10 @@ fun QApplicationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier, q
    val loadStates = listOf(qInstanceLoadState)
 
    val navController = qNavigator?.navController ?: rememberNavController()
-   BackHandler(enabled = qNavigator?.atHome == false) { qNavigator?.popStack() }
+   val hostBackAction = LocalNavigationBackAction.current
+   BackHandler(enabled = qNavigator?.atHome == false) {
+      if(hostBackAction != null) hostBackAction() else qNavigator?.popStack()
+   }
 
    LoadStateView(
       loadStates,

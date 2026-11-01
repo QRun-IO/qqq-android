@@ -2,6 +2,8 @@
 
 Review date: 2026-10-31. This is source, cached dependency metadata and APK evidence, followed by authorized vector provenance remediation. It is not license clearance or a final release SBOM. No Gradle build was run for this review. The source was changing during inspection; final release outputs must be reviewed again after dependency and asset remediation.
 
+The inventory below is historical checkpoint evidence. The current candidate replaces Auth0's beta with stable 3.0.0 and Coil's RC with 3.0.4; see [the dependency decision](DEPENDENCY-DECISIONS.md). Auth0's tagged stable LICENSE matches the bundled MIT text byte-for-byte, including its copyright. Post-change packaged graph/notice qualification is pending: an initial build correctly rejected stale generated Auth0 metadata, exposing a missing dependency-graph input in the pinned AboutLibraries collector. The build wiring now tracks resolved coordinates; a subsequent successful build and APK inspection must establish the new inventory rather than reusing these old counts or hashes.
+
 ## Evidence boundary
 
 - Repository baseline: `6574ec4991dbb859b60c3a0be462af96918aee32`, plus the working changes.

@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +49,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.ContextCompat.getSystemService
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalNavigationBackAction
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
 /***************************************************************************
@@ -55,9 +57,10 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
  ***************************************************************************/
 @OptIn(ExperimentalMaterial3Api::class) // needed for TopAppBar
 @Composable
-fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android Application", navMenuCallback: (() -> Unit)? = null, qNavigator: QNavigator? = null, showNetworkDialog: Boolean = true)
+fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android Application", navMenuCallback: (() -> Unit)? = null, qNavigator: QNavigator? = null, showNetworkDialog: Boolean = true, accountOpenState: MutableState<Boolean>? = null)
 {
-   val accountOpen = remember { mutableStateOf(false) }
+   val accountOpen = accountOpenState ?: remember { mutableStateOf(false) }
+   val hostBackAction = LocalNavigationBackAction.current
    val authenticated = qViewModel.isAuthenticated && !qViewModel.isLogoutRequested
    val businessReady = authenticated && LocalBusinessNavigationEnabled.current
    LaunchedEffect(qViewModel.isLogoutRequested)
@@ -78,7 +81,7 @@ fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android App
                IconButton(onClick = navMenuCallback, modifier = Modifier.testTag("topBar.menuIcon"))
                { Icon(Icons.Default.Menu, "Open navigation menu") }
             if(businessReady && qNavigator?.atHome == false)
-               IconButton(onClick = qNavigator::popStack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Go Back") }
+               IconButton(onClick = hostBackAction ?: qNavigator::popStack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Go Back") }
          }
       },
       actions = {

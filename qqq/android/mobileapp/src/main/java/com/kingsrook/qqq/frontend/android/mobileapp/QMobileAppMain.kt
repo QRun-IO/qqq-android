@@ -55,6 +55,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -63,6 +64,9 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.QTopAppBar
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LeaveProcessDialog
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LocalBusinessNavigationEnabled
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LocalOpenDiagnostics
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalProcessInputAllowed
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalNavigationBackAction
+import androidx.compose.runtime.CompositionLocalProvider
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.MenuDialog
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
@@ -143,8 +147,22 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
    val topLevelAppState = remember(qViewModel, scope) { TopLevelAppState(coroutineScope = scope, qViewModel = qViewModel) }
    val settingsOpen = remember { mutableStateOf(false) }
    val diagnosticsOpen = remember { mutableStateOf(false) }
+   val accountOpen = remember { mutableStateOf(false) }
+   val drawerWidth = remember { mutableIntStateOf(0) }
+   val parentInputAllowed = LocalProcessInputAllowed.current
    val openDiagnostics = LocalOpenDiagnostics.current
    val businessReady = LocalBusinessNavigationEnabled.current && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested
+   fun drawerActive(): Boolean
+   {
+      val drawer = topLevelAppState.navDrawerState
+      return topLevelAppState.drawerRequested || drawer.isOpen || drawer.targetValue == DrawerValue.Open ||
+         drawer.isAnimationRunning ||
+         // Material's closed anchor is minus the measured width, including partial swipes.
+         (drawerWidth.intValue > 0 && drawer.currentOffset > -drawerWidth.intValue.toFloat())
+   }
+   val navigateBack: () -> Unit = {
+      if(drawerActive()) topLevelAppState.closeNavDrawer() else qViewModel.qNavigator.popStack()
+   }
    LaunchedEffect(qViewModel.isAuthenticated, qViewModel.isLogoutRequested, businessReady)
    {
       if(!businessReady) topLevelAppState.closeNavDrawer()
@@ -163,7 +181,7 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
    {
       ModalNavigationDrawer(drawerState = topLevelAppState.navDrawerState,
          drawerContent = {
-            ModalDrawerSheet {
+            ModalDrawerSheet(Modifier.onSizeChanged { drawerWidth.intValue = it.width }) {
                Column(Modifier.fillMaxSize()) {
                   Text(title, Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
                   Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
@@ -195,6 +213,7 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
                }
             }
          }) {
+      CompositionLocalProvider(LocalNavigationBackAction provides navigateBack) {
       Scaffold(
          Modifier.fillMaxSize(),
          topBar = {
@@ -203,7 +222,8 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
                navMenuCallback = topLevelAppState::openNavDrawer,
                defaultTitle = title,
                qNavigator = qViewModel.qNavigator,
-               showNetworkDialog = showNetworkDialog
+               showNetworkDialog = showNetworkDialog,
+               accountOpenState = accountOpen
             )
          }
       ) { innerPadding ->
@@ -213,19 +233,25 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
                .fillMaxSize()
          )
          {
-            QAuthenticationWrapper(
-               qViewModel,
-               Modifier
-                  .fillMaxSize(),
-               qNavigator = qViewModel.qNavigator,
-            )
+            CompositionLocalProvider(LocalProcessInputAllowed provides {
+               parentInputAllowed() && businessReady && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested &&
+                  !drawerActive() && drawerWidth.intValue > 0 && topLevelAppState.navDrawerState.currentOffset.isFinite() &&
+                  !settingsOpen.value && !diagnosticsOpen.value && !accountOpen.value &&
+                  qViewModel.qNavigator.leaveRequest == null
+            }) {
+               QAuthenticationWrapper(
+                  qViewModel,
+                  Modifier
+                     .fillMaxSize(),
+                  qNavigator = qViewModel.qNavigator,
+               )
+            }
          }
       }
       }
-      // This is composed after the process content so drawer Back closes only the drawer.
-      BackHandler(enabled = topLevelAppState.navDrawerState.isOpen || topLevelAppState.navDrawerState.targetValue == DrawerValue.Open) {
-         topLevelAppState.closeNavDrawer()
       }
+      // Authenticated content can register later; both handlers use the same live priority.
+      BackHandler(enabled = drawerActive(), onBack = navigateBack)
       if(settingsOpen.value) MenuDialog(qViewModel, title, settingsOpen)
       if(diagnosticsOpen.value) AlertDialog(onDismissRequest = { diagnosticsOpen.value = false },
          title = { Text("Diagnostics") }, text = { Text("Server: ${qViewModel.environment.baseUrl}\nApplication version: ${QViewModel.applicationVersion}") },

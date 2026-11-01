@@ -2,6 +2,8 @@
 
 The server selects the login provider through the versioned QQQ UI API. `TABLE_BASED` uses the native username/password form. `OAUTH2` uses the organization's external browser only when the server explicitly advertises the supported native session flow. This supports Authentik without embedding an Authentik URL or client secret in a customer-specific APK. Unknown providers and unsupported flows show a configuration message; OAuth cancellation never falls back to a local password form.
 
+The shared scanner APK accepts only `TABLE_BASED` and the API 1.9 `OAUTH2` flow described here. Legacy `AUTH0` support belongs to the shared library and sample host; the scanner rejects that metadata before opening a browser. Its unused Auth0 manifest placeholders do not configure a customer login. Legacy callback lifecycle tests do not establish a live Auth0 provider round trip. This matches the [README's scanner support scope](../README.md).
+
 ## Native browser contract
 
 Before opening a browser, the client requires UI API `>=1.9.0 <2.0.0`, the `nativeSessionLogin` feature, and this typed descriptor in `/qqq/v1/metaData/authentication`:

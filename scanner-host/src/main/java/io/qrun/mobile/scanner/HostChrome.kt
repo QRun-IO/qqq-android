@@ -4,6 +4,7 @@ package io.qrun.mobile.scanner
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibilityException
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.LocalOpenDiagnostics
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalProcessInputAllowed
 import kotlinx.coroutines.CancellationException
 import android.net.ConnectivityManager
 import android.net.Network
@@ -46,6 +47,7 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
    var connection by remember(server) { mutableStateOf("Checking") }
    var checkedAt by remember(server) { mutableStateOf("not checked") }
    var showDiagnostics by remember(server) { mutableStateOf(false) }
+   val parentInputAllowed = LocalProcessInputAllowed.current
    var diagnosticText by remember(server) { mutableStateOf("") }
    val context = LocalContext.current
    val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -112,7 +114,9 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
             }
             Box(Modifier.weight(1f))
             {
-               if(compatible) CompositionLocalProvider(LocalOpenDiagnostics provides { diagnosticText = runtime.diagnostics.text(); showDiagnostics = true })
+               if(compatible) CompositionLocalProvider(
+                  LocalOpenDiagnostics provides { diagnosticText = runtime.diagnostics.text(); showDiagnostics = true },
+                  LocalProcessInputAllowed provides { parentInputAllowed() && !showDiagnostics })
                { content(brand, runtime.diagnostics, runtime.compatibility, onChangeServer) }
                else Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp))
                {

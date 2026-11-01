@@ -38,15 +38,19 @@ class TopLevelAppState(
 {
    var navDrawerState: DrawerState by mutableStateOf(DrawerState(DrawerValue.Closed))
       private set
+   var drawerRequested: Boolean by mutableStateOf(false)
+      private set
 
    /***************************************************************************
     **
     ***************************************************************************/
    fun openNavDrawer()
    {
+      drawerRequested = true
       coroutineScope.launch()
       {
-         navDrawerState.open()
+         try { navDrawerState.open() }
+         finally { drawerRequested = false }
       }
    }
 
@@ -55,6 +59,7 @@ class TopLevelAppState(
     ***************************************************************************/
    fun closeNavDrawer()
    {
+      drawerRequested = false
       coroutineScope.launch()
       {
          navDrawerState.close()

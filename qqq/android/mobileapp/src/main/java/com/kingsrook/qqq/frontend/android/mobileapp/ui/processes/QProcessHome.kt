@@ -53,6 +53,7 @@ import com.kingsrook.qqq.frontend.android.core.model.processes.QJobComplete
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobError
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobRunning
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobStarted
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalNavigationBackAction
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentEditForm
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentViewForm
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentHTML
@@ -81,7 +82,8 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
    }
 
    val processMetaDataLoadState = processViewModel.processMetaDataLoadState
-   BackHandler { qViewModel.qNavigator.popStack() }
+   val hostBackAction = LocalNavigationBackAction.current
+   BackHandler { if(hostBackAction != null) hostBackAction() else qViewModel.qNavigator.popStack() }
    val initLoadState = processViewModel.initLoadState
    val topLevelErrorState = processViewModel.topLevelErrorState
    val loadStates = listOf(processMetaDataLoadState, initLoadState, topLevelErrorState)

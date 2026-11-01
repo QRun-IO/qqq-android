@@ -1,6 +1,6 @@
 # Emulator testing
 
-An Android emulator verifies login, enrollment, native navigation, manual barcode submission, and intent handling. It does not reproduce Zebra's scan engine, physical trigger, or DataWedge profile management.
+An Android emulator verifies login, enrollment, native navigation and manual barcode submission. The separate E2E variant also supports synthetic scan injection. An emulator does not reproduce Zebra's EMDK scan engine or physical trigger.
 
 ## Prepared Windows workstation
 
@@ -35,17 +35,17 @@ Keep the Android server URL `http://127.0.0.1:8080/`. The browser administration
 6. Select the mobile app, open its scan process, and submit a synthetic barcode manually. Verify **Saved scan**, and verify the server's stored record.
 7. Revoke the device on the server and verify subsequent submissions are denied. Sign out and verify a new login is required.
 
-To exercise the same intent adapter used by DataWedge while the scanner screen is visible, send a synthetic development broadcast:
+Only the disposable E2E APK accepts synthetic broadcasts while its scanner screen is visible. Normal debug/release builds ignore this ingress and use EMDK or manual entry:
 
 ```text
-adb shell am broadcast -a io.qrun.mobile.scanner.SCAN -c android.intent.category.DEFAULT -p io.qrun.mobile.scanner --es com.symbol.datawedge.data_string DEMO-001 --es com.symbol.datawedge.label_type LABEL-TYPE-CODE128 --es com.symbol.datawedge.source scanner
+adb shell am broadcast -a io.qrun.mobile.scanner.SCAN -c android.intent.category.DEFAULT -p io.qrun.mobile.scanner.e2e --es com.symbol.datawedge.data_string DEMO-001 --es com.symbol.datawedge.label_type LABEL-TYPE-CODE128
 ```
 
 This validates intent parsing only; the server treats source/symbology as client-reported metadata.
 
 ## Automated checks
 
-The GitHub **Scanner Android** workflow runs JVM tests, lint, APK assembly, the six shared native UI tests, and the real-server scanner E2E on pushes and pull requests. The emulator job checks out a pinned companion qbit revision, builds it, and starts a fresh isolated demo database. Sanitized instrumentation results are uploaded as workflow artifacts. Hosted execution is verified separately from a local run.
+The GitHub **Scanner Android** workflow runs JVM tests, lint, APK assembly, the shared native UI suite, and the real-server scanner E2E on pushes and pull requests. The emulator job checks out exact core and companion qbit commits, verifies them in a fresh private Maven repository, and starts a fresh isolated demo database. [Fixture provenance](CI-FIXTURE.md) describes the source pins, runtime checks and distinction from published release dependencies. Sanitized instrumentation results are uploaded as workflow artifacts. Hosted execution is verified separately from a local run.
 
 The scanner E2E installs **QQQ Mobile E2E**, a separate application (`io.qrun.mobile.scanner.e2e`). It drives server selection, username/password login, pending enrollment, approval, app selection, Scan Capture, manual barcode submission, server acknowledgment, independent persisted-record verification, and revocation of an already-open scan process. Administrative setup uses the real QQQ process endpoints; the companion qbit's browser suite covers their single-record and selected-bulk UI entry points. No repository or server mocks are used. Random test credentials travel through standard input into the test application's private files, are removed after reading, and are redacted from reports. The runner preserves the normal scanner package and its port forwarding.
 
@@ -53,20 +53,16 @@ The runner uses a test-only forwarding proxy that checks observed requests again
 
 The default suite also runs bundled-license rendering and local orientation policy checks. Set `E2E_SCENARIO=licenses` or `E2E_SCENARIO=orientation` to run either independently; these two scenarios need only the scanner E2E APKs and do not start a server or establish USB forwarding.
 
-To reproduce with Node 22+ and Java 21, first prepare the sibling server:
+To reproduce with Node 22+ and Java 21, first prepare the [source-pinned fixture](CI-FIXTURE.md). Use its qualified server directory below (the example assumes `.e2e-server`); an ordinary server build against the default RC.20 core does not include the nullable process fix:
 
 ```powershell
-Push-Location ../qbit-mobile-scanners
-./mvnw.cmd -B verify install
-./mvnw.cmd -B -f demo/pom.xml verify dependency:build-classpath '-Dmdep.outputFile=target/e2e-classpath.txt'
-Pop-Location
 ./gradlew.bat :scanner-host:assembleE2e :scanner-host:assembleE2eAndroidTest
 $env:ANDROID_SERIAL = 'emulator-5554'
-node scripts/ci/scanner-e2e.mjs ../qbit-mobile-scanners
+node scripts/ci/scanner-e2e.mjs .e2e-server
 ```
 
 Set `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) if `adb` is not on PATH. Linux/macOS use `./mvnw`, `./gradlew`, and their shell's environment assignment syntax. The runner refuses physical devices, uses a free local port and temporary database, and cleans up its server, forwarding and both isolated test APKs. The older setup-only `scripts/ci/emulator-smoke.sh` is retained for disposable-emulator troubleshooting; it clears the normal scanner package and should not be used on your interactive demo emulator.
 
 ## Physical acceptance still required
 
-Test the TC22 trigger and DataWedge profile, scan during rotation/backgrounding, retry after a lost response, revoked approval, leading-zero barcodes, and repeated physical scans. Confirm that an uncertain submission retains its event ID and a repeated physical scan receives a new event ID. Never use sensitive production barcodes in test screenshots or CI artifacts.
+Test the TC22 EMDK trigger, rotation/backgrounding, retry after a lost response, revoked approval, leading-zero barcodes and repeated physical scans. Confirm DataWedge scanning works again after QQQ releases ownership. An uncertain submission must retain its event ID; a repeated physical scan receives a new event ID. See [trusted scanner acceptance](ZEBRA-SCANNING.md). Never use sensitive production barcodes in test screenshots or CI artifacts.

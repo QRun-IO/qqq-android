@@ -8,7 +8,7 @@ Native Kotlin/Compose clients for QQQ. The new `scanner-host` application runs s
 
 - `qqq/android/core`: metadata and process HTTP client (`QQQRepository` / `NetworkQQQRepository`).
 - `qqq/android/mobileapp`: native app picker, authentication, process runner, and widget renderer.
-- `scanner-host`: server configuration, device registration/approval gate, and DataWedge barcode capture.
+- `scanner-host`: server configuration, device registration/approval gate, and Zebra EMDK barcode capture.
 - `qqqsampleandroidmobileapp`: historical example application.
 
 The client supports metadata and process execution. It does not implement the record CRUD/fluent API previously described by this README.
@@ -28,17 +28,11 @@ Use the companion `qbit-mobile-scanners` server/demo with QQQ `4.1.0-RC.20`. The
 
 The server defines the app, native process steps, and `SCANNER` widget; the APK does not hard-code a scan process name. Existing native widget types continue to work.
 
-## Zebra DataWedge profile
+## Zebra hardware scanning
 
-Create a profile associated with `io.qrun.mobile.scanner`, activity `*`:
+The normal debug and release APKs use the device-provided Zebra EMDK service. They do not accept DataWedge scan broadcasts. No DataWedge profile setup is required. The scanner is acquired only while a scanner widget is visible and the activity is resumed; leaving or backgrounding releases it. EMDK temporarily takes scanner ownership from DataWedge and restores it on release. The app does not persistently modify DataWedge settings.
 
-- Enable Barcode input and single-barcode decoding.
-- Disable Keystroke output.
-- Enable Intent output with action `io.qrun.mobile.scanner.SCAN`.
-- Set category `android.intent.category.DEFAULT` and delivery to Broadcast.
-- Target package `io.qrun.mobile.scanner` when package targeting is available.
-
-The receiver is active only while a scanner widget is visible and its activity is resumed. It reads `com.symbol.datawedge.data_string`, `label_type`, and `source`. Multi-decode payloads are rejected. Symbology/source are client-reported metadata, not proof of scanner hardware identity. See [Zebra Intent output](https://techdocs.zebra.com/datawedge/latest/guide/output/intent/).
+The same APK runs on other Android devices with explicit manual entry. When the required system library/service is missing or unavailable, the screen explains that hardware scanning is unavailable. [Scanner integration and SDK provenance](docs/ZEBRA-SCANNING.md) describes the lifecycle, compile-only SDK and verification gates. Synthetic broadcasts are accepted only by the separate disposable E2E variant.
 
 ## Customer branding and diagnostics
 
@@ -50,7 +44,7 @@ The persistent footer shows **Checking**, **Connected**, or **Disconnected** wit
 
 QQQ administrators can inspect session activity, end sessions, and request live viewing of the QQQ app from a session record. Viewing displays an indicator with **Stop viewing** on the handheld. Password/login screens and background apps cannot be mirrored. Optional foreground location requires the operator's Android permission; scanning works without it. See [session behavior and limits](docs/UI-API.md#session-activity-and-screen-viewing).
 
-There is no offline queue. One submitted scan is retained in memory until a complete receipt returns the matching `acknowledgedEventId`, `scanSaved: true`, and a nonblank `scanId`. If a response is uncertain, **Retry same request** preserves its event ID and original timestamp; the server deduplicates it. Further scans are blocked until the pending request is resolved. Sign-out/reset clears the pending request; app termination loses in-memory state. Repeated physical scans deliberately receive distinct event IDs.
+There is no offline queue. One submitted scan is retained in memory until a complete receipt returns the matching `acknowledgedEventId`, `scanSaved: true`, and a nonblank `scanId`. If a response is uncertain, **Retry same request** preserves its event ID and original timestamp; the server deduplicates it. Further scans wait for confirmation or explicit abandonment. Leaving after an uncertain response warns that the scan may already be saved and attempts server cancellation; if cancellation fails, **Leave anyway** lets the operator exit explicitly. Active requests and pending photos remain protected. Sign-out/reset clears the pending request; app termination loses in-memory state. Repeated physical scans deliberately receive distinct event IDs.
 
 Enrollment credentials are encrypted with Android Keystore and stored under `noBackupFilesDir`, scoped to the configured server. The app disables backup. Device headers accompany native QQQ requests, and the server enforces approval on every scan. Release builds reject HTTP; only the development build permits it for local testing. The host disables HTTP redirects to avoid forwarding credentials to another origin.
 
@@ -64,7 +58,7 @@ Requirements: Java 17 or compatible newer runtime, Android SDK platform35, build
 
 APK: `scanner-host/build/outputs/apk/debug/scanner-host-debug.apk`.
 
-The existing libraries also have unit and emulator tests. `testDebugUnitTest` runs JVM tests; `connectedDebugAndroidTest` needs a connected device/emulator. Physical TC22 trigger/intent behavior must still be verified on hardware.
+The existing libraries also have unit and emulator tests. `testDebugUnitTest` runs JVM tests; `connectedDebugAndroidTest` needs a connected device/emulator. Physical TC22 trigger, lifecycle and scanner-ownership behavior must still be verified on hardware.
 
 See [emulator testing](docs/EMULATOR.md) for a local interactive demo, synthetic scanner broadcasts, and the disposable-emulator smoke check.
 

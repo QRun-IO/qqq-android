@@ -3,6 +3,7 @@ package com.kingsrook.qqq.frontend.android.mobileapp.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBlockParameters
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
@@ -18,3 +19,9 @@ val LocalCustomWidgetRenderer = staticCompositionLocalOf<@Composable (WidgetBloc
 {
    { _, _, _ -> false }
 }
+
+/** Live surface availability for asynchronous input; nested hosts must preserve the parent's gate. */
+val LocalProcessInputAllowed = compositionLocalOf<() -> Boolean> { { true } }
+
+/** Host surface priority shared by toolbar and system Back, independent of callback registration order. */
+internal val LocalNavigationBackAction = compositionLocalOf<(() -> Unit)?> { null }

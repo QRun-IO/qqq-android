@@ -10,7 +10,7 @@ review were outside the completed scope. This is not production release clearanc
 | Delayed password completion after logout/server change | Medium | Fixed origin/generation binding and deferred cookie adoption; HTTP and native delayed-response cases pass. |
 | Sample release cleartext traffic | Low | Debug-only HTTP environments/manifest override; packaged release denies cleartext. |
 | Auth0 provider failure preserving local QQQ login | Low | Local sign-out is independent, bounded and idempotent; failed-provider, restart and remount cases pass. |
-| Unauthenticated external scan broadcasts | Low | Open. Trusted scanner integration awaits the separate Zebra SDK license decision; no production ingress change installed. |
+| Unauthenticated external scan broadcasts | Low | Trusted optional EMDK adapter and production receiver removal verified by actual DEX inspection,51 scanner JVM tests and an ordinary-UID/distinct-signer TC22 case: eight forged broadcasts cause zero process/record mutations; manual positive control succeeds. Actual physical-trigger positive control remains required before closing the complete scanner acceptance; normal operator installation is unchanged. |
 | Legacy Auth0 callback crossing server origins | Low | Origin-bound callback/exchange lifecycle, one-use exchange and discarded-session cleanup; HTTP/native cases pass. |
 | Sample session backup | Low | No-backup storage, disabled backups and explicit cloud/transfer exclusions; native storage and packaged release checks pass. |
 

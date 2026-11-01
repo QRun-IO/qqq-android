@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
    alias(libs.plugins.android.application)
    alias(libs.plugins.kotlin.android)
@@ -10,10 +12,28 @@ aboutLibraries {
    fetchRemoteLicense = false
    fetchRemoteFunding = false
    includePlatform = false
-   filterVariants = arrayOf("debug", "release", "e2e")
+   filterVariants = arrayOf("debug", "release", "e2e", "qa")
+   // The plugin also scans compile classpaths. This SDK is not redistributed;
+   // verifyEmdkSdk separately forbids it in every runtime classpath.
+   exclusionPatterns = listOf(Regex("^com\\.symbol:emdk$").toPattern())
    strictMode = com.mikepenz.aboutlibraries.plugin.StrictMode.FAIL
    allowedLicenses = arrayOf("Apache-2.0", "MIT", "MPL-2.0", "BSD-2-Clause", "Apache-2.0 WITH LLVM-exception")
    prettyPrint = true
+}
+
+// AboutLibraries 10.9.2 marks the collected graph @Internal. Without this input,
+// changing a selected dependency can reuse the previous dependency_cache.json.
+tasks.withType<com.mikepenz.aboutlibraries.plugin.AboutLibrariesCollectorTask>().configureEach {
+   inputs.property("resolvedDependencyCoordinates", providers.provider {
+      listOf("debug", "release", "e2e", "qa").flatMap { variant ->
+         listOf("CompileClasspath", "RuntimeClasspath").flatMap { suffix ->
+            val configurationName = "$variant$suffix"
+            configurations.getByName(configurationName).incoming.resolutionResult.allComponents.map { component ->
+               "$configurationName:${component.id.displayName}"
+            }
+         }
+      }.sorted()
+   })
 }
 
 val scannerVersionCode = providers.gradleProperty("scannerVersionCode").orElse("1").get().toInt()
@@ -25,6 +45,8 @@ require(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.-]+)?").matches(scannerVer
 val signingVariables = listOf("SCANNER_KEYSTORE", "SCANNER_STORE_PASSWORD", "SCANNER_KEY_ALIAS", "SCANNER_KEY_PASSWORD")
 val signingValues = signingVariables.associateWith { providers.environmentVariable(it).orNull }
 val hasSigningValues = signingValues.values.any { !it.isNullOrBlank() }
+val scannerTestBuildType = providers.gradleProperty("scannerTestBuildType").orElse("e2e").get()
+require(scannerTestBuildType in setOf("e2e", "qa")) { "scannerTestBuildType must be e2e or qa" }
 require(!hasSigningValues || signingValues.values.all { !it.isNullOrBlank() }) {
    "Release signing requires all four SCANNER signing environment variables"
 }
@@ -61,8 +83,20 @@ android {
          applicationIdSuffix = ".e2e"
          matchingFallbacks += "debug"
       }
+      create("qa") {
+         initWith(getByName("debug"))
+         applicationIdSuffix = ".qa"
+         matchingFallbacks += "debug"
+      }
    }
-   testBuildType = "e2e"
+   testBuildType = scannerTestBuildType
+   sourceSets.getByName("debug").java.srcDir("src/production/java")
+   sourceSets.getByName("release").java.srcDir("src/production/java")
+   sourceSets.getByName("qa").java.srcDir("src/production/java")
+   if(scannerTestBuildType == "qa") {
+      sourceSets.getByName("androidTestQa").java.srcDir("src/qaAndroidTest/java")
+      sourceSets.getByName("androidTestQa").manifest.srcFile("src/qaAndroidTest/AndroidManifest.xml")
+   }
    buildFeatures { compose = true; buildConfig = true }
    composeOptions { kotlinCompilerExtensionVersion = "1.5.1" }
    compileOptions {
@@ -74,6 +108,7 @@ android {
 }
 
 dependencies {
+   compileOnly(libs.zebra.emdk)
    implementation(libs.aboutlibraries.compose)
    implementation(project(":qqq:android:core"))
    implementation(project(":qqq:android:mobileapp"))
@@ -99,6 +134,38 @@ dependencies {
    androidTestImplementation(platform(libs.androidx.compose.bom))
    androidTestImplementation(libs.androidx.ui.test.junit4)
 }
+
+// The vendor SDK is compile-only, supplied at runtime by Zebra firmware. Verify
+// its independently reviewed bytes before any variant compiler consumes them.
+val verifyEmdkSdk = tasks.register("verifyEmdkSdk") {
+   doLast {
+      configurations.filter { it.isCanBeResolved && it.name.endsWith("RuntimeClasspath") }.forEach { runtime ->
+         val vendorRuntime = runtime.incoming.artifactView {
+            componentFilter {
+               it is org.gradle.api.artifacts.component.ModuleComponentIdentifier && it.group == "com.symbol" && it.module == "emdk"
+            }
+         }.artifacts.artifacts
+         check(vendorRuntime.isEmpty()) { "Zebra EMDK must remain compile-only; found in ${runtime.name}" }
+      }
+      listOf("debug", "release", "e2e", "qa").forEach { variant ->
+         val artifacts = configurations.getByName("${variant}CompileClasspath").incoming.artifactView {
+            componentFilter {
+               it is org.gradle.api.artifacts.component.ModuleComponentIdentifier && it.group == "com.symbol" && it.module == "emdk"
+            }
+         }.artifacts.artifacts
+         check(artifacts.size == 1) { "Expected one Zebra EMDK compile-only SDK for $variant" }
+         val artifact = artifacts.single()
+         val id = artifact.id.componentIdentifier as org.gradle.api.artifacts.component.ModuleComponentIdentifier
+         check(id.version == "11.0.134") { "Unexpected Zebra EMDK SDK version for $variant" }
+         val digest = MessageDigest.getInstance("SHA-256").digest(artifact.file.readBytes())
+            .joinToString("") { "%02x".format(it) }
+         check(digest == "e0c6b481c25bf641333bf644de940f1ac7f3fc4f8d5c92ba4ae62ea2252c4e36") {
+            "Zebra EMDK SDK checksum differs from the reviewed 11.0.134 artifact"
+         }
+      }
+   }
+}
+tasks.matching { it.name.startsWith("compile") || it.name == "preBuild" }.configureEach { dependsOn(verifyEmdkSdk) }
 
 // AboutLibraries generates/parses notices. Its strict mode rejects unapproved license
 // IDs, but does not reject an omitted dependency or empty license text. Validate the
