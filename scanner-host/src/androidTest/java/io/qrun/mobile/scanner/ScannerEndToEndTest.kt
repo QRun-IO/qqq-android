@@ -21,6 +21,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -36,6 +37,7 @@ import androidx.core.content.FileProvider
 import java.io.File
 import java.io.ByteArrayOutputStream
 import java.util.UUID
+import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
@@ -59,6 +61,119 @@ class ScannerEndToEndTest {
    private val client = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build()
    private lateinit var origin: String
    private lateinit var adminCookie: String
+
+   /*******************************************************************************
+    ** Exercise real Echo process/PVS persistence with explicitly simulated print acceptance.
+    ** No printer, production scanner ingress, screenshots or private identifiers become evidence.
+    *******************************************************************************/
+   @Test
+   fun echoSelectsOnceQueuesTwoScansAndClosesOnAppsLeave() {
+      val context = InstrumentationRegistry.getInstrumentation().targetContext
+      check(context.packageName == "io.qrun.mobile.scanner.e2e") { "Echo requires the disposable E2E package" }
+      val configFile = File(context.filesDir, "e2e.json")
+      val config = try { JSONObject(configFile.readText()) }
+      catch(exception: Exception) { throw AssertionError("Echo fixture configuration is invalid") }
+      finally { configFile.delete() }
+      check(config.optString("fixtureType") == "echo-ui-e2e" && config.optBoolean("simulatedPrinting"))
+      origin = config.getString("serverUrl").trimEnd('/')
+      val endpoint = URI(origin)
+      check(endpoint.scheme == "http" && endpoint.host == "127.0.0.1" && endpoint.port in 1..65535 &&
+         endpoint.port !in setOf(57832, 51631, 18081, 18086) && endpoint.path in setOf("", "/") &&
+         endpoint.userInfo == null && endpoint.query == null && endpoint.fragment == null)
+
+      waitFor("QQQ server URL")
+      ui.onNodeWithText("QQQ server URL").performTextReplacement("$origin/")
+      ui.onNodeWithText("Connect", substring = false).performClick()
+      waitFor("Username")
+      ui.onNodeWithText("Username").performTextReplacement("scanner")
+      ui.onNodeWithText("Password").performTextReplacement(config.getString("scannerPassword"))
+      ui.onNodeWithText("Password").performImeAction()
+      ui.onNode(hasText("Sign in") and hasClickAction()).performScrollTo().performClick()
+      waitFor("An administrator must approve this device before you can run mobile apps.")
+      val device = DeviceCredentials(context, "$origin/")
+      adminCookie = loginAdmin(config.getString("adminPassword"))
+      runAdmin("mobileDeviceApprove", device.deviceId)
+      ui.onNodeWithText("Check approval").performScrollTo().performClick()
+      waitForTag("appHome.rowForApp:echo")
+      val scannerCookie = loginAdmin(config.getString("scannerPassword"), "scanner")
+
+      /*******************************************************************************
+       ** Verify persisted rows through ordinary QQQ reads under the operator's real actor/device locks.
+       *******************************************************************************/
+      fun rows(table: String): List<JSONObject> {
+         check(table in setOf("echoScan", "echoFixtureRun"))
+         val request = Request.Builder().url("$origin/qqq/v1/table/$table/query").header("Cookie", scannerCookie)
+            .post("{}".toRequestBody("application/json".toMediaType()))
+         device.headers().forEach { (name, value) -> request.header(name, value) }
+         val records = executeJson(request.build()).getJSONArray("records")
+         return (0 until records.length()).map { records.getJSONObject(it).getJSONObject("values") }
+      }
+
+      val priorRuns = rows("echoFixtureRun").map { it.getString("id") }.toSet()
+      ui.onNodeWithTag("appHome.rowForApp:echo").performClick()
+      waitForTag("appHome.rowForProcess:echoPrint")
+      ui.onNodeWithTag("appHome.rowForProcess:echoPrint").performClick()
+      waitFor("Printer")
+      waitFor("Paper or label size")
+      ui.onAllNodesWithText("Choose a value").onFirst().performScrollTo().performClick()
+      waitFor("Simulated printer")
+      ui.onNodeWithText("Simulated printer").performClick()
+      // Media is a contingent field: it stays disabled until the server returns choices for the selected printer.
+      ui.waitUntil(timeoutMillis = 60_000) { ui.onAllNodes(hasText("Choose a value") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+      ui.onAllNodesWithText("Choose a value").onFirst().performScrollTo().performClick()
+      waitFor("Simulated 4 x 6 in — 300 dpi")
+      ui.onNodeWithText("Simulated 4 x 6 in — 300 dpi").performClick()
+      ui.onNodeWithText("Next", substring = false).performClick()
+      waitFor("Scanner ready. Press the handheld trigger.")
+      assertTrue("Echo must not offer manual barcode input", ui.onAllNodesWithText("Manual barcode").fetchSemanticsNodes().isEmpty())
+      assertTrue("Echo must not offer manual submission", ui.onAllNodesWithText("Submit barcode").fetchSemanticsNodes().isEmpty())
+      val run = rows("echoFixtureRun").single { it.getString("id") !in priorRuns }
+      val runId = run.getString("id")
+      assertTrue("Setup must pin the selected printer and media once", run.getString("state") == "OPEN" &&
+         run.getString("printerRecordId") == "fixture-printer" && run.getString("mediaId") == "fixture-4x6")
+      stage("echo-setup-selected")
+
+      var receipt = ""
+      for ((index, sample) in listOf("001234567890" to "LABEL-TYPE-CODE128", "000-ECHO-QR" to "QRCODE").withIndex()) {
+         waitFor("Scanner ready. Press the handheld trigger.")
+         context.sendBroadcast(Intent("io.qrun.mobile.scanner.SCAN").setPackage(context.packageName)
+            .addCategory(Intent.CATEGORY_DEFAULT).putExtra("com.symbol.datawedge.data_string", sample.first)
+            .putExtra("com.symbol.datawedge.label_type", sample.second))
+         var accepted: JSONObject? = null
+         waitForServer {
+            accepted = rows("echoScan").singleOrNull { it.optString("runId") == runId && it.optString("barcode") == sample.first && it.optString("state") == "QUEUED" }
+            accepted != null
+         }
+         val row = requireNotNull(accepted)
+         receipt = row.getString("mobileScanId")
+         waitFor("Print queued $receipt", substring = true)
+         assertTrue("Accepted Echo scans must preserve exact type and approved-device attribution",
+            row.getString("symbology") == sample.second && row.getString("rendererSymbology") == (if (index == 0) "code128" else "qr") &&
+               row.getString("scanSource") == "e2e-fixture" && row.getString("deviceId") == device.deviceId && row.getString("actorId") == "scanner")
+         assertTrue("Only a synthetic accepted job may acknowledge this fixture scan",
+            row.getString("id") == receipt && row.getString("printJobId") == "fixture-job-$receipt" && row.getString("eventId").isNotBlank())
+         assertTrue("Each event must create exactly one accepted Echo scan", rows("echoScan").count { it.optString("runId") == runId } == index + 1)
+         stage(if (index == 0) "echo-first-queued" else "echo-second-queued")
+      }
+
+      ui.activityRule.scenario.onActivity { OrientationPolicy.LANDSCAPE.select(it) }
+      waitFor("Print queued $receipt", substring = true)
+      ui.activityRule.scenario.recreate()
+      waitFor("Print queued $receipt", substring = true)
+      assertTrue("Recreation must retain scan phase without showing printer selection", ui.onAllNodesWithText("Choose a value").fetchSemanticsNodes().isEmpty())
+      val acceptedRows = rows("echoScan").filter { it.optString("runId") == runId }
+      assertTrue("Rotation/recreation must not accept another event", acceptedRows.size == 2 && acceptedRows.map { it.getString("eventId") }.toSet().size == 2 &&
+         acceptedRows.map { it.getString("printJobId") }.toSet().size == 2)
+      stage("echo-recreation-stable")
+      ui.onNodeWithTag("topBar.menuIcon").performClick()
+      ui.onNodeWithTag("drawer.home").performClick()
+      waitFor("Leave process")
+      ui.onNodeWithText("Leave process", substring = false).performClick()
+      waitForTag("appHome.rowForApp:echo")
+      waitForServer { rows("echoFixtureRun").single { it.getString("id") == runId }.getString("state") == "CLOSED" }
+      assertTrue("Leaving must close this run without accepting extra print work", rows("echoScan").count { it.optString("runId") == runId } == 2)
+      stage("echo-run-closed")
+   }
 
    /*******************************************************************************
     ** Real host/native activity-result boundaries and real upload APIs, using synthetic images only.

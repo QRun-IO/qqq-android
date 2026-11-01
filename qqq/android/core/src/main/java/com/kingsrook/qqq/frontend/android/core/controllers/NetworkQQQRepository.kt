@@ -41,6 +41,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import retrofit2.Retrofit
 import java.util.TimeZone
@@ -289,6 +290,24 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
     *******************************************************************************/
    override suspend fun processCancel(processName: String, processUUID: String) {
       qqqApiServiceMap[baseUrl]!!.processCancel(processName, processUUID).close()
+   }
+
+   /*******************************************************************************
+    ** Options use the semantic `{options:[{id,label}]}` response; ids stay JSON scalars so they round-trip unchanged.
+    *******************************************************************************/
+   override suspend fun processPossibleValues(processName: String, fieldName: String, values: Map<String, Any?>, processValues: Map<String, Any?>): List<com.kingsrook.qqq.frontend.android.core.model.QPossibleValue> {
+      fun json(map: Map<String, Any?>) = JSONObject().apply { map.forEach { (key, value) -> put(key, value ?: JSONObject.NULL) } }
+      val request = JSONObject().put("values", json(values)).put("processValues", json(processValues)).put("useCase", "form")
+      val body = qqqApiServiceMap[baseUrl]!!.processPossibleValues(
+         processName, fieldName, request.toString().toRequestBody("application/json".toMediaType())
+      ).use { JSONObject(it.string()) }
+      // The server omits `options` when empty.
+      val options = body.optJSONArray("options") ?: return emptyList()
+      return (0 until options.length()).map { options.getJSONObject(it) }.map { option ->
+         val id = option.get("id")
+         com.kingsrook.qqq.frontend.android.core.model.QPossibleValue(
+            id as? java.io.Serializable ?: id.toString(), option.optString("label", id.toString()))
+      }
    }
 
    /*******************************************************************************
