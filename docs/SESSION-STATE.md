@@ -1,5 +1,11 @@
 # Session state
 
+## November 1 status and visible QR fixture
+
+All eleven hosted checks at portrait-default7de2b508 passed. Public QR fixture checkpoint2e0fd962 is signed and pushed; docs/TEST-BARCODES.md records independent ZXing decoding of001234567890. Physical QR acceptance is still pending. Normal TC22 APK C89161C…C6340 remains installed with portrait requested, and the backend now has nine trusted EMDK Code128 events (eight on prior F3AF and one after the portrait update).
+
+Release1.0 remains incomplete: actual Authentik acceptance remains pending; the local TLS proxy correction is verified, and provider configuration returned a validation error under diagnosis; physical QR, camera/gallery, navigation/failure, projection and GPS acceptance remain open. Filesystem portability passes142 discovered/138 passed/four existing skips, and the separate RF HTTP consumer now passes18 cases on a transitional custom-filesystem tuple. This supersedes its earlier fixture-compilation failure; it does not establish immutable/default dependency adoption or change the normal API1.9/mobile1.1 runtime on57832. Signing/distribution remain last by owner instruction. Current summaries supersede dated open-state statements below without changing their historical evidence or sealed review scopes.
+
 ## November 1 portrait default installed; prior source fully green
 
 The user requested portrait lock by default. Missing/invalid preferences now choose Portrait; all explicit saved choices remain available. Four focused policy tests, debug lint (zero errors/warnings) and debug assembly pass. Development APK C89161C…C6340 was installed in place after signer verification and a new private-data backup; no app data was cleared. Android reports the normal Activity resumed with SCREEN_ORIENTATION_PORTRAIT, and a direct screenshot confirms the signed-in Apps menu. Barcode/lifecycle acceptance of these new APK bytes remains pending; earlier F3AF physical evidence is preserved.

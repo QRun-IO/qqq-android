@@ -1,5 +1,7 @@
 # Trusted scanner candidate acceptance
 
+Current status: this page retains its dated/source-specific checkpoint. Current installed C891/earlierF3AF EMDK Code128 proof is in [physical acceptance](PHYSICAL-TC22-ACCEPTANCE.md); QR and actual projection remain pending. Android7de passes all eleven hosted checks. Older statements about then-pending trigger/CI/scope or unchanged normal APK are historical, not the current release gate. Normal server remains mobile1.1; optional DEVICE_SCREEN requires qualified1.2 source and actual device consent acceptance.
+
 Verified October 31, 2026. This is a source-review and development-package checkpoint, not a production release or actual physical-trigger acceptance.
 
 ## Executed checks

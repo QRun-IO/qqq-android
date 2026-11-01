@@ -1,6 +1,12 @@
 # Physical TC22 acceptance — November 1, 2026
 
-This records current development-package evidence, not production release acceptance. The normal application was updated in place after signer verification and private-data backup. The emulator remains off.
+This records development-package evidence, not production release acceptance. The normal application was updated in place after signer verification and private-data backup. The emulator remains off.
+
+## Current installed checkpoint
+
+Normal portrait-default APK `C89161C522AA7DFFE09C009ABDE769C1BADB7E6C64BFCE699857062A1CEC6340` is installed, backed by all eleven hosted checks at7de. One subsequent trusted EMDK Code128 event is verified after that update, in addition to the eight deliberate priorF3AF events below. Current leading-zero QR remains pending; publishing/decoding its QR fixture is not trigger-to-save acceptance. Normal server is still coreecf/serverb14 API1.9/mobile1.1 on57832; whole-device1.2 source is not a normal-runtime upgrade.
+
+## Earlier F3AF checkpoint
 
 | Component | Exact tested checkpoint |
 | --- | --- |
@@ -15,14 +21,14 @@ This proves a trusted hardware trigger-to-save positive control. The operator co
 
 | Required behavior | Current proof |
 | --- | --- |
-| Code128 trigger to durable scan | Verified on the current EMDK path, with operator Saved scan and matching backend records. |
-| Leading-zero QR `001234567890` | Current QR displayed; operator/backend confirmation pending. Historical DataWedge QR does not satisfy this gate. |
+| Code128 trigger to durable scan | Eight priorF3AF events plus one installedC891 event verified on EMDK, with operator Saved scan and matching backend records. |
+| Leading-zero QR `001234567890` | Fixture independently decoded; current physical operator/backend confirmation pending. Historical DataWedge QR does not satisfy this gate. |
 | Separate repeated trigger intent | Eight distinct events observed; operator confirmed multiple deliberate pulls. |
 | Rotation/recreation, background/resume, scanner ownership restoration | Physical matrix pending; native synthetic/hosted evidence is separate. |
 | Connection failure, uncertain receipt/retry, leave/cancel and switching apps | Operator walkthrough pending; automated regressions remain separately scoped. |
-| Remote termination and fresh login | Final hosted verification and current operator checks pending. |
+| Remote termination and fresh login | Current hosted verification passes; current physical operator checks remain pending. |
 | Actual projection, camera/gallery and GPS | Separate consent/provider/runtime gates; not implied by barcode capture. |
 
 The reported disappearance before sign-in was inspected directly: the process remained alive/resumed/focused, the crash buffer was empty and the display showed connected sign-in. No app crash or product fix is established by that observation. The desktop mirror was black; direct local ADB screenshots provided the usable display evidence.
 
-The later portrait-default update produced development APK `C89161C522AA7DFFE09C009ABDE769C1BADB7E6C64BFCE699857062A1CEC6340`. Four focused policy tests, debug lint (zero errors/warnings) and debug assembly pass. It was installed in place with a matching signer and another private-data backup. Direct Android inspection confirms the normal scanner Activity resumed with `SCREEN_ORIENTATION_PORTRAIT`; the display shows its signed-in Apps menu. Missing/invalid settings now default to portrait; explicit saved choices remain intact. The barcode observations above belong to the earlier exact APK, and current QR/lifecycle checks remain pending after this update.
+The later portrait-default update produced development APK `C89161C522AA7DFFE09C009ABDE769C1BADB7E6C64BFCE699857062A1CEC6340`. Four focused policy tests, debug lint (zero errors/warnings) and debug assembly pass. It was installed in place with a matching signer and another private-data backup. Direct Android inspection confirms the normal scanner Activity resumed with `SCREEN_ORIENTATION_PORTRAIT`; the display shows its signed-in Apps menu. Missing/invalid settings now default to portrait; explicit saved choices remain intact. The eight-event observations in the earlier checkpoint belong toF3AF; the subsequentC891 Code128 positive control is summarized above. Current QR/lifecycle checks remain pending.

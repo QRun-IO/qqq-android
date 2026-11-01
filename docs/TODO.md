@@ -4,22 +4,22 @@
 - [ ] Finish current EMDK leading-zero QR, repeat-intent, lifecycle/ownership and retry/leave acceptance; historical DataWedge scans do not qualify these checks.
 
 - [x] Verify the synchronized rotation/recreation assertions in both5ba GitHub native runs; one entire run passed and the other reached a later fresh-login timeout.
-- [x] Verify final fresh-login readiness at229fce3 in both GitHub native runs:35 shared cases, PixelCopy and all seven semantic scenarios pass, including completed logout, enabled login action and a new session. All eleven hosted checks pass; the later portrait-default update requires its own fresh checks.
+- [x] Verify final fresh-login readiness at229fce3 and the later portrait-default7de checkpoint: all eleven hosted checks pass, including native navigation/input, PixelCopy and semantic scenarios with a new session. QR documentation2e0fd962 does not qualify physical QR acceptance.
 - [x] Make portrait the default for missing/invalid preferences while preserving explicit choices; four focused tests, lint/debug assembly and preserving TC22 install pass, with actual requested portrait orientation confirmed.
 - [ ] Finish the operator walkthrough on the newly updated normal TC22 app; private data/enrollment and the development signing identity were preserved.
 - [x] Compile the opt-in screen-consent QA harness and ordinary E2E tests; verify early opt-in/protected-port safety gates. Actual permission/display acceptance remains open.
 - [x] Compile/review additive consent-based device-screen client and paired1.2 server:137 JVM, package/lint/APK inspection, ordinary-UID TC22 scan-input rejection,39 server/six demo/all15 browser cases and strict provenance pass. Actual projection acceptance remains separate.
 - [ ] Execute opt-in actual Android consent, notification, Home/background pixels, Stop, lease expiry, lock/rotation and forced-session-end acceptance on the refined device-screen candidate.
-- [ ] Resolve CircleCI job 140's three unfocused-Activity Back failures using the new bounded window-owner diagnostics; retain real Back and the five-second guard. CodeQL on `6845abc` passed, but native CI is not fully green.
-- [ ] Repeat physical EMDK acceptance after the unsuccessful first-stage QA attempt preserved in `C:/Users/james/.cache/qqq-tc22-physical-attempt-20261101-0210`; no physical trigger proof is established. Preserve the 120-second operator stage bound and explicit timeout reporting.
+- [x] Supersede the historical hosted Back/focus failure gate with all eleven passing checks at7de; retain the failed-job diagnostics and actual Back/focus regression requirements in history.
+- [x] Establish the current EMDK Code128 positive control after the historical failed attempt: eight priorF3AF events and oneC891 event are verified. Preserve the failed-attempt evidence and bounded operator stage; QR/lifecycle/retry acceptance remains open above.
 - [x] Resolve normal backend ownership and perform the reviewed API 1.9 upgrade with fresh backup, original-column/data checks, recovery logins and live account validation; preserve the operator APK. Private verification confirms two devices and three scans retained.
 
 - [x] Verify five client audit fixes: password/legacy callback origin binding, independent local Auth0 sign-out, sample release HTTPS and no-backup session storage. The batch passes 109 JVM tests and all 32 selected TC22 native cases; packaged release controls are inspected. See [review scope and evidence](SECURITY-REVIEW-2026-10-31.md).
-- [ ] Close the remaining unauthenticated scanner-ingress finding using actual EMDK hardware/adversarial acceptance. The approved implementation passes 49 scanner JVM tests, lint and all package builds; no production input change is installed yet.
+- [x] Verify the trusted scanner-ingress replacement with production-path ordinary-UID rejection and actual installed EMDK Code128 positive controls. Preserve the historical security report scope; this does not close the remaining physical lifecycle/QR matrix.
 - [x] Correct the demo's mixed RC.20 runtime and test-engine dependencies; qualify exact-source core `ecf0f550a0357cec6387c2b54efca128a405a629` with server `b14d925b741e815d1cfa4f62301f19207f25b03f`. Fresh37 server/five demo, strict provenance and all15 nullable-admin/session-monitor/browser cases pass. Core full closure:4,507 discovered/16 existing skips/zero failures/errors.
-- [ ] Diagnose hosted Back-test window-focus failures from bounded state flags while retaining real Back injection and the focus guard.
+- [x] Reverify hosted Back/focus behavior at7de with real Back injection and the focus guard; historical failures remain documented in session state.
 - [x] Qualify stable Auth03.0.0/Coil3.0.4, notice-generator incremental inputs and overlay/window-focus scan gating:127 JVM,34 shared TC22 cases, an additional eight-overlay native regression, ordinary-UID injection rejection and all package/lint/notice gates pass. See [candidate acceptance](TRUSTED-SCANNER-ACCEPTANCE.md).
-- [ ] Resolve entire-handheld versus QQQ-app viewing scope. Current capture covers QQQ Mobile; it must not be represented as Android Home/other-app capture. Implement and qualify full-device consent/capture if that is required.
+- [x] Resolve viewing scope through optional operator-consented DEVICE_SCREEN on mobile1.2 source, retaining default APP_CONTENT and old-server compatibility. Actual projection acceptance remains open; normal mobile1.1 runtime exposes app-content only.
 
 - [x] Verify the unconfirmed-scan exit correction: 46 mobile JVM tests and all 21 selected TC22 native cases pass, including failed cancellation and explicit Leave anyway with preserved receipt/retry identity and in-flight/photo guards.
 - [ ] Finish the operator walkthrough of the unconfirmed-scan exit correction on the normal scanner installation.
@@ -43,7 +43,7 @@
 - [ ] Verify customer-specific logo assets and physical TC22 appearance.
 
 - [x] Complete Gradle unit tests, debug APK, signature, and lint verification (26 tests; zero lint errors).
-- [ ] Run physical TC22 acceptance: DataWedge trigger, rotation/background lifecycle, duplicate retry, revoked device, bad credentials, sign-out and re-login.
+- [ ] Complete the current EMDK physical matrix: QR, lifecycle/ownership, retry/revocation, bad credentials, sign-out and re-login. The completed DataWedge checks below are historical and do not qualify current EMDK behavior.
 - [x] Verify TC22 physical Code128 and QR triggers through DataWedge intent output, visible Saved scan, preserved leading-zero QR data and independently inspected backend provenance; two Code128 triggers plus one QR trigger produced exactly three records.
 - [ ] Verify release APK signing/distribution separately; current deliverable is a debug APK.
 - [x] Reconcile exact historical project-owned source license boilerplate and the IDE template with the existing Apache-2.0 migration; preserve copyright ownership and other notices.
@@ -64,12 +64,12 @@ Offline queue/background synchronization is deliberately outside version one.
 - [x] Add capture lifetime/lease/race tests, complete scanner receipt checks, strict maxLength and NavController regression coverage.
 - [x] Verify short-viewport login and focused long-form submission after IME Done and dismissal handling.
 - [x] Complete integrated session/native administrator termination E2E and all 12 shared TC22 navigation/input/account tests; local emulator remains closed.
-- [ ] Freeze integrated revisions and complete security/architecture review before publishing session feature.
+- [x] Freeze and review session/whole-device source within the documented security scopes and independent architecture A1–A11 closure. Final release revision/scope and external-runtime gates remain in the release ledger.
 - [x] Integrate camera/gallery with Record Files typed routes and guarded optional bridge fixture; synthetic native E2E verifies persisted receipt, rotation and forced-logout cleanup.
 - [ ] Complete actual camera-lens/operator acceptance after final runtime installation; synthetic activity results do not prove the OEM camera application flow.
-- [ ] Verify fresh hosted Scanner Android checks for the October 31 review checkpoint; earlier hosted results do not qualify this head.
-- [ ] Verify the hosted native E2E lane after publication; it now runs on pushes and pull requests.
+- [x] Supersede the October31 hosted checkpoint gate with all eleven passing hosted checks at7de; retain earlier revision-specific results as history.
+- [x] Verify the published push/PR native E2E lanes through the current7de hosted checkpoint; physical operator acceptance remains separate.
 - [x] Run the native sample instrumentation suite (six passed on API35).
 - [x] Add and run real-server scanner-host E2E: login, pending enrollment, approval, native app/process selection, manual scan persistence and revoked-device denial. Use an isolated app ID and database.
-- [x] Run the native real-server E2E job on pushes and pull requests; CI configuration added, hosted execution remains to be checked after publication.
+- [x] Run and verify native real-server E2E on pushes and pull requests; current7de hosted checks pass.
 - [ ] Complete the final operator walkthrough on TC22 after updating the preserved demo/runtime, including outage/reconnect and real camera capture.
