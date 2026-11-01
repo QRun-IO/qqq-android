@@ -30,6 +30,8 @@ AboutLibraries10.9.2 also collects compile classpaths, so its standard exclusion
 
 ## Test boundary
 
+Use the [leading-zero QR test image and verification steps](TEST-BARCODES.md) for the physical QR check.
+
 Debug, release and isolated QA builds share `src/production` and the trusted factory. QA uses the `.qa` application suffix, existing debug signing and a separate test manifest for local test HTTP. Build its instrumentation with `-PscannerTestBuildType=qa :scanner-host:assembleQa :scanner-host:assembleQaAndroidTest`. Only `e2e` (the default) and `qa` are accepted instrumentation variants. Neither option changes production signing.
 
 Only `src/e2e` supplies the exported synthetic broadcast adapter; its application ID has the `.e2e` suffix and its source label is `e2e-fixture`. It cannot be enabled in production through an intent or server setting. Existing synthetic payloads keep their fixture action for runner compatibility. The QA variant contains no synthetic ingress, so it exercises the same scanner trust boundary without installing over the operator's app.
