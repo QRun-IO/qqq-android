@@ -46,6 +46,10 @@ jobs:
           :scanner-host:testDebugUnitTest
           :scanner-host:lintDebug
           :scanner-host:assembleDebug
+      - name: Compile opt-in physical QA acceptance
+        run: >-
+          ./gradlew --no-daemon --console=plain -PscannerTestBuildType=qa
+          :scanner-host:assembleQa :scanner-host:assembleQaAndroidTest
       - name: Hash debug APK
         run: |
           mkdir -p scanner-host/build/outputs/apk/debug/notices

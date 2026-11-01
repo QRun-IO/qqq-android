@@ -1,5 +1,13 @@
 # Session state
 
+## November 1 morning — normal app updated; native test correction pending hosted verification
+
+The normal TC22 application is now updated in place to the reviewed development APK `F3AF638E…E9FAA`. Matching signing identity and a new owner-only private-data backup were verified; app data/enrollment were not cleared. Non-streaming installation completed and the normal process is running against the preserved API1.9/mobile1.1 demo. This supersedes older unchanged-normal-APK statements below. Operator login/navigation/scanning confirmation is pending; no production release is claimed.
+
+Published `e04fdb2` passed CircleCI and CodeQL, but both GitHub native runs failed the same session test: it requested rotation then another Activity recreation without waiting for configuration convergence, and the barcode draft was empty. The test now waits for landscape/resumed configuration and asserts the draft after rotation and again after explicit recreation. This is a test synchronization correction awaiting native execution, not a demonstrated production draft fix. Physical barcode attempts separately hit a wrong expected value (operator confirmed the old test code), a transient focus assertion and an ADB timeout; none is a full hardware pass. Focus preconditions now wait briefly within the120second stage deadline, and install timeouts identify the operation.
+
+The opt-in QA screen-consent harness, shared HTTP helpers and both QA/E2E test packages compile. Its early safety checks reject missing operator opt-in and both protected demo ports without device access. Actual consent/Home/Stop/expiry/end-session acceptance remains pending. The harness author stopped at the workspace agent-credit limit; root completed the compile corrections and continues directly. A real Authentik fixture is compiled with pinned images downloaded, but no services or OS trust changes have occurred; temporary Windows CA approval is still pending.
+
 ## November 1 — refined device-screen client and published paired server
 
 The refined client passes137 JVM tests, all package/lint gates, fresh four-APK inspection and the TC22 ordinary-UID scan-ingress regression. Continuous image draining retains one latest buffer; repeated Share is blocked through service binding. Fresh independent follow-up review found no concrete issue. The source-pinned1.2 server `1041693` is published and passes39 server/six demo/all15 browser tests with strict195-JAR/2,441-class provenance in a cloned private Maven cache. Hosted client CI now targets that exact source. No actual projection consent/physical trigger is proved; the normal APK remains unchanged and its running demo remains qualified1.1. See [candidate scope and hashes](DEVICE-SCREEN-ACCEPTANCE.md).

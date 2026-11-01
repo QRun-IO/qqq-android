@@ -222,7 +222,7 @@ class ScannerInjectionTest
       while(saved == null)
       {
          assertTrue("Timed out waiting for the operator's physical trigger", System.nanoTime() < deadline)
-         foreground(context)
+         foreground(context, remainingMillis().coerceAtMost(5000))
          val current = pollScans("waiting for the operator's acknowledged scan")
          val added = current.filter { it.getString("id") !in priorIds }
          assertTrue("One trigger must not create multiple records", added.size <= 1 && current.size <= before.size + 1)
@@ -239,7 +239,7 @@ class ScannerInjectionTest
       waitFor("Saved scan ${row.getString("id")}", timeoutMillis = remainingMillis())
       waitFor("Scanner ready. Press the handheld trigger.", timeoutMillis = remainingMillis())
       assertEquals(before.size + 1, pollScans("final saved-scan verification").size)
-      foreground(context)
+      foreground(context, remainingMillis().coerceAtMost(5000))
       InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply { putString("qqqStage", "hardware-$phase-saved") })
    }
 
@@ -265,14 +265,27 @@ class ScannerInjectionTest
       assertEquals(marker, result.get()?.getString("marker"))
    }
 
-   private fun foreground(context: Context)
+   private fun foreground(context: Context, timeoutMillis: Long = 5000)
    {
-      ui.activityRule.scenario.onActivity {
-         assertTrue("Target must stay resumed", it.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
-         assertTrue("Target must retain window focus", it.window.decorView.hasWindowFocus())
-         assertTrue(context.getSystemService(PowerManager::class.java).isInteractive)
-         assertFalse(context.getSystemService(KeyguardManager::class.java).isKeyguardLocked)
+      val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
+      var ready = false
+      var flags = "unavailable"
+      do
+      {
+         ui.activityRule.scenario.onActivity {
+            val resumed = it.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+            val focused = it.window.decorView.hasWindowFocus()
+            val interactive = context.getSystemService(PowerManager::class.java).isInteractive
+            val locked = context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
+            flags = "resumed=$resumed, focused=$focused, interactive=$interactive, locked=$locked"
+            ready = resumed && focused && interactive && !locked
+         }
+         if(ready) return
+         val remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime())
+         if(remaining > 0) Thread.sleep(remaining.coerceAtMost(50))
       }
+      while(System.nanoTime() < deadline)
+      assertTrue("Target must regain resumed, unlocked foreground focus: $flags", ready)
    }
 
    private fun scans(timeoutMillis: Long = 20_000): List<JSONObject>

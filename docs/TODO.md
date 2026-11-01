@@ -1,5 +1,8 @@
 # TODO
 
+- [ ] Verify the synchronized rotation/recreation session test in fresh native execution; both prior GitHub failures lost the draft at the old back-to-back transition.
+- [ ] Finish the operator walkthrough on the newly updated normal TC22 app; private data/enrollment and the development signing identity were preserved.
+- [x] Compile the opt-in screen-consent QA harness and ordinary E2E tests; verify early opt-in/protected-port safety gates. Actual permission/display acceptance remains open.
 - [x] Compile/review additive consent-based device-screen client and paired1.2 server:137 JVM, package/lint/APK inspection, ordinary-UID TC22 scan-input rejection,39 server/six demo/all15 browser cases and strict provenance pass. Actual projection acceptance remains separate.
 - [ ] Execute opt-in actual Android consent, notification, Home/background pixels, Stop, lease expiry, lock/rotation and forced-session-end acceptance on the refined device-screen candidate.
 - [ ] Resolve CircleCI job 140's three unfocused-Activity Back failures using the new bounded window-owner diagnostics; retain real Back and the five-second guard. CodeQL on `6845abc` passed, but native CI is not fully green.

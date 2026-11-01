@@ -20,6 +20,22 @@ Evidence is written under `scanner-host/build/native-device-e2e`. Request audits
 
 The standalone `orientation` and `licenses` scenarios need only the isolated scanner APKs and no server. Orientation acceptance checks saved policy, actual portrait/landscape configuration, recreation, and a fresh Activity launch for each choice. The session and photo scenarios separately verify that a rotation retains process input and a pending original.
 
+Physical `session-monitor` now uses the disposable `io.qrun.mobile.scanner.qa` variant so a retained `.e2e` installation is preserved. Build it with `-PscannerTestBuildType=qa :scanner-host:assembleQa :scanner-host:assembleQaAndroidTest`; hosted/emulator sessions continue using E2E. Its rotation check waits for the requested landscape configuration and resumed lifecycle, verifies the draft, then explicitly recreates and verifies the draft again. Brief physical-test focus transitions wait up to five seconds within the existing stage deadline; actual resumed/unlocked/focused requirements remain enforced. Physical installs use ADB's non-streaming path.
+
+## Explicit operator-consented device-screen acceptance
+
+This manual-only test is excluded from hosted/default scenarios. Compile QA packages as above, then run:
+
+```text
+node scripts/ci/scanner-screen-device.mjs --serial TC22_SERIAL --fixture PRIVATE_FIXTURE.json --operator-consent
+```
+
+The private file must identify `purpose: "device-screen-qa"`, a disposable loopback `baseUrl`, `username: "scanner"`, `adminUsername: "admin"` and fresh private `password`/`adminPassword` values. Use the qualified core/API1.9 and mobile-scanners1.2 runtime; the runner refuses the normal57832 and retained51631 ports. Keep this file owner-only and outside Git. It installs only absent QA/QA.test packages and owns only its new reverse/proxy resources.
+
+Named stages request notification permission, three fresh Android projection approvals, Home, Stop and a return through Recents. The operator handles every Android permission dialog; the test never grants them. It checks real app/Home pixels, Stop, viewer-lease expiry, administrator session end and fresh login without resumed projection. Each operator wait is bounded to120seconds. Server JPEGs are compared with the physical display in memory using bounded spatial RGB error and blank/wrong-layout negative controls. Neither screenshot source is retained as evidence or substituted for the application's uploaded frame.
+
+Compilation and runner guard checks pass; actual system consent/display acceptance remains unexecuted. A failed run records FAILED rather than leaving a successful-looking proof, preserves sanitized stage/operation evidence and removes only its disposable resources. Successful execution requires every completion stage and successful native semantic screen uploads; a decodable JPEG alone is insufficient.
+
 Photo acceptance requires the companion optional Record Files integration's successfully verified isolated fixture. Start `integrations/record-files/Start-ConsumerFixture.ps1` in that repository, keep its returned credential file private, and run:
 
 ```powershell

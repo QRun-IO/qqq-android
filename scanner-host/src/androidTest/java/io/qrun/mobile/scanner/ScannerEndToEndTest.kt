@@ -37,9 +37,7 @@ import java.io.ByteArrayOutputStream
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.TimeUnit
-import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -181,7 +179,7 @@ class ScannerEndToEndTest
    fun sessionActivityMirrorsActualScreenAndAdminEndForcesFreshLogin()
    {
       val context = InstrumentationRegistry.getInstrumentation().targetContext
-      check(context.packageName == "io.qrun.mobile.scanner.e2e")
+      check(context.packageName in setOf("io.qrun.mobile.scanner.e2e", "io.qrun.mobile.scanner.qa"))
       val configFile = File(context.filesDir, "e2e.json")
       val config = JSONObject(configFile.readText())
       configFile.delete()
@@ -215,8 +213,19 @@ class ScannerEndToEndTest
       ui.onNodeWithTag("appHome.rowForProcess:mobileScanCapture").performClick()
       waitFor("Manual barcode")
       ui.onNodeWithText("Manual barcode").performTextReplacement("orientation-draft")
+      ui.onNodeWithText("Manual barcode").assertTextContains("orientation-draft")
       ui.activityRule.scenario.onActivity { OrientationPolicy.LANDSCAPE.select(it) }
+      ui.waitUntil(timeoutMillis = 15000)
+      {
+         var landscape = false
+         ui.activityRule.scenario.onActivity {
+            landscape = it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE &&
+               it.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+         }
+         landscape
+      }
       waitFor("Manual barcode")
+      ui.onNodeWithText("Manual barcode").assertTextContains("orientation-draft")
       ui.activityRule.scenario.recreate()
       waitFor("Manual barcode")
       ui.onNodeWithText("Manual barcode").assertTextContains("orientation-draft")
@@ -300,8 +309,7 @@ class ScannerEndToEndTest
 
    private fun sessionRows(): List<JSONObject>
    {
-      val records = jsonRequest("/qqq/v1/table/mobileSession/query", JSONObject()).getJSONArray("records")
-      return (0 until records.length()).map { records.getJSONObject(it).getJSONObject("values") }
+      return SessionAcceptanceClient(origin, adminCookie, client).sessions()
    }
 
    private fun waitForServer(condition: () -> Boolean)
@@ -320,13 +328,7 @@ class ScannerEndToEndTest
       }
    }
 
-   private fun findImage(value: Any?): String? = when(value)
-   {
-      is String -> value.takeIf { it.startsWith("data:image/jpeg;base64,") }
-      is JSONObject -> value.keys().asSequence().mapNotNull { findImage(value.opt(it)) }.firstOrNull()
-      is org.json.JSONArray -> (0 until value.length()).firstNotNullOfOrNull { findImage(value.opt(it)) }
-      else -> null
-   }
+   private fun findImage(value: Any?): String? = SessionAcceptanceClient.image(value)
 
    @Test
    fun adminFormsApproveRevokeAndCancel()
@@ -508,13 +510,7 @@ class ScannerEndToEndTest
 
    private fun loginAdmin(password: String, account: String = "admin"): String
    {
-      val request = Request.Builder().url("$origin/qqq/v1/manageSession")
-         .header("Authorization", Credentials.basic(account, password))
-         .post("{}".toRequestBody("application/json".toMediaType())).build()
-      return client.newCall(request).execute().use { response ->
-         assertEquals("Admin setup login must succeed", 200, response.code)
-         response.headers("Set-Cookie").first { it.startsWith("sessionUUID=") }.substringBefore(';')
-      }
+      return SessionAcceptanceClient.login(origin, password, client, account)
    }
 
    private fun runAdmin(process: String, deviceId: String)
@@ -527,25 +523,11 @@ class ScannerEndToEndTest
 
    private fun processCall(process: String, suffix: String, values: JSONObject): JSONObject
    {
-      val request = Request.Builder().url("$origin/qqq/v1/processes/$process$suffix").header("Cookie", adminCookie)
-         .post(MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("values", values.toString())
-            .addFormDataPart("stepTimeoutMillis", "10000").build()).build()
-      var result = executeJson(request)
-      val processId = result.optString("processUUID")
-      val jobId = result.optString("jobUUID")
-      val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
-      while(result.optString("type") in listOf("JOB_STARTED", "RUNNING"))
-      {
-         assertTrue("Process must finish before the deadline", System.nanoTime() < deadline)
-         Thread.sleep(50)
-         result = executeJson(Request.Builder().url("$origin/qqq/v1/processes/$process/$processId/status/$jobId").header("Cookie", adminCookie).build())
-      }
-      assertTrue("Administrative process must not fail", !result.has("error"))
-      return result
+      return SessionAcceptanceClient(origin, adminCookie, client).process(process, suffix, values)
    }
 
-   private fun jsonRequest(path: String, body: JSONObject, expectedStatus: Int = 200): JSONObject = executeJson(Request.Builder().url("$origin$path")
-      .header("Cookie", adminCookie).post(body.toString().toRequestBody("application/json".toMediaType())).build(), expectedStatus)
+   private fun jsonRequest(path: String, body: JSONObject, expectedStatus: Int = 200): JSONObject =
+      SessionAcceptanceClient(origin, adminCookie, client).json(path, body, expectedStatus)
 
    private fun executeJson(request: Request, expectedStatus: Int = 200): JSONObject = client.newCall(request).execute().use { response ->
       assertEquals("Test server request must succeed", expectedStatus, response.code)

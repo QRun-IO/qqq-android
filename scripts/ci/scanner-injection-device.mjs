@@ -41,7 +41,7 @@ const run = (args, input) => new Promise((done, fail) => {
    const child = spawn(adb, ['-s', serial, ...args], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
    let output = '';
    let lines = '';
-   const timer = setTimeout(() => { child.kill(); fail(new Error('Bounded QA adb operation timed out.')); }, args.includes('instrument') ? (physicalTriggers ? 600_000 : 300_000) : 60_000);
+   const timer = setTimeout(() => { child.kill(); fail(new Error(`Bounded QA adb operation timed out: ${args.slice(0, 3).join(' ')}`)); }, args.includes('instrument') ? (physicalTriggers ? 600_000 : 300_000) : 60_000);
    child.stdout.on('data', data => {
       output += data;
       lines += data;
@@ -110,7 +110,7 @@ try {
    proxy = await startSemanticApiProxy(origin.toString().replace(/\/$/, ''));
    await run(['reverse', '--no-rebind', `tcp:${proxy.port}`, `tcp:${proxy.port}`]);
    reversed = true;
-   for (const [applicationId, apk] of apks) { await run(['install', apk]); installedByRun.push(applicationId); }
+   for (const [applicationId, apk] of apks) { await run(['install', '--no-streaming', apk]); installedByRun.push(applicationId); }
    await run(['shell', 'run-as', target, 'mkdir', '-p', 'files']);
    await run(['shell', 'run-as', target, 'sh', '-c', "'cat > files/qa-injection.json'"],
       JSON.stringify({ serverUrl: `http://127.0.0.1:${proxy.port}/`, scannerPassword: config.scannerPassword, adminPassword: config.adminPassword,
