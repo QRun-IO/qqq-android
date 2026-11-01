@@ -141,21 +141,23 @@ internal fun ScannerWidget(
       Text(parameters.widgetBlock.values["title"]?.toString() ?: "Scan a barcode")
       Text(parameters.widgetBlock.values["instructions"]?.toString() ?: "Press the handheld scan trigger. Wait for server confirmation before scanning again.")
       if (parameters.values["scanSaved"] == true && notice.isEmpty()) {
-         Text("Saved scan ${parameters.values["scanId"] ?: ""}")
+         Text("${scannerMetaData.acknowledgmentLabel} ${parameters.values["scanId"] ?: ""}")
       }
       if (notice.isNotEmpty()) Text(notice)
       if (scannerStatus.isNotEmpty()) Text(scannerStatus)
       if (canReconnect) Button(
          enabled = ready,
          onClick = { input.reconnect() }) { Text("Reconnect scanner") }
-      OutlinedTextField(
-         manual, { manual = it }, label = { Text(scannerMetaData.manualLabel) }, enabled = ready, singleLine = true,
-         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() })
-      )
-      Button(enabled = ready && manual.isNotEmpty(), onClick = {
-         focusManager.clearFocus(); keyboard?.hide()
-         if (submit(manual, "MANUAL", "manual")) manual = ""
-      }) { Text(scannerMetaData.submitLabel) }
+      if (scannerMetaData.manualEntryEnabled) {
+         OutlinedTextField(
+            manual, { manual = it }, label = { Text(scannerMetaData.manualLabel) }, enabled = ready, singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() })
+         )
+         Button(enabled = ready && manual.isNotEmpty(), onClick = {
+            focusManager.clearFocus(); keyboard?.hide()
+            if (submit(manual, "MANUAL", "manual")) manual = ""
+         }) { Text(scannerMetaData.submitLabel) }
+      }
    }
 }
