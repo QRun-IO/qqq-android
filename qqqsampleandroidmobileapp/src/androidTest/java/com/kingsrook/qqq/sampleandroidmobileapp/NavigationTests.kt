@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
@@ -57,8 +58,37 @@ class NavigationTests : BaseTest()
                   "deviceLocked=${keyguard.isDeviceLocked}, activityFocus=${activity.hasWindowFocus()}, " +
                   "decorFocus=${activity.window.decorView.hasWindowFocus()}, lifecycle=${activity.lifecycle.currentState}, " +
                   "finishing=${activity.isFinishing}, destroyed=${activity.isDestroyed}"
+               if(android.os.Build.VERSION.SDK_INT >= 29)
+               {
+                  val windows = android.view.inspector.WindowInspector.getGlobalWindowViews()
+                  windowState += ", ownWindows=" + windows.take(8).map { view ->
+                     val attributes = view.layoutParams as? android.view.WindowManager.LayoutParams
+                     "[activityDecor=${view === activity.window.decorView}, focused=${view.hasWindowFocus()}, " +
+                        "shown=${view.isShown}, attached=${view.isAttachedToWindow}, type=${attributes?.type}, flags=${attributes?.flags}]"
+                  }
+               }
             }
          }
+         val networkDialog = runCatching {
+            if(ui.onAllNodesWithText("No Network Connection").fetchSemanticsNodes().isEmpty()) false
+            else { ui.onNodeWithText("No Network Connection").assertIsDisplayed(); true }
+         }.getOrNull()
+         val focusedOwner = runCatching {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val active = instrumentation.uiAutomation.windows.firstOrNull { it.isFocused }?.root
+            try
+            {
+               when(active?.packageName?.toString())
+               {
+                  null -> "unknown"
+                  instrumentation.targetContext.packageName -> "own-app"
+                  "android", "com.android.systemui" -> "system"
+                  else -> "other-app"
+               }
+            }
+            finally { active?.recycle() }
+         }.getOrDefault("unavailable")
+         windowState += ", focusedWindowOwner=$focusedOwner, networkDialogVisible=$networkDialog"
          throw AssertionError("Back requires a focused Activity: $windowState", error)
       }
       InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)

@@ -1,5 +1,9 @@
 # TODO
 
+- [ ] Resolve CircleCI job 140's three unfocused-Activity Back failures using the new bounded window-owner diagnostics; retain real Back and the five-second guard. CodeQL on `6845abc` passed, but native CI is not fully green.
+- [ ] Repeat physical EMDK acceptance after the unsuccessful first-stage QA attempt preserved in `C:/Users/james/.cache/qqq-tc22-physical-attempt-20261101-0210`; no physical trigger proof is established. Preserve the 120-second operator stage bound and explicit timeout reporting.
+- [x] Resolve normal backend ownership and perform the reviewed API 1.9 upgrade with fresh backup, original-column/data checks, recovery logins and live account validation; preserve the operator APK. Private verification confirms two devices and three scans retained.
+
 - [x] Verify five client audit fixes: password/legacy callback origin binding, independent local Auth0 sign-out, sample release HTTPS and no-backup session storage. The batch passes 109 JVM tests and all 32 selected TC22 native cases; packaged release controls are inspected. See [review scope and evidence](SECURITY-REVIEW-2026-10-31.md).
 - [ ] Close the remaining unauthenticated scanner-ingress finding using actual EMDK hardware/adversarial acceptance. The approved implementation passes 49 scanner JVM tests, lint and all package builds; no production input change is installed yet.
 - [x] Correct the demo's mixed RC.20 runtime and test-engine dependencies; qualify exact-source core `ecf0f550a0357cec6387c2b54efca128a405a629` with server `b14d925b741e815d1cfa4f62301f19207f25b03f`. Fresh37 server/five demo, strict provenance and all15 nullable-admin/session-monitor/browser cases pass. Core full closure:4,507 discovered/16 existing skips/zero failures/errors.
