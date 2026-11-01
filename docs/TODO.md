@@ -1,7 +1,11 @@
 # TODO
 
+- [x] Verify current TC22 Code128 hardware trigger-to-save on the trusted EMDK path with operator Saved scan, matching backend source/model and distinct event identities; see [physical evidence](PHYSICAL-TC22-ACCEPTANCE.md).
+- [ ] Finish current EMDK leading-zero QR, repeat-intent, lifecycle/ownership and retry/leave acceptance; historical DataWedge scans do not qualify these checks.
+
 - [x] Verify the synchronized rotation/recreation assertions in both5ba GitHub native runs; one entire run passed and the other reached a later fresh-login timeout.
-- [ ] Verify final fresh-login readiness in native CI: wait for the completed logout message and enabled button before clicking once. Both isolated test packages must compile; hosted execution is the acceptance gate.
+- [x] Verify final fresh-login readiness at229fce3 in both GitHub native runs:35 shared cases, PixelCopy and all seven semantic scenarios pass, including completed logout, enabled login action and a new session. All eleven hosted checks pass; the later portrait-default update requires its own fresh checks.
+- [x] Make portrait the default for missing/invalid preferences while preserving explicit choices; four focused tests, lint/debug assembly and preserving TC22 install pass, with actual requested portrait orientation confirmed.
 - [ ] Finish the operator walkthrough on the newly updated normal TC22 app; private data/enrollment and the development signing identity were preserved.
 - [x] Compile the opt-in screen-consent QA harness and ordinary E2E tests; verify early opt-in/protected-port safety gates. Actual permission/display acceptance remains open.
 - [x] Compile/review additive consent-based device-screen client and paired1.2 server:137 JVM, package/lint/APK inspection, ordinary-UID TC22 scan-input rejection,39 server/six demo/all15 browser cases and strict provenance pass. Actual projection acceptance remains separate.

@@ -7,10 +7,21 @@ import org.junit.Test
 
 class OrientationPolicyTest
 {
-   @Test fun missingOrUnknownSavedValuesKeepSystemBehavior()
+   @Test fun missingSavedValueDefaultsToPortrait()
    {
-      assertEquals(OrientationPolicy.SYSTEM, OrientationPolicy.parse(null))
-      assertEquals(OrientationPolicy.SYSTEM, OrientationPolicy.parse("unknown"))
+      assertEquals(OrientationPolicy.PORTRAIT, OrientationPolicy.parse(null))
+   }
+
+   @Test fun unrecognizedSavedValuesDefaultToPortrait()
+   {
+      listOf("unknown", "", " ", "portrait").forEach { value ->
+         assertEquals(OrientationPolicy.PORTRAIT, OrientationPolicy.parse(value))
+      }
+   }
+
+   @Test fun explicitSavedChoicesIncludingSystemArePreserved()
+   {
+      assertEquals(OrientationPolicy.SYSTEM, OrientationPolicy.parse("SYSTEM"))
       OrientationPolicy.entries.forEach { assertEquals(it, OrientationPolicy.parse(it.name)) }
    }
 

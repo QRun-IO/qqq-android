@@ -26,7 +26,7 @@ enum class OrientationPolicy(val label: String, val requested: Int)
 
    companion object
    {
-      fun parse(value: String?) = entries.firstOrNull { it.name == value } ?: SYSTEM
+      fun parse(value: String?) = entries.firstOrNull { it.name == value } ?: PORTRAIT
       fun read(context: Context) = parse(context.getSharedPreferences("host", Context.MODE_PRIVATE).getString("orientation", null))
    }
 
