@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -39,12 +40,10 @@ import coil3.svg.SvgDecoder
 import com.kingsrook.qqq.frontend.android.mobileapp.R
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.BlockStyleUtils
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun ImageWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier)
-{
+fun ImageWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier) {
    val widgetBlock = params.widgetBlock
    val qViewModel = params.qViewModel
 
@@ -56,7 +55,7 @@ fun ImageWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifie
    DisposableEffect(imageLoader) { onDispose { imageLoader.shutdown() } }
 
    val imageModifier: Modifier = Modifier.size(BlockStyleUtils.getSizeFromStyleMap(widgetBlock.styles))
-   val boxModifier = Modifier.padding(BlockStyleUtils.getPaddingValuesFromStyleMap(widgetBlock.styles))
+   val boxModifier = modifier.padding(BlockStyleUtils.getPaddingValuesFromStyleMap(widgetBlock.styles))
 
    Box(modifier = boxModifier)
    {

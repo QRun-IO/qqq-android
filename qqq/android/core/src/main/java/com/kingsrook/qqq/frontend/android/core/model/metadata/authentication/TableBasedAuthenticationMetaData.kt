@@ -3,14 +3,17 @@ package com.kingsrook.qqq.frontend.android.core.model.metadata.authentication
 
 import kotlinx.serialization.Serializable
 
-/** Credentials are exchanged for a QQQ session; passwords are never persisted. */
+/*******************************************************************************
+ ** Credentials are exchanged for a QQQ session; passwords are never persisted.
+ *******************************************************************************/
 @Serializable
-data class TableBasedAuthenticationMetaData(override val name: String = "tableBased") : BaseAuthenticationMetaData
-{
+data class TableBasedAuthenticationMetaData(override val name: String = "tableBased") : BaseAuthenticationMetaData {
    override val type: String get() = TYPE
 
-   companion object
-   {
+   /*******************************************************************************
+    ** Keep table-authentication identification independent of native browser capabilities.
+    *******************************************************************************/
+   companion object {
       const val TYPE = "TABLE_BASED"
    }
 }

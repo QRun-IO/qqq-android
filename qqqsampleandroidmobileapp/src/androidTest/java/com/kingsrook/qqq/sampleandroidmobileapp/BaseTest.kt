@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -24,18 +25,16 @@ import com.kingsrook.qqq.frontend.android.core.model.Environment
 import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import org.junit.Before
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-open class BaseTest
-{
+ *******************************************************************************/
+open class BaseTest {
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Before
-   fun beforeEach()
-   {
+   fun beforeEach() {
       QAppContainer.availableEnvironments = listOf(
          Environment("Test Env 1", "http://192.168.4.67:8000/"),
          Environment("Test Env 2", "http://192.168.4.67:8000/"),

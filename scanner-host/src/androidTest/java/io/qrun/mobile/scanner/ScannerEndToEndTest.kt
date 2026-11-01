@@ -49,20 +49,22 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Real host UI and real QQQ server. No repository mocks or production app data. */
+/*******************************************************************************
+ ** Real host UI and real QQQ server. No repository mocks or production app data.
+ *******************************************************************************/
 @RunWith(AndroidJUnit4::class)
-class ScannerEndToEndTest
-{
+class ScannerEndToEndTest {
    @get:Rule
    val ui = createAndroidComposeRule<ScannerActivity>()
    private val client = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build()
    private lateinit var origin: String
    private lateinit var adminCookie: String
 
-   /** Real host/native activity-result boundaries and real upload APIs, using synthetic images only. */
+   /*******************************************************************************
+    ** Real host/native activity-result boundaries and real upload APIs, using synthetic images only.
+    *******************************************************************************/
    @Test
-   fun cameraAutoUploadsAndPendingGallerySurvivesRotationThenCleansOnRemoteLogout()
-   {
+   fun cameraAutoUploadsAndPendingGallerySurvivesRotationThenCleansOnRemoteLogout() {
       val instrumentation = InstrumentationRegistry.getInstrumentation()
       val context = instrumentation.targetContext
       check(context.packageName == "io.qrun.mobile.scanner.e2e")
@@ -78,20 +80,19 @@ class ScannerEndToEndTest
       val galleryUri = FileProvider.getUriForFile(context, context.packageName + ".photos", galleryFile)
       val cameraCalls = AtomicInteger()
       val galleryCalls = AtomicInteger()
-      val monitor = object : Instrumentation.ActivityMonitor()
-      {
-         override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult?
-         {
-            if(intent.action == MediaStore.ACTION_IMAGE_CAPTURE)
-            {
+      val monitor = object : Instrumentation.ActivityMonitor() {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+            if (intent.action == MediaStore.ACTION_IMAGE_CAPTURE) {
                cameraCalls.incrementAndGet()
                // API26-compatible parcelable access; this URI is created by the tested host's FileProvider.
                @Suppress("DEPRECATION") val output = intent.getParcelableExtra<Uri>(MediaStore.EXTRA_OUTPUT)!!
                context.contentResolver.openOutputStream(output)!!.use { it.write(bytes) }
                return Instrumentation.ActivityResult(Activity.RESULT_OK, null)
             }
-            if(intent.action in setOf(MediaStore.ACTION_PICK_IMAGES, Intent.ACTION_OPEN_DOCUMENT, Intent.ACTION_GET_CONTENT))
-            {
+            if (intent.action in setOf(MediaStore.ACTION_PICK_IMAGES, Intent.ACTION_OPEN_DOCUMENT, Intent.ACTION_GET_CONTENT)) {
                galleryCalls.incrementAndGet()
                return Instrumentation.ActivityResult(Activity.RESULT_OK, Intent().setData(galleryUri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
             }
@@ -99,8 +100,7 @@ class ScannerEndToEndTest
          }
       }
       instrumentation.addMonitor(monitor)
-      try
-      {
+      try {
          waitFor("QQQ server URL")
          ui.onNodeWithText("QQQ server URL").performTextReplacement("$origin/")
          ui.onNodeWithText("Connect", substring = false).performClick()
@@ -162,23 +162,23 @@ class ScannerEndToEndTest
          }
          val launch = processCall("mobileSessionEnd", "/init", JSONObject())
          val ended = processCall("mobileSessionEnd", "/${launch.getString("processUUID")}/step/input", JSONObject().put("sessionId", sessionId))
-         if(ended.optString("nextStep") == "result") processCall("mobileSessionEnd", "/${launch.getString("processUUID")}/step/result", JSONObject())
+         if (ended.optString("nextStep") == "result") processCall("mobileSessionEnd", "/${launch.getString("processUUID")}/step/result", JSONObject())
          waitFor("Log back in")
          waitForServer { !pending.exists() }
          assertTrue("The selected gallery original is never deleted", galleryFile.exists())
          assertEquals("No late callback created a second camera action", 1, cameraCalls.get())
          stage("native-photo-forced-logout-cleaned")
-      }
-      finally
-      {
+      } finally {
          instrumentation.removeMonitor(monitor)
          galleryFile.delete()
       }
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
-   fun sessionActivityMirrorsActualScreenAndAdminEndForcesFreshLogin()
-   {
+   fun sessionActivityMirrorsActualScreenAndAdminEndForcesFreshLogin() {
       val context = InstrumentationRegistry.getInstrumentation().targetContext
       check(context.packageName in setOf("io.qrun.mobile.scanner.e2e", "io.qrun.mobile.scanner.qa"))
       val configFile = File(context.filesDir, "e2e.json")
@@ -188,12 +188,14 @@ class ScannerEndToEndTest
       waitFor("QQQ server URL")
       ui.onNodeWithText("QQQ server URL").performTextReplacement("$origin/")
       ui.onNodeWithText("Connect", substring = false).performClick()
-      fun signIn()
-      {
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      fun signIn() {
          waitFor("Username")
          ui.onNodeWithText("Username").performTextReplacement("scanner")
          ui.onNodeWithText("Password").performTextReplacement(config.getString("scannerPassword"))
-      ui.onNodeWithText("Password").performImeAction()
+         ui.onNodeWithText("Password").performImeAction()
          ui.onNode(hasText("Sign in") and hasClickAction()).performScrollTo().performClick()
       }
       signIn()
@@ -202,9 +204,9 @@ class ScannerEndToEndTest
       adminCookie = loginAdmin(config.getString("adminPassword"))
       runAdmin("mobileDeviceApprove", device.deviceId)
       ui.onNodeWithText("Check approval").performScrollTo().assertIsDisplayed().performClick()
-      try { waitForTag("appHome.rowForApp:mobileScanApp") }
-      catch(error: androidx.compose.ui.test.ComposeTimeoutException)
-      {
+      try {
+         waitForTag("appHome.rowForApp:mobileScanApp")
+      } catch (error: androidx.compose.ui.test.ComposeTimeoutException) {
          val safeTree = ui.onRoot().printToString().replace(config.getString("scannerPassword"), "<REDACTED>")
             .replace(config.getString("adminPassword"), "<REDACTED>")
          throw AssertionError("Approved app catalog did not load: $safeTree", error)
@@ -242,16 +244,16 @@ class ScannerEndToEndTest
       val deviceRows = jsonRequest("/qqq/v1/table/mobileDevice/query", JSONObject()).getJSONArray("records")
       val deviceRow = (0 until deviceRows.length()).map { deviceRows.getJSONObject(it).getJSONObject("values") }.single { it.getString("id") == device.deviceId }
       assertEquals("PERMISSION_DENIED", deviceRow.getString("locationStatus"))
+      /*******************************************************************************
+       **
+       *******************************************************************************/
       fun screenWidget() = jsonRequest("/qqq/v1/widget/mobileSessionScreen", JSONObject().put("id", sessionId))
-      try
-      {
+      try {
          waitForServer {
             row = sessionRows().single { it.getString("id") == sessionId }
             row.optBoolean("screenAvailable")
          }
-      }
-      catch(error: AssertionError)
-      {
+      } catch (error: AssertionError) {
          var windowState = "unavailable"
          ui.activityRule.scenario.onActivity { activity ->
             val power = activity.getSystemService(android.os.PowerManager::class.java)
@@ -262,17 +264,14 @@ class ScannerEndToEndTest
       }
       // Match the ordinary admin widget's polling lease, including transient screen changes.
       var widgetStatus = "unobserved"
-      try
-      {
+      try {
          waitForServer {
             val widget = screenWidget()
             val blocks = widget.optJSONArray("blocks") ?: widget.optJSONArray("subBlocks")
             widgetStatus = blocks?.optJSONObject(0)?.optJSONObject("values")?.optString("text").orEmpty()
             ui.onAllNodesWithText("Screen being viewed by an administrator").fetchSemanticsNodes().isNotEmpty()
          }
-      }
-      catch(error: AssertionError)
-      {
+      } catch (error: AssertionError) {
          val latest = sessionRows().single { it.getString("id") == sessionId }
          throw AssertionError("Viewing demand did not converge: available=${latest.optBoolean("screenAvailable")}, reason=${latest.optString("captureBlockedReason")}, lastSeenAt=${latest.optString("lastSeenAt")}, deviceTime=${java.time.Instant.now()}, widgetStatus=$widgetStatus", error)
       }
@@ -298,7 +297,7 @@ class ScannerEndToEndTest
       waitForServer { screenWidget().toString().contains("OPERATOR_PAUSED") && findImage(screenWidget()) == null }
       val launch = processCall("mobileSessionEnd", "/init", JSONObject())
       val applied = processCall("mobileSessionEnd", "/${launch.getString("processUUID")}/step/input", JSONObject().put("sessionId", sessionId))
-      if(applied.optString("nextStep") == "result") processCall("mobileSessionEnd", "/${launch.getString("processUUID")}/step/result", JSONObject())
+      if (applied.optString("nextStep") == "result") processCall("mobileSessionEnd", "/${launch.getString("processUUID")}/step/result", JSONObject())
       waitFor("Log back in")
       assertEquals("ENDED", sessionRows().single { it.getString("id") == sessionId }.getString("status"))
       // The label is rendered during asynchronous logout while its button is disabled.
@@ -317,32 +316,40 @@ class ScannerEndToEndTest
       stage("session-fresh-login")
    }
 
-   private fun sessionRows(): List<JSONObject>
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun sessionRows(): List<JSONObject> {
       return SessionAcceptanceClient(origin, adminCookie, client).sessions()
    }
 
-   private fun waitForServer(condition: () -> Boolean)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun waitForServer(condition: () -> Boolean) {
       val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(40)
       var lastClockAdvance = System.nanoTime()
-      while(true)
-      {
+      while (true) {
          // LaunchedEffect timers use this clock; keep it aligned with real network/polling time.
          val now = System.nanoTime()
          ui.mainClock.advanceTimeBy(TimeUnit.NANOSECONDS.toMillis(now - lastClockAdvance).coerceAtLeast(16))
          lastClockAdvance = now
-         if(condition()) return
+         if (condition()) return
          assertTrue("Session server state must converge", System.nanoTime() < deadline)
          Thread.sleep(250)
       }
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    private fun findImage(value: Any?): String? = SessionAcceptanceClient.image(value)
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
-   fun adminFormsApproveRevokeAndCancel()
-   {
+   fun adminFormsApproveRevokeAndCancel() {
       stage("admin-start")
       val context = InstrumentationRegistry.getInstrumentation().targetContext
       check(context.packageName == "io.qrun.mobile.scanner.e2e")
@@ -353,9 +360,9 @@ class ScannerEndToEndTest
       waitFor("QQQ server URL")
       ui.onNodeWithText("QQQ server URL").performTextReplacement("$origin/")
       ui.onNodeWithText("Connect", substring = false).performClick()
-      try { waitFor("Username") }
-      catch(error: androidx.compose.ui.test.ComposeTimeoutException)
-      {
+      try {
+         waitFor("Username")
+      } catch (error: androidx.compose.ui.test.ComposeTimeoutException) {
          // This is before any credentials are entered; retain the actual startup error for diagnosis.
          throw AssertionError("Admin login screen did not load: ${ui.onRoot().printToString()}", error)
       }
@@ -368,9 +375,11 @@ class ScannerEndToEndTest
       stage("admin-enrolled")
       adminCookie = loginAdmin(config.getString("adminPassword"))
       runAdmin("mobileDeviceApprove", DeviceCredentials(context, "$origin/").deviceId)
-      val targetDevice = jsonRequest("/qqq/v1/qbit/mobile-scanners/devices/enroll", JSONObject()
-         .put("installationId", UUID.randomUUID().toString()).put("displayName", "Native form fixture")
-         .put("manufacturer", "Test").put("model", "Emulator").put("osVersion", "test").put("appVersion", "test"), expectedStatus = 201)
+      val targetDevice = jsonRequest(
+         "/qqq/v1/qbit/mobile-scanners/devices/enroll", JSONObject()
+            .put("installationId", UUID.randomUUID().toString()).put("displayName", "Native form fixture")
+            .put("manufacturer", "Test").put("model", "Emulator").put("osVersion", "test").put("appVersion", "test"), expectedStatus = 201
+      )
       val target = targetDevice.getString("deviceId")
       ui.onNodeWithText("Check approval").performScrollTo().assertIsDisplayed().performClick()
       waitForTag("appHome.rowForApp:mobileScannerAdmin")
@@ -378,8 +387,8 @@ class ScannerEndToEndTest
       stage("admin-app-open")
       for ((process, status, result) in listOf(
          Triple("mobileDeviceApprove", "APPROVED", "1 device approved."),
-         Triple("mobileDeviceRevoke", "REVOKED", "1 device revoked.")))
-      {
+         Triple("mobileDeviceRevoke", "REVOKED", "1 device revoked.")
+      )) {
          stage("admin-open-$process")
          waitForTag("appHome.rowForProcess:$process")
          ui.onNodeWithTag("appHome.rowForProcess:$process").performClick()
@@ -399,12 +408,16 @@ class ScannerEndToEndTest
       // A separate core login represents another handheld; end it through the native metadata form.
       runAdmin("mobileDeviceApprove", target)
       val fixtureCookie = loginAdmin(config.getString("scannerPassword"), "scanner")
-      val heartbeat = executeJson(Request.Builder().url("$origin/qqq/v1/qbit/mobile-scanners/sessions/heartbeat")
-         .header("Cookie", fixtureCookie).header("X-QQQ-Device-Id", target)
-         .header("X-QQQ-Device-Token", targetDevice.getString("deviceToken"))
-         .header("X-QQQ-Client", "android/qqq-mobile")
-         .post(JSONObject().put("foreground", true).put("screenAvailable", false).put("captureBlockedReason", "SCREEN_LOADING")
-            .toString().toRequestBody("application/json".toMediaType())).build())
+      val heartbeat = executeJson(
+         Request.Builder().url("$origin/qqq/v1/qbit/mobile-scanners/sessions/heartbeat")
+            .header("Cookie", fixtureCookie).header("X-QQQ-Device-Id", target)
+            .header("X-QQQ-Device-Token", targetDevice.getString("deviceToken"))
+            .header("X-QQQ-Client", "android/qqq-mobile")
+            .post(
+               JSONObject().put("foreground", true).put("screenAvailable", false).put("captureBlockedReason", "SCREEN_LOADING")
+                  .toString().toRequestBody("application/json".toMediaType())
+            ).build()
+      )
       val targetSession = heartbeat.getString("sessionId")
       waitForTag("appHome.rowForProcess:mobileSessionEnd")
       ui.onNodeWithTag("appHome.rowForProcess:mobileSessionEnd").performClick()
@@ -431,21 +444,27 @@ class ScannerEndToEndTest
       stage("admin-finished")
    }
 
-   private fun stage(name: String)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun stage(name: String) {
       InstrumentationRegistry.getInstrumentation().sendStatus(2, Bundle().apply { putString("qqqStage", name) })
    }
 
-   private fun deviceStatus(id: String): String
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun deviceStatus(id: String): String {
       val rows = jsonRequest("/qqq/v1/table/mobileDevice/query", JSONObject()).getJSONArray("records")
       return (0 until rows.length()).map { rows.getJSONObject(it).getJSONObject("values") }
          .single { it.getString("id") == id }.getString("status")
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
-   fun incompatibleServerStopsBeforeLogin()
-   {
+   fun incompatibleServerStopsBeforeLogin() {
       val context = InstrumentationRegistry.getInstrumentation().targetContext
       check(context.packageName == "io.qrun.mobile.scanner.e2e")
       val configFile = File(context.filesDir, "e2e.json")
@@ -458,9 +477,11 @@ class ScannerEndToEndTest
       assertTrue("Incompatible servers must not display a login form", ui.onAllNodesWithText("Username").fetchSemanticsNodes().isEmpty())
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
-   fun loginEnrollApproveCaptureAndRevoke()
-   {
+   fun loginEnrollApproveCaptureAndRevoke() {
       val context = InstrumentationRegistry.getInstrumentation().targetContext
       check(context.packageName == "io.qrun.mobile.scanner.e2e") { "E2E must run in its isolated application" }
       val configFile = File(context.filesDir, "e2e.json")
@@ -508,37 +529,53 @@ class ScannerEndToEndTest
       assertEquals("Revoked devices cannot save through an already-open process", records.length(), afterRevoke.length())
    }
 
-   private fun waitFor(text: String, substring: Boolean = false)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun waitFor(text: String, substring: Boolean = false) {
       ui.waitUntil(timeoutMillis = 60_000) { ui.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() }
    }
 
-   private fun waitForTag(tag: String)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun waitForTag(tag: String) {
       ui.waitUntil(timeoutMillis = 60_000) { runCatching { ui.onNodeWithTag(tag).fetchSemanticsNode() }.isSuccess }
    }
 
-   private fun loginAdmin(password: String, account: String = "admin"): String
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun loginAdmin(password: String, account: String = "admin"): String {
       return SessionAcceptanceClient.login(origin, password, client, account)
    }
 
-   private fun runAdmin(process: String, deviceId: String)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun runAdmin(process: String, deviceId: String) {
       val launch = processCall(process, "/init", JSONObject())
       val processId = launch.getString("processUUID")
       val applied = processCall(process, "/$processId/step/input", JSONObject().put("deviceId", deviceId))
-      if(applied.optString("nextStep") == "result") processCall(process, "/$processId/step/result", JSONObject())
+      if (applied.optString("nextStep") == "result") processCall(process, "/$processId/step/result", JSONObject())
    }
 
-   private fun processCall(process: String, suffix: String, values: JSONObject): JSONObject
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun processCall(process: String, suffix: String, values: JSONObject): JSONObject {
       return SessionAcceptanceClient(origin, adminCookie, client).process(process, suffix, values)
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    private fun jsonRequest(path: String, body: JSONObject, expectedStatus: Int = 200): JSONObject =
       SessionAcceptanceClient(origin, adminCookie, client).json(path, body, expectedStatus)
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    private fun executeJson(request: Request, expectedStatus: Int = 200): JSONObject = client.newCall(request).execute().use { response ->
       assertEquals("Test server request must succeed", expectedStatus, response.code)
       JSONObject(response.body!!.string())

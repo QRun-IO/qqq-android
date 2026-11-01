@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -31,13 +32,10 @@ import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendComponent
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun ProcessComponentHelpText(processViewModel: ProcessViewModel, component: QFrontendComponent)
-{
-   // todo - if there's preview text, show that first, w/ a toggle to text.
+fun ProcessComponentHelpText(processViewModel: ProcessViewModel, component: QFrontendComponent) {
    Text(
       (processViewModel.processValues["text"] ?: component.values["text"])?.toString().orEmpty(),
       color = Color.Gray,

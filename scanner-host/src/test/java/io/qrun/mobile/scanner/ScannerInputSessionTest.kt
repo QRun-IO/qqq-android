@@ -5,10 +5,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ScannerInputSessionTest
-{
-   private class Device : ScannerDriver
-   {
+/*******************************************************************************
+ **
+ *******************************************************************************/
+class ScannerInputSessionTest {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private class Device : ScannerDriver {
       lateinit var listener: ScannerDriver.Listener
       var reads = 0
       var cancels = 0
@@ -17,32 +21,81 @@ class ScannerInputSessionTest
       var failRead = false
       var failCancel = false
       var failRelease = false
-      override fun open(listener: ScannerDriver.Listener) { this.listener = listener }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      override fun open(listener: ScannerDriver.Listener) {
+         this.listener = listener
+      }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
       override fun isReadPending() = pending
-      override fun read() { if(failRead) error("Synthetic read error"); reads++; pending = true }
-      override fun cancelRead() { cancels++; pending = false; if(failCancel) error("Synthetic cancel error") }
-      override fun close() { releases++; if(failRelease) error("Synthetic close error") }
-      fun idle() { listener.idle() }
-      fun scan(value: String = "001234567890") { pending = false; listener.scanned(value, "QRCODE") }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      override fun read() {
+         if (failRead) error("Synthetic read error"); reads++; pending = true
+      }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      override fun cancelRead() {
+         cancels++; pending = false; if (failCancel) error("Synthetic cancel error")
+      }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      override fun close() {
+         releases++; if (failRelease) error("Synthetic close error")
+      }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      fun idle() {
+         listener.idle()
+      }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      fun scan(value: String = "001234567890") {
+         pending = false; listener.scanned(value, "QRCODE")
+      }
    }
 
-   private class Fixture
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private class Fixture {
       val devices = mutableListOf<Device>()
       val scans = mutableListOf<Pair<String, String>>()
       val statuses = mutableListOf<String>()
-      val session = ScannerInputSession({ Device().also { devices.add(it) } },
+      val session = ScannerInputSession(
+         { Device().also { devices.add(it) } },
          { value, type -> scans.add(value to type) }, { message, _ -> statuses.add(message) })
-      fun start(): Device
-      {
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      fun start(): Device {
          session.setAccepting(true)
          session.setActive(true)
          return devices.last()
       }
    }
 
-   @Test fun missingHardwareKeepsManualFallback()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun missingHardwareKeepsManualFallback() {
       val statuses = mutableListOf<String>()
       val session = ScannerInputSession({ null }, { _, _ -> error("Unexpected scan") }, { message, _ -> statuses.add(message) })
       session.setAccepting(true)
@@ -50,8 +103,11 @@ class ScannerInputSessionTest
       assertTrue(statuses.single().contains("manually"))
    }
 
-   @Test fun liveSurfaceGateRejectsCallbackBeforeRecompositionAndRearmsAfterDismissal()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun liveSurfaceGateRejectsCallbackBeforeRecompositionAndRearmsAfterDismissal() {
       val device = Device()
       var allowed = true
       val scans = mutableListOf<String>()
@@ -72,8 +128,11 @@ class ScannerInputSessionTest
       assertEquals(listOf("00123"), scans)
    }
 
-   @Test fun hiddenSurfaceNeverArmsEvenWhenOldReadinessFlagIsTrue()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun hiddenSurfaceNeverArmsEvenWhenOldReadinessFlagIsTrue() {
       val device = Device()
       var allowed = false
       val session = ScannerInputSession({ device }, { _, _ -> error("Unexpected scan") }, { _, _ -> }, { allowed })
@@ -86,8 +145,11 @@ class ScannerInputSessionTest
       assertEquals(1, device.reads)
    }
 
-   @Test fun waitsForIdleAndDoesNotDuplicateAnArmedRead()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun waitsForIdleAndDoesNotDuplicateAnArmedRead() {
       val fixture = Fixture()
       val device = fixture.start()
       assertEquals(0, device.reads)
@@ -97,8 +159,11 @@ class ScannerInputSessionTest
       assertEquals(1, device.reads)
    }
 
-   @Test fun preservesRawStringAndWaitsForAcknowledgmentBeforeRearming()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun preservesRawStringAndWaitsForAcknowledgmentBeforeRearming() {
       val fixture = Fixture()
       val device = fixture.start()
       device.idle()
@@ -111,8 +176,11 @@ class ScannerInputSessionTest
       assertEquals(2, device.reads)
    }
 
-   @Test fun idleBeforeDataAlsoRearmsAfterAcknowledgment()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun idleBeforeDataAlsoRearmsAfterAcknowledgment() {
       val fixture = Fixture()
       val device = fixture.start()
       device.idle()
@@ -128,8 +196,11 @@ class ScannerInputSessionTest
       assertEquals(3, device.reads)
    }
 
-   @Test fun idleWithoutDecodedDataAllowsTheNextTrigger()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun idleWithoutDecodedDataAllowsTheNextTrigger() {
       val fixture = Fixture()
       val device = fixture.start()
       device.idle()
@@ -140,8 +211,11 @@ class ScannerInputSessionTest
       assertEquals(1, fixture.scans.size)
    }
 
-   @Test fun explicitReconnectRecoversAfterOldAcquisitionWasBusy()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun explicitReconnectRecoversAfterOldAcquisitionWasBusy() {
       val fixture = Fixture()
       val first = fixture.start()
       fixture.session.setActive(false)
@@ -158,8 +232,11 @@ class ScannerInputSessionTest
       assertEquals(1, busy.releases)
    }
 
-   @Test fun emptyOrCanceledCollectionWaitsForIdleAndAllowsNextRead()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun emptyOrCanceledCollectionWaitsForIdleAndAllowsNextRead() {
       val fixture = Fixture()
       val device = fixture.start()
       device.idle()
@@ -174,8 +251,11 @@ class ScannerInputSessionTest
       assertEquals(1, fixture.scans.size)
    }
 
-   @Test fun canceledCollectionAfterAcceptedScanDoesNotClearAcknowledgmentGate()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun canceledCollectionAfterAcceptedScanDoesNotClearAcknowledgmentGate() {
       val fixture = Fixture()
       val device = fixture.start()
       device.idle()
@@ -192,8 +272,11 @@ class ScannerInputSessionTest
       assertEquals(3, device.reads)
    }
 
-   @Test fun multipleBarcodesAreRejectedWithNoticeAndNextSingleScanWorks()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun multipleBarcodesAreRejectedWithNoticeAndNextSingleScanWorks() {
       val fixture = Fixture()
       val device = fixture.start()
       device.idle()
@@ -209,8 +292,11 @@ class ScannerInputSessionTest
       assertTrue(fixture.statuses.last().contains("Waiting for scan confirmation"))
    }
 
-   @Test fun vendorPendingReadIsNotDuplicated()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun vendorPendingReadIsNotDuplicated() {
       val fixture = Fixture()
       val device = fixture.start()
       device.pending = true
@@ -221,8 +307,11 @@ class ScannerInputSessionTest
       assertEquals(1, device.reads)
    }
 
-   @Test fun blockedWorkCancelsReadAndIgnoresLateData()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun blockedWorkCancelsReadAndIgnoresLateData() {
       val fixture = Fixture()
       val device = fixture.start()
       device.idle()
@@ -236,8 +325,11 @@ class ScannerInputSessionTest
       assertEquals(2, device.reads)
    }
 
-   @Test fun pauseReleasesOnceAndOldGenerationCannotAffectResumedDevice()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun pauseReleasesOnceAndOldGenerationCannotAffectResumedDevice() {
       val fixture = Fixture()
       val first = fixture.start()
       first.idle()
@@ -256,8 +348,11 @@ class ScannerInputSessionTest
       assertEquals(1, fixture.scans.size)
    }
 
-   @Test fun lateReadyAfterDisposeNeverArmsOrSubmits()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun lateReadyAfterDisposeNeverArmsOrSubmits() {
       val fixture = Fixture()
       val device = fixture.start()
       fixture.session.setActive(false)
@@ -268,8 +363,11 @@ class ScannerInputSessionTest
       assertTrue(fixture.scans.isEmpty())
    }
 
-   @Test fun readFailureReleasesAndDoesNotClaimReady()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun readFailureReleasesAndDoesNotClaimReady() {
       val fixture = Fixture()
       val device = fixture.start()
       device.failRead = true
@@ -281,8 +379,11 @@ class ScannerInputSessionTest
       assertTrue(fixture.statuses.last().contains("Reconnect"))
    }
 
-   @Test fun failedCancellationStillReleasesScanner()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun failedCancellationStillReleasesScanner() {
       val fixture = Fixture()
       val device = fixture.start()
       device.idle()
@@ -292,8 +393,11 @@ class ScannerInputSessionTest
       assertTrue(fixture.statuses.last().contains("Reconnect"))
    }
 
-   @Test fun failedReleaseDoesNotClaimReadyOrAcquireAnotherDevice()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun failedReleaseDoesNotClaimReadyOrAcquireAnotherDevice() {
       val fixture = Fixture()
       val device = fixture.start()
       device.idle()

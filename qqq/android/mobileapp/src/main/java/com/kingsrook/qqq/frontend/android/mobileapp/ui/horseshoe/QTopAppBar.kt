@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -52,35 +53,32 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalNavigationBackAction
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @OptIn(ExperimentalMaterial3Api::class) // needed for TopAppBar
 @Composable
-fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android Application", navMenuCallback: (() -> Unit)? = null, qNavigator: QNavigator? = null, showNetworkDialog: Boolean = true, accountOpenState: MutableState<Boolean>? = null)
-{
+fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android Application", navMenuCallback: (() -> Unit)? = null, qNavigator: QNavigator? = null, showNetworkDialog: Boolean = true, accountOpenState: MutableState<Boolean>? = null) {
    val accountOpen = accountOpenState ?: remember { mutableStateOf(false) }
    val hostBackAction = LocalNavigationBackAction.current
    val authenticated = qViewModel.isAuthenticated && !qViewModel.isLogoutRequested
    val businessReady = authenticated && LocalBusinessNavigationEnabled.current
    LaunchedEffect(qViewModel.isLogoutRequested)
    {
-      if(qViewModel.isLogoutRequested)
-      {
+      if (qViewModel.isLogoutRequested) {
          accountOpen.value = false
       }
    }
-   val title = if(businessReady) qNavigator?.titleStack?.lastOrNull() ?: "Apps" else defaultTitle
+   val title = if (businessReady) qNavigator?.titleStack?.lastOrNull() ?: "Apps" else defaultTitle
 
    TopAppBar(
       colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
       title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("topAppBar.title")) },
       navigationIcon = {
          Row {
-            if(navMenuCallback != null)
+            if (navMenuCallback != null)
                IconButton(onClick = navMenuCallback, modifier = Modifier.testTag("topBar.menuIcon"))
                { Icon(Icons.Default.Menu, "Open navigation menu") }
-            if(businessReady && qNavigator?.atHome == false)
+            if (businessReady && qNavigator?.atHome == false)
                IconButton(onClick = hostBackAction ?: qNavigator::popStack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Go Back") }
          }
       },
@@ -89,21 +87,20 @@ fun QTopAppBar(qViewModel: QViewModel, defaultTitle: String = "A QQQ Android App
          { Icon(Icons.Default.AccountCircle, "Account") }
       }
    )
-   if(accountOpen.value) AccountDialog(qViewModel) { accountOpen.value = false }
+   if (accountOpen.value) AccountDialog(qViewModel) { accountOpen.value = false }
 
-   if(showNetworkDialog)
-   {
+   if (showNetworkDialog) {
       NetworkConnectionDialog(qViewModel)
    }
 
 }
 
 
-
-/** Legacy internet-presence prompt; hosts with server reachability monitoring can omit it. */
+/*******************************************************************************
+ ** Legacy internet-presence prompt; hosts with server reachability monitoring can omit it.
+ *******************************************************************************/
 @Composable
-private fun NetworkConnectionDialog(qViewModel: QViewModel)
-{
+private fun NetworkConnectionDialog(qViewModel: QViewModel) {
    val networkAvailable = remember { mutableStateOf(true) }
    val connectivityManager = getSystemService(LocalContext.current, ConnectivityManager::class.java) as ConnectivityManager
    DisposableEffect(connectivityManager)
@@ -114,23 +111,25 @@ private fun NetworkConnectionDialog(qViewModel: QViewModel)
          .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
          .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
          .build()
-      val callback = object : ConnectivityManager.NetworkCallback()
-      {
-         override fun onAvailable(network: Network)
-         {
+      val callback = object : ConnectivityManager.NetworkCallback() {
+         /*******************************************************************************
+          ** Update the network-presence model when Android reports an available network.
+          *******************************************************************************/
+         override fun onAvailable(network: Network) {
             networkAvailable.value = networks.onAvailable(network.networkHandle)
          }
 
-         override fun onLost(network: Network)
-         {
+         /*******************************************************************************
+          ** Update the network-presence model for this lost network instead of unconditionally declaring the device offline.
+          *******************************************************************************/
+         override fun onLost(network: Network) {
             networkAvailable.value = networks.onLost(network.networkHandle)
          }
       }
       connectivityManager.registerNetworkCallback(request, callback)
       onDispose { connectivityManager.unregisterNetworkCallback(callback) }
    }
-   if(!networkAvailable.value)
-   {
+   if (!networkAvailable.value) {
       NoNetworkDialog(qViewModel)
    }
 }

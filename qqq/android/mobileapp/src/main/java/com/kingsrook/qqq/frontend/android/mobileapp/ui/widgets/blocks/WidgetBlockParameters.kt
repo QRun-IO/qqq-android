@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -24,14 +25,13 @@ package com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks
 import com.kingsrook.qqq.frontend.android.core.model.widgets.WidgetBlock
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
-/***************************************************************************
+/*******************************************************************************
  ** common parameter object passed in to any of the *WidgetBlock composables.
- ***************************************************************************/
+ *******************************************************************************/
 data class WidgetBlockParameters(
    val widgetBlock: WidgetBlock,
    val actionCallback: ((Map<String, Any>) -> Unit)? = null,
    val qViewModel: QViewModel? = null,
    val values: MutableMap<String, Any?> = mutableMapOf(),
-)
-{
+) {
 }

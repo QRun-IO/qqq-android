@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -49,59 +50,82 @@ typealias MapOfStringAny = Map<String, @Serializable(with = AnyValueSerializer::
 typealias MutableMapOfStringAny = MutableMap<String, @Serializable(with = AnyValueSerializer::class) Any?>
 typealias ListOfAny = List<@Serializable(with = AnyValueSerializer::class) Any?>
 
-/** Legacy public model retained for source compatibility; it has no special meaning in API JSON. */
+/*******************************************************************************
+ ** Legacy public model retained for source compatibility; it has no special meaning in API JSON.
+ *******************************************************************************/
 @Serializable
 data class AnyValueSurrogate(val type: String, @Contextual val value: Any?)
 
-/** Legacy null marker retained for callers; API nulls use JSON null. */
+/*******************************************************************************
+ ** Legacy null marker retained for callers; API nulls use JSON null.
+ *******************************************************************************/
 @Serializable
 object NoneType
 
-/** Wrapper retained for clients using the original generic serializer API. */
+/*******************************************************************************
+ ** Wrapper retained for clients using the original generic serializer API.
+ *******************************************************************************/
 @Serializable(with = AnySerializableValueSerializer::class)
 data class AnySerializableValue(val value: Any?)
 
-/** Delegate wrapped values to the JSON data serializer without class discovery. */
-object AnySerializableValueSerializer : KSerializer<AnySerializableValue>
-{
+/*******************************************************************************
+ ** Delegate wrapped values to the JSON data serializer without class discovery.
+ *******************************************************************************/
+object AnySerializableValueSerializer : KSerializer<AnySerializableValue> {
    override val descriptor = JsonElement.serializer().descriptor
+
+   /*******************************************************************************
+    ** Delegate framing to the declared JSON serializer without introducing wire-controlled JVM class discovery.
+    *******************************************************************************/
    override fun serialize(encoder: Encoder, value: AnySerializableValue) = AnyValueSerializer.serialize(encoder, value.value)
+
+   /*******************************************************************************
+    ** Reconstruct the declared wrapper through its JSON delegate instead of resolving classes from input.
+    *******************************************************************************/
    override fun deserialize(decoder: Decoder) = AnySerializableValue(AnyValueSerializer.deserialize(decoder))
 }
 
 typealias SerializableMapType = MutableMap<String, AnySerializableValue>
 typealias SerializableListType = MutableList<AnySerializableValue>
 
-/** Legacy collection declarations retain their original public API shape. */
+/*******************************************************************************
+ ** Legacy collection declarations retain their original public API shape.
+ *******************************************************************************/
 @Serializable
 abstract class SerializableMap : SerializableMapType
 
-/** Legacy collection declarations retain their original public API shape. */
+/*******************************************************************************
+ ** Legacy collection declarations retain their original public API shape.
+ *******************************************************************************/
 @Serializable
 abstract class SerializableList : SerializableListType
 
-/** Semantic API values are JSON data; business keys never select JVM classes. */
-object AnyValueSerializer : KSerializer<Any?>
-{
+/*******************************************************************************
+ ** Semantic API values are JSON data; business keys never select JVM classes.
+ *******************************************************************************/
+object AnyValueSerializer : KSerializer<Any?> {
    override val descriptor: SerialDescriptor = JsonElement.serializer().descriptor
 
-   /** Encode arbitrary API maps/lists without adding class-name envelopes. */
-   override fun serialize(encoder: Encoder, value: Any?)
-   {
+   /*******************************************************************************
+    ** Encode arbitrary API maps/lists without adding class-name envelopes.
+    *******************************************************************************/
+   override fun serialize(encoder: Encoder, value: Any?) {
       val json = encoder as? JsonEncoder ?: throw SerializationException("API values require JSON")
       json.encodeJsonElement(toJson(value))
    }
 
-   /** Decode objects uniformly, including objects whose keys happen to be type and value. */
-   override fun deserialize(decoder: Decoder): Any?
-   {
+   /*******************************************************************************
+    ** Decode objects uniformly, including objects whose keys happen to be type and value.
+    *******************************************************************************/
+   override fun deserialize(decoder: Decoder): Any? {
       val json = decoder as? JsonDecoder ?: throw SerializationException("API values require JSON")
       return fromJson(json.decodeJsonElement())
    }
 
-   /** Only serialization uses a locally supplied object's serializer; wire input never loads classes. */
-   private fun toJson(value: Any?): JsonElement = when(value)
-   {
+   /*******************************************************************************
+    ** Only serialization uses a locally supplied object's serializer; wire input never loads classes.
+    *******************************************************************************/
+   private fun toJson(value: Any?): JsonElement = when (value) {
       null -> JsonNull
       is JsonElement -> value
       is String -> JsonPrimitive(value)
@@ -111,44 +135,68 @@ object AnyValueSerializer : KSerializer<Any?>
          val name = entry.key as? String ?: throw SerializationException("JSON object keys must be strings")
          name to toJson(entry.value)
       })
+
       is Iterable<*> -> JsonArray(value.map(::toJson))
       else -> Json.encodeToJsonElement(serializer(value::class.starProjectedType), value)
    }
 
-   /** Preserve integer values and nulls while keeping arbitrary nested objects as ordinary maps. */
-   private fun fromJson(value: JsonElement): Any? = when(value)
-   {
+   /*******************************************************************************
+    ** Preserve integer values and nulls while keeping arbitrary nested objects as ordinary maps.
+    *******************************************************************************/
+   private fun fromJson(value: JsonElement): Any? = when (value) {
       JsonNull -> null
       is JsonObject -> value.mapValues { fromJson(it.value) }
       is JsonArray -> value.map(::fromJson)
-      is JsonPrimitive -> if(value.isString) value.content else
+      is JsonPrimitive -> if (value.isString) value.content else
          value.booleanOrNull ?: value.longOrNull ?: value.doubleOrNull
          ?: throw SerializationException("Invalid JSON primitive")
    }
 }
 
-/** Wrapper retained for callers that serialize arbitrary JSON object values. */
+/*******************************************************************************
+ ** Wrapper retained for callers that serialize arbitrary JSON object values.
+ *******************************************************************************/
 @Serializable(with = MapStringAnySerializer::class)
 data class MapStringAny(val entries: Map<String, Any?> = emptyMap())
 
-/** Delegate object framing to the standard map serializer. */
-object MapStringAnySerializer : KSerializer<MapStringAny>
-{
+/*******************************************************************************
+ ** Delegate object framing to the standard map serializer.
+ *******************************************************************************/
+object MapStringAnySerializer : KSerializer<MapStringAny> {
    private val delegate = MapSerializer(String.serializer(), AnyValueSerializer)
    override val descriptor = delegate.descriptor
+
+   /*******************************************************************************
+    ** Delegate framing to the declared JSON serializer without introducing wire-controlled JVM class discovery.
+    *******************************************************************************/
    override fun serialize(encoder: Encoder, value: MapStringAny) = delegate.serialize(encoder, value.entries)
+
+   /*******************************************************************************
+    ** Reconstruct the declared wrapper through its JSON delegate instead of resolving classes from input.
+    *******************************************************************************/
    override fun deserialize(decoder: Decoder) = MapStringAny(delegate.deserialize(decoder))
 }
 
-/** Wrapper retained for callers that serialize arbitrary JSON lists. */
+/*******************************************************************************
+ ** Wrapper retained for callers that serialize arbitrary JSON lists.
+ *******************************************************************************/
 @Serializable(with = ListAnySerializer::class)
 data class ListAny(val entries: List<Any?> = emptyList())
 
-/** Delegate list framing to the standard list serializer. */
-object ListAnySerializer : KSerializer<ListAny>
-{
+/*******************************************************************************
+ ** Delegate list framing to the standard list serializer.
+ *******************************************************************************/
+object ListAnySerializer : KSerializer<ListAny> {
    private val delegate = ListSerializer(AnyValueSerializer)
    override val descriptor = delegate.descriptor
+
+   /*******************************************************************************
+    ** Delegate framing to the declared JSON serializer without introducing wire-controlled JVM class discovery.
+    *******************************************************************************/
    override fun serialize(encoder: Encoder, value: ListAny) = delegate.serialize(encoder, value.entries)
+
+   /*******************************************************************************
+    ** Reconstruct the declared wrapper through its JSON delegate instead of resolving classes from input.
+    *******************************************************************************/
    override fun deserialize(decoder: Decoder) = ListAny(delegate.deserialize(decoder))
 }

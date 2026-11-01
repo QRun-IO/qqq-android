@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -30,12 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun FullScreenLoading(loadingText: String, modifier: Modifier = Modifier)
-{
+fun FullScreenLoading(loadingText: String, modifier: Modifier = Modifier) {
    FullSizedAllCenteredColumn(modifier)
    {
       Text(loadingText, color = Color.Gray, modifier = Modifier.padding(bottom = 16.dp))

@@ -1,18 +1,34 @@
 /* Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 */
 package io.qrun.mobile.scanner
 
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
-class LatestScreenImageTest
-{
+/*******************************************************************************
+ **
+ *******************************************************************************/
+class LatestScreenImageTest {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    private class Image : AutoCloseable {
       var closes = 0
-      override fun close() { closes++ }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      override fun close() {
+         closes++
+      }
    }
 
-   @Test fun replacingFramesRetainsOnlyTheNewestAndReleasesPreviousBuffers()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun replacingFramesRetainsOnlyTheNewestAndReleasesPreviousBuffers() {
       val latest = LatestScreenImage<Image>()
       val first = Image()
       val second = Image()
@@ -26,8 +42,11 @@ class LatestScreenImageTest
       assertEquals(1, second.closes)
    }
 
-   @Test fun repeatedStopAndDuplicateNotificationDoNotCloseAnOwnedBufferTwice()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun repeatedStopAndDuplicateNotificationDoNotCloseAnOwnedBufferTwice() {
       val latest = LatestScreenImage<Image>()
       val image = Image()
       latest.replace(image)

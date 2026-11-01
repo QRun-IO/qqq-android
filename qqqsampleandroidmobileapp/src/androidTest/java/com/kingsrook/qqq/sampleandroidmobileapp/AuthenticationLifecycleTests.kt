@@ -49,31 +49,41 @@ import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 
-/** Deliberately delayed, cancellation-resistant responses model a server finishing after local sign-out. */
-class AuthenticationLifecycleTests : BaseTest()
-{
-   @get:Rule val ui = createAndroidComposeRule<ComponentActivity>()
+/*******************************************************************************
+ ** Deliberately delayed, cancellation-resistant responses model a server finishing after local sign-out.
+ *******************************************************************************/
+class AuthenticationLifecycleTests : BaseTest() {
+   @get:Rule
+   val ui = createAndroidComposeRule<ComponentActivity>()
    private val first = Environment("First", "https://first.example.test/")
    private val second = Environment("Second", "https://second.example.test/")
    private val fixtures = mutableListOf<Fixture>()
 
-   @After fun releaseHeldResponses()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @After
+   fun releaseHeldResponses() {
       fixtures.forEach { it.release.complete(Unit); it.releaseLogout.complete(Unit); it.store.releaseWrite.complete(Unit) }
    }
 
-   private class HeldStore : DataStore<Preferences>
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private class HeldStore : DataStore<Preferences> {
       private val delegate = MockPreferencesDataStore()
       val preferences get() = delegate.preferences
       override val data get() = delegate.data
       val holdNextWrite = AtomicBoolean()
       val writeStarted = CompletableDeferred<Unit>()
       val releaseWrite = CompletableDeferred<Unit>()
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
       override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences = delegate.updateData {
          val next = transform(it)
-         if(holdNextWrite.compareAndSet(true, false))
-         {
+         if (holdNextWrite.compareAndSet(true, false)) {
             writeStarted.complete(Unit)
             releaseWrite.await()
          }
@@ -81,8 +91,10 @@ class AuthenticationLifecycleTests : BaseTest()
       }
    }
 
-   private inner class Fixture(holdFirst: Boolean, holdLogout: Boolean, holdFinalWrite: Boolean)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private inner class Fixture(holdFirst: Boolean, holdLogout: Boolean, holdFinalWrite: Boolean) {
       val store = HeldStore()
       val calls = AtomicInteger()
       val cookie = AtomicReference("")
@@ -94,42 +106,85 @@ class AuthenticationLifecycleTests : BaseTest()
       val providerLogoutCalls = AtomicInteger()
       val callback = AtomicReference<Callback<Credentials, AuthenticationException>?>()
       val logoutCallback = AtomicReference<Callback<Void?, AuthenticationException>?>()
-      val metadata = Auth0AuthenticationMetaData("Auth0", Auth0AuthenticationMetaDataValues(
-         "https://identity.example.test", "public-client", "https://api.example.test"))
-      val repository = object : QQQRepository by SampleAppMockQQQRepository()
-      {
+      val metadata = Auth0AuthenticationMetaData(
+         "Auth0", Auth0AuthenticationMetaDataValues(
+            "https://identity.example.test", "public-client", "https://api.example.test"
+         )
+      )
+      val repository = object : QQQRepository by SampleAppMockQQQRepository() {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
          override suspend fun getAuthenticationMetaData() = metadata
-         override fun setSessionUUID(sessionUUID: String) { cookie.set(sessionUUID) }
-         override suspend fun logout()
-         {
-            logoutCalls.incrementAndGet()
-            if(holdLogout) releaseLogout.await()
-            cookie.set("")
-            if(holdFinalWrite) store.holdNextWrite.set(true)
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override fun setSessionUUID(sessionUUID: String) {
+            cookie.set(sessionUUID)
          }
-         private suspend fun exchange(): ManageSessionResponse
-         {
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun logout() {
+            logoutCalls.incrementAndGet()
+            if (holdLogout) releaseLogout.await()
+            cookie.set("")
+            if (holdFinalWrite) store.holdNextWrite.set(true)
+         }
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         private suspend fun exchange(): ManageSessionResponse {
             val number = calls.incrementAndGet()
-            if(holdFirst && number == 1) withContext(NonCancellable) { release.await() }
+            if (holdFirst && number == 1) withContext(NonCancellable) { release.await() }
             return ManageSessionResponse("synthetic-session-$number")
          }
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
          override suspend fun loginWithPassword(username: String, password: String) = exchange()
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
          override suspend fun manageSession(body: ManageSessionRequest) = exchange()
-         override suspend fun discardNativeSession(server: String, session: String) { discarded.add(server to session) }
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun discardNativeSession(server: String, session: String) {
+            discarded.add(server to session)
+         }
       }
       lateinit var model: QViewModel
-      val browser = object : Auth0Browser
-      {
-         override fun login(context: Context, account: Auth0, audience: String, scheme: String,
-            callback: Callback<Credentials, AuthenticationException>)
-         { browserCalls.incrementAndGet(); this@Fixture.callback.set(callback) }
-         override fun logout(context: Context, account: Auth0, scheme: String, callback: Callback<Void?, AuthenticationException>)
-         { providerLogoutCalls.incrementAndGet(); logoutCallback.set(callback) }
+      val browser = object : Auth0Browser {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override fun login(
+            context: Context, account: Auth0, audience: String, scheme: String,
+            callback: Callback<Credentials, AuthenticationException>
+         ) {
+            browserCalls.incrementAndGet(); this@Fixture.callback.set(callback)
+         }
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override fun logout(context: Context, account: Auth0, scheme: String, callback: Callback<Void?, AuthenticationException>) {
+            providerLogoutCalls.incrementAndGet(); logoutCallback.set(callback)
+         }
       }
    }
 
-   private fun start(holdFirst: Boolean = true, holdLogout: Boolean = false, holdFinalWrite: Boolean = false): Fixture
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun start(holdFirst: Boolean = true, holdLogout: Boolean = false, holdFinalWrite: Boolean = false): Fixture {
       QAppContainer.availableEnvironments = listOf(first, second)
       QAuth0Service.scheme = "qqq-test"
       val fixture = Fixture(holdFirst, holdLogout, holdFinalWrite).also { fixtures.add(it) }
@@ -138,8 +193,10 @@ class AuthenticationLifecycleTests : BaseTest()
       return fixture
    }
 
-   private fun assertCleared(fixture: Fixture)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun assertCleared(fixture: Fixture) {
       ui.runOnIdle {
          assertFalse(fixture.model.isAuthenticated)
          assertEquals("", fixture.model.sessionUUID)
@@ -148,8 +205,11 @@ class AuthenticationLifecycleTests : BaseTest()
       }
    }
 
-   @Test fun delayedPasswordAfterLogoutCannotRestoreRetainedModel()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun delayedPasswordAfterLogoutCannotRestoreRetainedModel() {
       val fixture = start()
       ui.runOnIdle { fixture.model.loginWithPassword("operator", "synthetic-password") }
       ui.waitUntil(5000) { fixture.calls.get() == 1 }
@@ -161,8 +221,11 @@ class AuthenticationLifecycleTests : BaseTest()
       assertEquals(first.baseUrl to "synthetic-session-1", fixture.discarded.single())
    }
 
-   @Test fun delayedPasswordFromPreviousServerCannotReplaceNewOperator()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun delayedPasswordFromPreviousServerCannotReplaceNewOperator() {
       val fixture = start()
       ui.runOnIdle { fixture.model.loginWithPassword("old", "synthetic-password") }
       ui.waitUntil(5000) { fixture.calls.get() == 1 }
@@ -181,21 +244,31 @@ class AuthenticationLifecycleTests : BaseTest()
       assertEquals(first.baseUrl to "synthetic-session-1", fixture.discarded.single())
    }
 
-   private fun showAuth0(fixture: Fixture)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun showAuth0(fixture: Fixture) {
       ui.setContent { CompositionLocalProvider(LocalAuth0Browser provides fixture.browser) { QAuth0Login(fixture.model) } }
       ui.waitUntil(5000) { fixture.callback.get() != null }
    }
 
-   private fun credentials(): Credentials
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun credentials(): Credentials {
+      /*******************************************************************************
+       **
+       *******************************************************************************/
       fun encoded(value: String) = Base64.encodeToString(value.toByteArray(), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
       val token = encoded("""{"alg":"none"}""") + "." + encoded("""{"sub":"synthetic","nickname":"Operator"}""") + ".synthetic"
       return Credentials(token, "synthetic-provider-token", "Bearer", null, Date(System.currentTimeMillis() + 60000), "openid")
    }
 
-   @Test fun lateAuth0BrowserCallbackAfterLogoutSendsNoToken()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun lateAuth0BrowserCallbackAfterLogoutSendsNoToken() {
       val fixture = start()
       showAuth0(fixture)
       val callback = requireNotNull(fixture.callback.get())
@@ -207,8 +280,11 @@ class AuthenticationLifecycleTests : BaseTest()
       assertCleared(fixture)
    }
 
-   @Test fun lateAuth0BrowserCallbackAfterServerSwitchSendsNoToken()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun lateAuth0BrowserCallbackAfterServerSwitchSendsNoToken() {
       val fixture = start()
       showAuth0(fixture)
       val callback = requireNotNull(fixture.callback.get())
@@ -220,8 +296,11 @@ class AuthenticationLifecycleTests : BaseTest()
       assertCleared(fixture)
    }
 
-   @Test fun delayedAuth0ExchangeAfterLogoutIsRevokedAtOriginalServer()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun delayedAuth0ExchangeAfterLogoutIsRevokedAtOriginalServer() {
       val fixture = start()
       showAuth0(fixture)
       requireNotNull(fixture.callback.get()).onSuccess(credentials())
@@ -234,8 +313,11 @@ class AuthenticationLifecycleTests : BaseTest()
       assertEquals(first.baseUrl to "synthetic-session-1", fixture.discarded.single())
    }
 
-   @Test fun duplicateAuth0SuccessCallbackStartsOnlyOneExchange()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun duplicateAuth0SuccessCallbackStartsOnlyOneExchange() {
       val fixture = start()
       showAuth0(fixture)
       val callback = requireNotNull(fixture.callback.get())
@@ -251,8 +333,11 @@ class AuthenticationLifecycleTests : BaseTest()
       assertTrue(fixture.discarded.isEmpty())
    }
 
-   @Test fun failedProviderLogoutStillClearsLocalSessionAndCannotRestoreOnRestart()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun failedProviderLogoutStillClearsLocalSessionAndCannotRestoreOnRestart() {
       val fixture = start(holdFirst = false)
       ui.runOnIdle { fixture.model.loginWithPassword("operator", "synthetic-password") }
       ui.waitUntil(5000) { fixture.model.isAuthenticated && !fixture.store.preferences[SESSION_UUID_KEY].isNullOrBlank() }
@@ -280,8 +365,11 @@ class AuthenticationLifecycleTests : BaseTest()
       }
    }
 
-   @Test fun auth0EffectLaunchesOnceAndCurrentResponseIsAdopted()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun auth0EffectLaunchesOnceAndCurrentResponseIsAdopted() {
       val fixture = start(holdFirst = false)
       val redraw = mutableStateOf(0)
       ui.setContent {
@@ -300,8 +388,11 @@ class AuthenticationLifecycleTests : BaseTest()
       assertTrue(fixture.discarded.isEmpty())
    }
 
-   @Test fun repeatedLogoutSharesOneRevocationAndCannotClearTheNextLogin()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun repeatedLogoutSharesOneRevocationAndCannotClearTheNextLogin() {
       val fixture = start(holdFirst = false, holdLogout = true)
       ui.runOnIdle { fixture.model.loginWithPassword("first", "synthetic-password") }
       ui.waitUntil(5000) { fixture.model.isAuthenticated }
@@ -311,9 +402,15 @@ class AuthenticationLifecycleTests : BaseTest()
          assertSame(firstLogout, repeatedLogout)
          fixture.model.loginWithPassword("blocked", "synthetic-password")
          assertTrue(fixture.model.logoutInProgress)
-         assertNull(fixture.model.prepareOAuth2Login(OAuth2LoginBinding(first.baseUrl, "provider",
-            "https://identity.example.test/", "https://identity.example.test/discovery", "public-client",
-            "openid", "qqq-test://callback", "login", "REQUIRED")))
+         assertNull(
+            fixture.model.prepareOAuth2Login(
+               OAuth2LoginBinding(
+                  first.baseUrl, "provider",
+                  "https://identity.example.test/", "https://identity.example.test/discovery", "public-client",
+                  "openid", "qqq-test://callback", "login", "REQUIRED"
+               )
+            )
+         )
       }
       ui.waitUntil(5000) { fixture.logoutCalls.get() == 1 }
       assertEquals(1, fixture.calls.get())
@@ -329,8 +426,11 @@ class AuthenticationLifecycleTests : BaseTest()
       }
    }
 
-   @Test fun fullAuthenticationWrapperKeepsLogoutStableWhileStorageFinishes()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun fullAuthenticationWrapperKeepsLogoutStableWhileStorageFinishes() {
       val fixture = start(holdFirst = false, holdFinalWrite = true)
       val visible = mutableStateOf(true)
       ui.runOnIdle { fixture.model.loginWithPassword("operator", "synthetic-password") }
@@ -338,7 +438,7 @@ class AuthenticationLifecycleTests : BaseTest()
       ui.runOnIdle { fixture.model.requestLogout() }
       ui.setContent {
          CompositionLocalProvider(LocalAuth0Browser provides fixture.browser) {
-            if(visible.value) QAuthenticationWrapper(fixture.model)
+            if (visible.value) QAuthenticationWrapper(fixture.model)
          }
       }
       ui.waitUntil(5000) { fixture.store.writeStarted.isCompleted }

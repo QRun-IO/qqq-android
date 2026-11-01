@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -30,97 +31,101 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.components.ProcessComponentWidget
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ProcessComponentWidgetPreview()
-{
+fun ProcessComponentWidgetPreview() {
    val processViewModel = ProcessViewModel()
    processViewModel.qqqRepository = SampleAppMockQQQRepository()
-   val component = QFrontendComponent(type = QComponentType.WIDGET, values = mapOf(
-      "isAdHocWidget" to true,
-      "blocks" to listOf(
-         mapOf(
-            "blockType" to "TEXT",
-            "styles" to mapOf(
-               "foo" to "bar"
-            ),
-            "values" to mapOf(
-               "text" to "this is my text, what do you want from me?"
-            ),
+   val component = QFrontendComponent(
+      type = QComponentType.WIDGET, values = mapOf(
+         "isAdHocWidget" to true,
+         "blocks" to listOf(
+            mapOf(
+               "blockType" to "TEXT",
+               "styles" to mapOf(
+                  "foo" to "bar"
+               ),
+               "values" to mapOf(
+                  "text" to "this is my text, what do you want from me?"
+               ),
+            )
          )
       )
-   ))
-   ProcessComponentWidget(processViewModel, QInstance(),  component)
+   )
+   ProcessComponentWidget(processViewModel, QInstance(), component)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ProcessComponentWidgetPreviewMultipleAdHoc()
-{
+fun ProcessComponentWidgetPreviewMultipleAdHoc() {
    val processViewModel = ProcessViewModel()
    processViewModel.qqqRepository = SampleAppMockQQQRepository()
-   val component = QFrontendComponent(type = QComponentType.WIDGET, values = mapOf(
-      "isAdHocWidget" to true,
-      "blocks" to listOf(
-         mapOf(
-            "blockType" to "TEXT",
-            "styles" to mapOf(
-               "standardColor" to "SUCCESS"
+   val component = QFrontendComponent(
+      type = QComponentType.WIDGET, values = mapOf(
+         "isAdHocWidget" to true,
+         "blocks" to listOf(
+            mapOf(
+               "blockType" to "TEXT",
+               "styles" to mapOf(
+                  "standardColor" to "SUCCESS"
+               ),
+               "values" to mapOf(
+                  "text" to "this is my text, what do you want from me?"
+               ),
             ),
-            "values" to mapOf(
-               "text" to "this is my text, what do you want from me?"
-            ),
-         ),
-         mapOf(
-            "blockType" to "TEXT",
-            "values" to mapOf(
-               "text" to "and this is mine."
-            ),
+            mapOf(
+               "blockType" to "TEXT",
+               "values" to mapOf(
+                  "text" to "and this is mine."
+               ),
+            )
          )
       )
-   ))
+   )
    ProcessComponentWidget(processViewModel, QInstance(), component)
 }
 
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ProcessComponentWidgetAdHocUnknownType()
-{
+fun ProcessComponentWidgetAdHocUnknownType() {
    val processViewModel = ProcessViewModel()
    processViewModel.qqqRepository = SampleAppMockQQQRepository()
-   val component = QFrontendComponent(type = QComponentType.WIDGET, values = mapOf(
-      "isAdHocWidget" to true,
-      "blocks" to listOf(
-         mapOf(
-            "blockType" to "FOOBAR"
+   val component = QFrontendComponent(
+      type = QComponentType.WIDGET, values = mapOf(
+         "isAdHocWidget" to true,
+         "blocks" to listOf(
+            mapOf(
+               "blockType" to "FOOBAR"
+            )
          )
       )
-   ))
+   )
    ProcessComponentWidget(processViewModel, QInstance(), component)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ProcessComponentWidgetPreviewNonAdHoc()
-{
+fun ProcessComponentWidgetPreviewNonAdHoc() {
    val processViewModel = ProcessViewModel()
    processViewModel.qqqRepository = SampleAppMockQQQRepository()
-   val component = QFrontendComponent(type = QComponentType.WIDGET, values = mapOf(
-      "widgetName" to "testWidget"
-   ))
+   val component = QFrontendComponent(
+      type = QComponentType.WIDGET, values = mapOf(
+         "widgetName" to "testWidget"
+      )
+   )
    ProcessComponentWidget(processViewModel, QInstance(), component)
 }
 

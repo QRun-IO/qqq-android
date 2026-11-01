@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -44,9 +45,9 @@ import com.kingsrook.qqq.frontend.android.mobileapp.R
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullScreenLoading
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 
-/***************************************************************************
+/*******************************************************************************
  ** Composable that
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
 fun LoadStateView(
    loadStates: List<LoadState<*>>,
@@ -55,11 +56,9 @@ fun LoadStateView(
    loadingText: String = "Loading...",
    errorHeadline: String = "An Error Has Occurred",
    content: @Composable ColumnScope.() -> Unit
-)
-{
+) {
 
-   if(LoadState.areAnyErrors(loadStates))
-   {
+   if (LoadState.areAnyErrors(loadStates)) {
       ///////////////////////////////////////////////////////
       // show errors, with reload button, if one was given //
       ///////////////////////////////////////////////////////
@@ -90,8 +89,7 @@ fun LoadStateView(
             }
          }
 
-         if(reloader != null)
-         {
+         if (reloader != null) {
             item()
             {
                Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth())
@@ -105,16 +103,12 @@ fun LoadStateView(
          }
       }
 
-   }
-   else if(LoadState.areAnyLoading(loadStates))
-   {
+   } else if (LoadState.areAnyLoading(loadStates)) {
       //////////////////
       // show loading //
       //////////////////
       FullScreenLoading(loadingText, modifier)
-   }
-   else
-   {
+   } else {
       ///////////////////////
       // show the content! //
       ///////////////////////

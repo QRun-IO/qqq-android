@@ -7,9 +7,16 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Process;
 
-/** Headless adversarial sender: the NEW intents originate under this ordinary application's UID. */
+/*******************************************************************************
+ ** Headless adversarial sender: new intents originate under this ordinary
+ ** application's UID, independently of the production scanner service.
+ *******************************************************************************/
 public final class ScanProbeReceiver extends BroadcastReceiver
 {
+   /*******************************************************************************
+    ** Restrict synthetic scan attempts to disposable QA/E2E packages and report
+    ** the sender UID separately so acceptance can verify the security boundary.
+    *******************************************************************************/
    @Override
    public void onReceive(Context context, Intent control)
    {

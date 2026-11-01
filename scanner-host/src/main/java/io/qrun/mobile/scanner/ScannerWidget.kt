@@ -35,11 +35,14 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBloc
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessAcknowledgment
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalProcessInputAllowed
 
-/** A server-defined SCANNER widget accepts device-owned callbacks only while visible and resumed. */
+/*******************************************************************************
+ ** A server-defined SCANNER widget accepts device-owned callbacks only while visible and resumed.
+ *******************************************************************************/
 @Composable
-internal fun ScannerWidget(parameters: WidgetBlockParameters, modifier: Modifier, disabled: Boolean,
-   driverFactory: (Context) -> ScannerDriver? = ::createScannerDriver)
-{
+internal fun ScannerWidget(
+   parameters: WidgetBlockParameters, modifier: Modifier, disabled: Boolean,
+   driverFactory: (Context) -> ScannerDriver? = ::createScannerDriver
+) {
    val context = LocalContext.current
    val view = LocalView.current
    val windowFocused = LocalWindowInfo.current.isWindowFocused
@@ -53,55 +56,66 @@ internal fun ScannerWidget(parameters: WidgetBlockParameters, modifier: Modifier
    var canReconnect by remember { mutableStateOf(false) }
    val currentDisabled by rememberUpdatedState(disabled)
    val metadataResult = runCatching { ScannerMetaData.parse(parameters.widgetBlock.values) }
-   if(metadataResult.isFailure)
-   {
+   if (metadataResult.isFailure) {
       Text("This scanner control has unsupported metadata. Contact your administrator.", modifier.padding(20.dp))
       return
    }
    val scannerMetaData = metadataResult.getOrThrow()
    val process = parameters.qViewModel?.activeProcessViewModel
+
+   /*******************************************************************************
+    ** Bind input eligibility to the same active process and loaded server step that rendered this widget.
+    *******************************************************************************/
    fun processReady() = process != null && parameters.qViewModel?.activeProcessViewModel === process &&
       !currentDisabled && !process.cancelling && !process.waitingOnBackend && process.pendingStepValues == null
+
+   /*******************************************************************************
+    ** Combine operator focus, lifecycle and process readiness before accepting hardware or manual input.
+    *******************************************************************************/
    fun inputReady() = inputAllowed() && view.hasWindowFocus() &&
       lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && processReady()
+
    val ready = windowFocused && inputAllowed() && processReady()
    val currentInputReady by rememberUpdatedState<() -> Boolean>(::inputReady)
    LaunchedEffect(parameters.values["acknowledgedEventId"]) { notice = "" }
 
-   /** Each new physical scan has an identity; retries are handled by ProcessViewModel. */
-   fun submit(barcode: String, symbology: String, source: String): Boolean
-   {
-      if(process == null)
-      {
+   /*******************************************************************************
+    ** Each new physical scan has an identity; retries are handled by ProcessViewModel.
+    *******************************************************************************/
+   fun submit(barcode: String, symbology: String, source: String): Boolean {
+      if (process == null) {
          notice = "This scanner control requires an active process."
          return false
       }
-      if(!inputReady())
-      {
+      if (!inputReady()) {
          notice = "Wait for the previous scan to be confirmed."
          return false
       }
-      if(barcode.isEmpty() || barcode.length > scannerMetaData.maxLength)
-      {
+      if (barcode.isEmpty() || barcode.length > scannerMetaData.maxLength) {
          notice = "Scan must contain between 1 and ${scannerMetaData.maxLength} characters."
          return false
       }
       notice = "Sending scan…"
       val event = ScanEvent(barcode, symbology, source)
-      process.runStep(event.values(), ProcessAcknowledgment("acknowledgedEventId", event.eventId,
-         requiredValues = mapOf("scanSaved" to true), nonEmptyStringFields = setOf("scanId")))
+      process.runStep(
+         event.values(), ProcessAcknowledgment(
+            "acknowledgedEventId", event.eventId,
+            requiredValues = mapOf("scanSaved" to true), nonEmptyStringFields = setOf("scanId")
+         )
+      )
       // runStep can reject local metadata/validation before accepting an event.
       // A synchronous test repository can also finish and acknowledge it immediately.
       val accepted = process.pendingStepValues?.get("eventId") == event.eventId ||
          process.processValues["acknowledgedEventId"] == event.eventId
-      if(!accepted) notice = "Scan was not submitted. Review the process message and try again."
+      if (!accepted) notice = "Scan was not submitted. Review the process message and try again."
       return accepted
    }
 
    val currentSubmit by rememberUpdatedState<(String, String, String) -> Boolean>(::submit)
    val input = remember(context, process, driverFactory)
    {
-      ScannerInputSession({ driverFactory(context) },
+      ScannerInputSession(
+         { driverFactory(context) },
          { barcode, symbology -> currentSubmit(barcode, symbology, HARDWARE_SCAN_SOURCE) },
          { message, reconnect -> scannerStatus = message; canReconnect = reconnect },
          canAcceptInput = { currentInputReady() })
@@ -109,7 +123,13 @@ internal fun ScannerWidget(parameters: WidgetBlockParameters, modifier: Modifier
    SideEffect { input.setAccepting(ready) }
    DisposableEffect(input, lifecycle)
    {
-      fun syncRegistration() { input.setActive(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
+      /*******************************************************************************
+       ** Let the current lifecycle decide hardware ownership rather than retaining capture after pause.
+       *******************************************************************************/
+      fun syncRegistration() {
+         input.setActive(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+      }
+
       val observer = LifecycleEventObserver { _, _ -> syncRegistration() }
       lifecycle.addObserver(observer)
       syncRegistration()
@@ -120,20 +140,22 @@ internal fun ScannerWidget(parameters: WidgetBlockParameters, modifier: Modifier
    {
       Text(parameters.widgetBlock.values["title"]?.toString() ?: "Scan a barcode")
       Text(parameters.widgetBlock.values["instructions"]?.toString() ?: "Press the handheld scan trigger. Wait for server confirmation before scanning again.")
-      if(parameters.values["scanSaved"] == true && notice.isEmpty())
-      {
+      if (parameters.values["scanSaved"] == true && notice.isEmpty()) {
          Text("Saved scan ${parameters.values["scanId"] ?: ""}")
       }
-      if(notice.isNotEmpty()) Text(notice)
-      if(scannerStatus.isNotEmpty()) Text(scannerStatus)
-      if(canReconnect) Button(enabled = ready,
+      if (notice.isNotEmpty()) Text(notice)
+      if (scannerStatus.isNotEmpty()) Text(scannerStatus)
+      if (canReconnect) Button(
+         enabled = ready,
          onClick = { input.reconnect() }) { Text("Reconnect scanner") }
-      OutlinedTextField(manual, { manual = it }, label = { Text(scannerMetaData.manualLabel) }, enabled = ready, singleLine = true,
+      OutlinedTextField(
+         manual, { manual = it }, label = { Text(scannerMetaData.manualLabel) }, enabled = ready, singleLine = true,
          keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() }))
+         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() })
+      )
       Button(enabled = ready && manual.isNotEmpty(), onClick = {
          focusManager.clearFocus(); keyboard?.hide()
-         if(submit(manual, "MANUAL", "manual")) manual = ""
+         if (submit(manual, "MANUAL", "manual")) manual = ""
       }) { Text(scannerMetaData.submitLabel) }
    }
 }

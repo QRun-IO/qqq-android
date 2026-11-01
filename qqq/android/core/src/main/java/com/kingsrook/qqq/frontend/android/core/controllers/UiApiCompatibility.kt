@@ -11,82 +11,111 @@ import okhttp3.Request
 const val ANDROID_CLIENT = "android/qqq-mobile"
 const val MOBILE_SCANNERS_PATH = "/qqq/v1/qbit/mobile-scanners"
 
+/*******************************************************************************
+ ** Carry the named extension's version and registered path prefix for pre-credential compatibility checks.
+ *******************************************************************************/
 @Serializable
 data class UiApiExtension(val name: String, val version: String, val pathPrefix: String)
 
+/*******************************************************************************
+ ** Represent public server capabilities independently of any authenticated session.
+ *******************************************************************************/
 @Serializable
-data class UiApiVersion(val apiVersion: String, val features: List<String> = emptyList(), val extensions: List<UiApiExtension> = emptyList(),
-   val clientChannels: List<String> = emptyList())
+data class UiApiVersion(
+   val apiVersion: String, val features: List<String> = emptyList(), val extensions: List<UiApiExtension> = emptyList(),
+   val clientChannels: List<String> = emptyList()
+)
 
+/*******************************************************************************
+ ** Stop unsupported client/server combinations with a safe operator-facing explanation.
+ *******************************************************************************/
 class UiApiCompatibilityException(message: String) : IOException(message)
 
-/** One origin and one host lifetime. Discovery uses a separate client with no credentials or cookies. */
-class UiApiCompatibility(val server: String, private val requireMobileScanners: Boolean = false,
-   private val observer: (RequestOutcome) -> Unit = {})
-{
+/*******************************************************************************
+ ** One origin and one host lifetime. Discovery uses a separate client with no credentials or cookies.
+ *******************************************************************************/
+class UiApiCompatibility(
+   val server: String, private val requireMobileScanners: Boolean = false,
+   private val observer: (RequestOutcome) -> Unit = {}
+) {
    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
       .callTimeout(5, TimeUnit.SECONDS).addInterceptor(RequestOutcomeInterceptor(observer)).build()
-   @Volatile private var verified: UiApiVersion? = null
 
-   /** Call on an IO thread. Synchronization prevents competing startup requests bypassing discovery. */
+   @Volatile
+   private var verified: UiApiVersion? = null
+
+   /*******************************************************************************
+    ** Call on an IO thread. Synchronization prevents competing startup requests bypassing discovery.
+    *******************************************************************************/
    @Synchronized
-   fun verify(): UiApiVersion
-   {
+   fun verify(): UiApiVersion {
       verified?.let { return it }
       val request = Request.Builder().url(server.trimEnd('/') + "/qqq/v1/version")
          .header("X-QQQ-Client", ANDROID_CLIENT).header("Cache-Control", "no-store").build()
       val version = client.newCall(request).execute().use { response ->
-         if(!response.isSuccessful) throw UiApiCompatibilityException("This server does not provide a supported QQQ UI API. Ask your administrator to upgrade the server.")
+         if (!response.isSuccessful) throw UiApiCompatibilityException("This server does not provide a supported QQQ UI API. Ask your administrator to upgrade the server.")
          val source = response.body?.source()
          source?.request(65537)
          val bytes = source?.buffer?.readByteArray(minOf(source.buffer.size, 65537)) ?: byteArrayOf()
-         if(bytes.size > 65536) throw UiApiCompatibilityException("The server returned invalid QQQ UI API version information.")
-         try { Json { ignoreUnknownKeys = true; coerceInputValues = true }.decodeFromString<UiApiVersion>(bytes.toString(Charsets.UTF_8)) }
-         catch(exception: Exception) { throw UiApiCompatibilityException("The server returned invalid QQQ UI API version information.") }
+         if (bytes.size > 65536) throw UiApiCompatibilityException("The server returned invalid QQQ UI API version information.")
+         try {
+            Json { ignoreUnknownKeys = true; coerceInputValues = true }.decodeFromString<UiApiVersion>(bytes.toString(Charsets.UTF_8))
+         } catch (exception: Exception) {
+            throw UiApiCompatibilityException("The server returned invalid QQQ UI API version information.")
+         }
       }
       validate(version, requireMobileScanners)
       verified = version
       return version
    }
 
-   companion object
-   {
+   /*******************************************************************************
+    ** Keep supported protocol ranges and feature checks shared by startup and optional authentication discovery.
+    *******************************************************************************/
+   companion object {
       // Compiled and tested against the published 1.8.0 contract; additive 1.x versions remain compatible.
       const val SUPPORTED_CORE_RANGE = ">=1.8.0 <2.0.0"
       const val SUPPORTED_MOBILE_RANGE = ">=1.1.0 <2.0.0"
       val REQUIRED_FEATURES = setOf("version", "metaData", "processes", "processCancel", "extensions", "widgets")
 
-      fun validateNativeSessionLogin(version: UiApiVersion)
-      {
+      /*******************************************************************************
+       ** Require the original-nonce native session contract before opening the authorization browser.
+       *******************************************************************************/
+      fun validateNativeSessionLogin(version: UiApiVersion) {
          val parts = Regex("1\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)").matchEntire(version.apiVersion)?.groupValues
-         if(parts == null || (parts[1].toIntOrNull() ?: 0) < 10 ||
-            !version.features.containsAll(listOf("nativeSessionLogin", "nativeSessionNonceValidation")))
+         if (parts == null || (parts[1].toIntOrNull() ?: 0) < 10 ||
+            !version.features.containsAll(listOf("nativeSessionLogin", "nativeSessionNonceValidation"))
+         )
             throw UiApiCompatibilityException("This server does not advertise native browser sign-in with required nonce validation. Ask your administrator to enable the supported login flow.")
       }
 
-      /** The logout capability is additive and must never be inferred from native login support. */
-      fun validateNativeSessionLogout(version: UiApiVersion)
-      {
+      /*******************************************************************************
+       ** The logout capability is additive and must never be inferred from native login support.
+       *******************************************************************************/
+      fun validateNativeSessionLogout(version: UiApiVersion) {
          val parts = Regex("1\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)").matchEntire(version.apiVersion)?.groupValues
-         if(parts == null || (parts[1].toIntOrNull() ?: 0) < 10 || "nativeSessionLogout" !in version.features)
+         if (parts == null || (parts[1].toIntOrNull() ?: 0) < 10 || "nativeSessionLogout" !in version.features)
             throw UiApiCompatibilityException("This server does not advertise company sign-out.")
       }
 
-      fun validate(version: UiApiVersion, requireMobileScanners: Boolean)
-      {
-         fun supported(value: String, minMinor: Int): Boolean
-         {
+      /*******************************************************************************
+       ** Require compatible API semantics, Android channel and optional scanner extension before credentials are sent.
+       *******************************************************************************/
+      fun validate(version: UiApiVersion, requireMobileScanners: Boolean) {
+         /*******************************************************************************
+          ** Accept additive versions in the supported major while rejecting malformed or overflowing version components.
+          *******************************************************************************/
+         fun supported(value: String, minMinor: Int): Boolean {
             val parts = Regex("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)").matchEntire(value)?.groupValues ?: return false
             return parts[1] == "1" && (parts[2].toIntOrNull() ?: return false) >= minMinor && parts[3].toIntOrNull() != null
          }
-         if(!supported(version.apiVersion, 8)) throw UiApiCompatibilityException("Unsupported QQQ UI API version. This app requires $SUPPORTED_CORE_RANGE. Update the app or ask your administrator to upgrade the server.")
-         if(!version.features.containsAll(REQUIRED_FEATURES)) throw UiApiCompatibilityException("This server is missing required QQQ UI API features. Ask your administrator to upgrade the server.")
-         if("android" !in version.clientChannels) throw UiApiCompatibilityException("This server does not support the Android client channel. Ask your administrator to enable the android channel.")
-         if(requireMobileScanners)
-         {
+         if (!supported(version.apiVersion, 8)) throw UiApiCompatibilityException("Unsupported QQQ UI API version. This app requires $SUPPORTED_CORE_RANGE. Update the app or ask your administrator to upgrade the server.")
+         if (!version.features.containsAll(REQUIRED_FEATURES)) throw UiApiCompatibilityException("This server is missing required QQQ UI API features. Ask your administrator to upgrade the server.")
+         if ("android" !in version.clientChannels) throw UiApiCompatibilityException("This server does not support the Android client channel. Ask your administrator to enable the android channel.")
+         if (requireMobileScanners) {
             val extension = version.extensions.singleOrNull { it.name == "mobile-scanners" }
                ?: throw UiApiCompatibilityException("This server is missing the mobile-scanners extension. Ask your administrator to install it.")
-            if(!supported(extension.version, 1) || extension.pathPrefix != "/qbit/mobile-scanners")
+            if (!supported(extension.version, 1) || extension.pathPrefix != "/qbit/mobile-scanners")
                throw UiApiCompatibilityException("Unsupported mobile-scanners extension. This app requires $SUPPORTED_MOBILE_RANGE at /qbit/mobile-scanners. Update the app or server extension.")
          }
       }

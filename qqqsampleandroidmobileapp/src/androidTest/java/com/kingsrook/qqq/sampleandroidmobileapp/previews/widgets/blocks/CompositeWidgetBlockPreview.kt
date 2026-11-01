@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -27,13 +28,17 @@ import com.kingsrook.qqq.frontend.android.core.model.widgets.WidgetBlock
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.CompositeWidgetBlock
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBlockParameters
 
-fun makeTextBlock(text: String): WidgetBlock
-{
+/*******************************************************************************
+ **
+ *******************************************************************************/
+fun makeTextBlock(text: String): WidgetBlock {
    return WidgetBlock("", "TEXT", values = mutableMapOf("text" to text))
 }
 
-fun makeCompositeBlock(layout: String, subBlocks: List<WidgetBlock>): WidgetBlock
-{
+/*******************************************************************************
+ **
+ *******************************************************************************/
+fun makeCompositeBlock(layout: String, subBlocks: List<WidgetBlock>): WidgetBlock {
    return WidgetBlock("", "COMPOSITE", layout = layout, subBlocks = subBlocks)
 }
 
@@ -42,40 +47,39 @@ val twoSubBlocks = listOf(
    makeTextBlock("two")
 )
 
+/*******************************************************************************
+ **
+ *******************************************************************************/
 @Composable
-fun Test(layout: String, subBlocks: List<WidgetBlock>)
-{
+fun Test(layout: String, subBlocks: List<WidgetBlock>) {
    val params = WidgetBlockParameters(WidgetBlock("", "COMPOSITE", layout = layout, subBlocks = subBlocks), null)
    CompositeWidgetBlock(params)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 200)
 @Composable
-fun CompositeWidgetBlockFlexRowCenter()
-{
+fun CompositeWidgetBlockFlexRowCenter() {
    Test("FLEX_ROW_CENTER", twoSubBlocks)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 200)
 @Composable
-fun CompositeWidgetBlockFlexRowSpaceBetween()
-{
+fun CompositeWidgetBlockFlexRowSpaceBetween() {
    Test("FLEX_ROW_SPACE_BETWEEN", twoSubBlocks)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 200)
 @Composable
-fun CompositeWidgetBlockFlexRowWrapped()
-{
+fun CompositeWidgetBlockFlexRowWrapped() {
    Test(
       "FLEX_ROW_WRAPPED", listOf(
          makeTextBlock("something"), makeTextBlock("something else"), makeTextBlock("a third thing"), makeTextBlock("and ...")
@@ -83,23 +87,21 @@ fun CompositeWidgetBlockFlexRowWrapped()
    )
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 200)
 @Composable
-fun CompositeWidgetBlockFlexColumn()
-{
+fun CompositeWidgetBlockFlexColumn() {
    Test("FLEX_COLUMN", twoSubBlocks)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 200)
 @Composable
-fun CompositeWidgetBlockThingForScanner()
-{
+fun CompositeWidgetBlockThingForScanner() {
    Test(
       "FLEX_ROW_WRAPPED", listOf(
          makeTextBlock("Icon"),

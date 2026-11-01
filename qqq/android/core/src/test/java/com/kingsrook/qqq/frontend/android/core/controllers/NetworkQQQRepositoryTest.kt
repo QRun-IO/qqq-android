@@ -11,9 +11,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Test
 
-/** Modern servers return HttpOnly session cookies; both credentials and redirects remain origin-scoped. */
-class NetworkQQQRepositoryTest
-{
+/*******************************************************************************
+ ** Modern servers return HttpOnly session cookies; both credentials and redirects remain origin-scoped.
+ *******************************************************************************/
+class NetworkQQQRepositoryTest {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
    fun clearedOptionalFieldsRemainExplicitNullsOnTheWire() = runBlocking()
    {
@@ -36,6 +40,9 @@ class NetworkQQQRepositoryTest
       }
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
    fun reportsOnlyStatusAndTimingAndObserverFailuresCannotBreakRequests() = runBlocking()
    {
@@ -57,6 +64,9 @@ class NetworkQQQRepositoryTest
       }
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
    fun transportFailureReportsNullStatusWithoutExceptionMessage() = runBlocking()
    {
@@ -73,6 +83,9 @@ class NetworkQQQRepositoryTest
       assertFalse(outcomes.toString().contains("localhost"))
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
    fun logoutRevokesServerSessionBeforeDroppingTheCookie() = runBlocking()
    {
@@ -96,6 +109,9 @@ class NetworkQQQRepositoryTest
       }
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
    fun capturesHttpOnlySessionAndDoesNotSendItToAnotherServer() = runBlocking()
    {
@@ -104,14 +120,16 @@ class NetworkQQQRepositoryTest
             first.start()
             second.start()
             first.enqueue(MockResponse().setBody(VERSION_FIXTURE))
-            first.enqueue(MockResponse().setHeader("Content-Type", "application/json")
-               .addHeader("Set-Cookie", "sessionUUID=synthetic-session; HttpOnly; Path=/").setBody("{\"values\":{}}"))
+            first.enqueue(
+               MockResponse().setHeader("Content-Type", "application/json")
+                  .addHeader("Set-Cookie", "sessionUUID=synthetic-session; HttpOnly; Path=/").setBody("{\"values\":{}}")
+            )
             first.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("{}"))
             second.enqueue(MockResponse().setBody(VERSION_FIXTURE))
             second.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("{}"))
             val origin = first.url("/").toString()
             val repository = NetworkQQQRepository(origin) { server ->
-               if(server == origin) mapOf("X-QQQ-Device-Id" to "test-device") else emptyMap()
+               if (server == origin) mapOf("X-QQQ-Device-Id" to "test-device") else emptyMap()
             }
             repository.setEnvironment(Environment("first", origin))
             val login = repository.loginWithPassword("demo", "synthetic-password")

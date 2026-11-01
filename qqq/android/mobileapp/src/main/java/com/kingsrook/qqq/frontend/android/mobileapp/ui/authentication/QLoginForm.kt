@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -37,24 +38,20 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import java.util.UUID
 
 
-/***************************************************************************
+/*******************************************************************************
  ** Display an appropriate login form, based on the authenticationMetaData
  ** type.
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun QLoginForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticationMetaData, modifier: Modifier = Modifier)
-{
-   when (authenticationMetaData)
-   {
+fun QLoginForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticationMetaData, modifier: Modifier = Modifier) {
+   when (authenticationMetaData) {
       is TableBasedAuthenticationMetaData -> QPasswordLogin(qViewModel, modifier)
       is OAuth2AuthenticationMetaData -> QOAuth2Login(qViewModel, authenticationMetaData, modifier)
-      is Auth0AuthenticationMetaData ->
-      {
+      is Auth0AuthenticationMetaData -> {
          QAuth0Login(qViewModel, modifier)
       }
 
-      is FullyAnonymousAuthenticationMetaData ->
-      {
+      is FullyAnonymousAuthenticationMetaData -> {
          FullSizedAllCenteredColumn()
          {
             Text("Click to log in Anonymously:", modifier = Modifier.padding(bottom = 16.dp))
@@ -66,8 +63,7 @@ fun QLoginForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticatio
          }
       }
 
-      else ->
-      {
+      else -> {
          Text("Error: Unrecognized AuthenticationMetaData type: ${authenticationMetaData.javaClass.simpleName}", color = Color.Red)
       }
    }

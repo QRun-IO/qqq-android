@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -31,13 +32,12 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QProcessMetaData
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.apps.QAppHome
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 400, heightDp = 800)
 @Composable
-fun QAppHomeTopLevelPreview()
-{
+fun QAppHomeTopLevelPreview() {
    val qInstance = QInstance(
       appTree = listOf(
          QAppTreeNode("app1", "App 1", QAppNodeType.APP),
@@ -49,13 +49,12 @@ fun QAppHomeTopLevelPreview()
    QAppHome(qInstance, Modifier, null)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 400, heightDp = 800)
 @Composable
-fun QAppHomeAppLevelPreviewWithWidgets()
-{
+fun QAppHomeAppLevelPreviewWithWidgets() {
    val qInstance = QInstance()
 
    val app = QAppMetaData(
@@ -70,17 +69,18 @@ fun QAppHomeAppLevelPreviewWithWidgets()
    QAppHome(qInstance, Modifier, app)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 380, heightDp = 800)
 @Composable
-fun QAppHomeAppLevelPreviewWithProcesses()
-{
-   val qInstance = QInstance(processes = mapOf(
-      "process1" to QProcessMetaData("process1", "Process 1"),
-      "process2" to QProcessMetaData("process2", "Process 2 with the very long and why wont name that wraps nicely")
-   ))
+fun QAppHomeAppLevelPreviewWithProcesses() {
+   val qInstance = QInstance(
+      processes = mapOf(
+         "process1" to QProcessMetaData("process1", "Process 1"),
+         "process2" to QProcessMetaData("process2", "Process 2 with the very long and why wont name that wraps nicely")
+      )
+   )
 
    val app = QAppMetaData(
       "app2", "App 2", children = listOf(

@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -27,13 +28,16 @@ import androidx.compose.runtime.Composable
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendComponent
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 
+/*******************************************************************************
+ ** Render the server's process summary results rather than inferring completion details from client state.
+ *******************************************************************************/
 @Composable
-fun ProcessComponentProcessSummaryResults(processViewModel: ProcessViewModel, component: QFrontendComponent)
+fun ProcessComponentProcessSummaryResults(processViewModel: ProcessViewModel, @Suppress("UNUSED_PARAMETER") component: QFrontendComponent) // Keep the uniform renderer API; result rows come from authoritative process values.
 {
    Column {
       (processViewModel.processValues["recordCount"] as? Number)?.let { Text("$it records processed") }
       (processViewModel.processValues["processResults"] as? List<*>)?.forEach { result ->
-         if(result is Map<*, *>) {
+         if (result is Map<*, *>) {
             val status = result["status"]?.toString().orEmpty()
             val count = (result["count"] as? Number)?.let { "$it " }.orEmpty()
             val message = result["message"]?.toString().orEmpty()

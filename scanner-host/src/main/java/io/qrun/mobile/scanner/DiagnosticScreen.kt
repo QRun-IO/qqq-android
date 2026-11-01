@@ -3,11 +3,34 @@ package io.qrun.mobile.scanner
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -20,10 +43,11 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** A dedicated window keeps process input blocked while diagnostics are being inspected. */
+/*******************************************************************************
+ ** A dedicated window keeps process input blocked while diagnostics are being inspected.
+ *******************************************************************************/
 @Composable
-internal fun DiagnosticScreen(log: DiagnosticLog, onBack: () -> Unit)
-{
+internal fun DiagnosticScreen(log: DiagnosticLog, onBack: () -> Unit) {
    var events by remember(log) { mutableStateOf(log.snapshot()) }
    var paused by remember(log) { mutableStateOf(false) }
    var problemsOnly by remember(log) { mutableStateOf(false) }
@@ -33,8 +57,7 @@ internal fun DiagnosticScreen(log: DiagnosticLog, onBack: () -> Unit)
    val scope = rememberCoroutineScope()
    LaunchedEffect(log, paused)
    {
-      while(!paused)
-      {
+      while (!paused) {
          events = log.snapshot()
          delay(1000)
       }
@@ -70,15 +93,17 @@ internal fun DiagnosticScreen(log: DiagnosticLog, onBack: () -> Unit)
                         FilterChip(selected = problemsOnly, onClick = { problemsOnly = true }, label = { Text("Problems") })
                      }
                      OutlinedButton(onClick = {
-                        if(!paused) events = log.snapshot()
+                        if (!paused) events = log.snapshot()
                         paused = !paused
-                     }) { Text(if(paused) "Resume live updates" else "Pause updates") }
+                     }) { Text(if (paused) "Resume live updates" else "Pause updates") }
                   }
                }
-               if(rows.isEmpty()) item()
+               if (rows.isEmpty()) item()
                {
-                  Text(if(problemsOnly && events.isNotEmpty()) "No problems in the recorded activity." else "No activity recorded yet. New events appear here while this screen is live.",
-                     style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 24.dp))
+                  Text(
+                     if (problemsOnly && events.isNotEmpty()) "No problems in the recorded activity." else "No activity recorded yet. New events appear here while this screen is live.",
+                     style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 24.dp)
+                  )
                }
                items(rows) { event -> DiagnosticEventRow(event) }
                item()
@@ -96,8 +121,11 @@ internal fun DiagnosticScreen(log: DiagnosticLog, onBack: () -> Unit)
                TextButton(modifier = Modifier.weight(1f), enabled = rows.isNotEmpty(), onClick = {
                   val intent = Intent(Intent.ACTION_SEND).setType("text/plain")
                      .putExtra(Intent.EXTRA_TEXT, diagnosticReport(events, problemsOnly))
-                  try { context.startActivity(Intent.createChooser(intent, "Share diagnostics")) }
-                  catch(exception: ActivityNotFoundException) { scope.launch { snackbar.showSnackbar("No app is available to share diagnostics") } }
+                  try {
+                     context.startActivity(Intent.createChooser(intent, "Share diagnostics"))
+                  } catch (exception: ActivityNotFoundException) {
+                     scope.launch { snackbar.showSnackbar("No app is available to share diagnostics") }
+                  }
                }) { Text("Share") }
                TextButton(modifier = Modifier.weight(1f), enabled = events.isNotEmpty(), onClick = {
                   log.clear()
@@ -111,36 +139,45 @@ internal fun DiagnosticScreen(log: DiagnosticLog, onBack: () -> Unit)
    }
 }
 
+/*******************************************************************************
+ ** Separate explicit server reachability from sign-in and device approval in the operator summary.
+ *******************************************************************************/
 @Composable
-private fun ConnectionSummary(events: List<DiagnosticEvent>, paused: Boolean)
-{
+private fun ConnectionSummary(events: List<DiagnosticEvent>, paused: Boolean) {
    val check = latestConnectionCheck(events)
    val reachable = check?.code == DiagnosticCode.CONNECTION_OK
-   Card(colors = CardDefaults.cardColors(containerColor = if(check != null && !reachable) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant))
+   Card(colors = CardDefaults.cardColors(containerColor = if (check != null && !reachable) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant))
    {
       Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp))
       {
          Text("Server connection", style = MaterialTheme.typography.labelLarge)
-         Text(when { check == null -> "No check recorded"; reachable -> "Reachable"; else -> "Check failed" },
-            style = MaterialTheme.typography.headlineSmall)
-         if(check != null)
-         {
+         Text(
+            when {
+               check == null -> "No check recorded"; reachable -> "Reachable"; else -> "Check failed"
+            },
+            style = MaterialTheme.typography.headlineSmall
+         )
+         if (check != null) {
             Text("Last check ${check.localTime()} · ${check.elapsedMillis} ms", style = MaterialTheme.typography.bodyMedium)
          }
-         Text(if(paused) "Updates paused · Showing a saved snapshot" else "Live · Activity updates automatically", style = MaterialTheme.typography.bodySmall)
+         Text(if (paused) "Updates paused · Showing a saved snapshot" else "Live · Activity updates automatically", style = MaterialTheme.typography.bodySmall)
          Text("Reachability only. Sign-in and device approval are checked separately.", style = MaterialTheme.typography.bodySmall)
       }
    }
 }
 
+/*******************************************************************************
+ ** Render one safe event consistently with copied and shared diagnostic reports.
+ *******************************************************************************/
 @Composable
-private fun DiagnosticEventRow(event: DiagnosticEvent)
-{
+private fun DiagnosticEventRow(event: DiagnosticEvent) {
    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp))
    {
       Text(event.localTime(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-      Text(event.title(), style = MaterialTheme.typography.titleSmall,
-         color = if(event.isProblem()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+      Text(
+         event.title(), style = MaterialTheme.typography.titleSmall,
+         color = if (event.isProblem()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+      )
       Text(event.detail(), style = MaterialTheme.typography.bodyMedium)
       HorizontalDivider(Modifier.padding(top = 8.dp))
    }

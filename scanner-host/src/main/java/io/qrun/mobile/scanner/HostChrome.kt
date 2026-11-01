@@ -8,15 +8,36 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalProcessInputAllowed
 import kotlinx.coroutines.CancellationException
 import android.net.ConnectivityManager
 import android.net.Network
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -30,10 +51,11 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Lifetime is keyed by selected server: presentation and diagnostics cannot bleed across customers. */
+/*******************************************************************************
+ ** Lifetime is keyed by selected server: presentation and diagnostics cannot bleed across customers.
+ *******************************************************************************/
 @Composable
-internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Composable (HostBrand, DiagnosticLog, UiApiCompatibility, () -> Unit) -> Unit)
-{
+internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Composable (HostBrand, DiagnosticLog, UiApiCompatibility, () -> Unit) -> Unit) {
    val runtime = remember(server) { HostRuntime(server) }
    var compatible by remember(server) { mutableStateOf(false) }
    var compatibilityError by remember(server) { mutableStateOf<String?>(null) }
@@ -51,12 +73,13 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
    LaunchedEffect(runtime, attempt)
    {
       compatibilityError = null
-      try { runtime.verifyCompatibility() }
-      catch(exception: CancellationException) { throw exception }
-      catch(exception: Exception)
-      {
-         compatibilityError = if(exception is UiApiCompatibilityException) exception.message else "Unable to check QQQ UI API compatibility. Check the server address and connection, then retry."
-         connection = if(exception is UiApiCompatibilityException) "Incompatible server" else "Disconnected"
+      try {
+         runtime.verifyCompatibility()
+      } catch (exception: CancellationException) {
+         throw exception
+      } catch (exception: Exception) {
+         compatibilityError = if (exception is UiApiCompatibilityException) exception.message else "Unable to check QQQ UI API compatibility. Check the server address and connection, then retry."
+         connection = if (exception is UiApiCompatibilityException) "Incompatible server" else "Disconnected"
          runtime.diagnostics.record(DiagnosticCode.COMPATIBILITY_FAILED, null, 0)
          return@LaunchedEffect
       }
@@ -66,34 +89,47 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
    }
    LaunchedEffect(runtime, lifecycle, compatible)
    {
-      if(!compatible) return@LaunchedEffect
+      if (!compatible) return@LaunchedEffect
       lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED)
       {
          val changed = Channel<Unit>(Channel.CONFLATED)
          val connectivity = context.getSystemService(ConnectivityManager::class.java)
-         val callback = object : ConnectivityManager.NetworkCallback()
-         {
-            override fun onAvailable(network: Network) { changed.trySend(Unit) }
-            override fun onLost(network: Network) { changed.trySend(Unit) }
+         val callback = object : ConnectivityManager.NetworkCallback() {
+            /*******************************************************************************
+             ** Schedule a fresh explicit reachability check when Android reports an available network.
+             *******************************************************************************/
+            override fun onAvailable(network: Network) {
+               changed.trySend(Unit)
+            }
+
+            /*******************************************************************************
+             ** Recheck reachability after network loss instead of retaining an old connection indication.
+             *******************************************************************************/
+            override fun onLost(network: Network) {
+               changed.trySend(Unit)
+            }
          }
          connectivity.registerDefaultNetworkCallback(callback)
-         try
-         {
+         try {
             connection = "Checking"
-            while(isActive)
-            {
-               connection = if(runtime.connected()) "Connected" else "Disconnected"
+            while (isActive) {
+               connection = if (runtime.connected()) "Connected" else "Disconnected"
                checkedAt = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
                withTimeoutOrNull(5000) { changed.receive() }
             }
+         } finally {
+            connectivity.unregisterNetworkCallback(callback); changed.close()
          }
-         finally { connectivity.unregisterNetworkCallback(callback); changed.close() }
       }
    }
    val primary = Color(0xFF000000 or brand.primaryColor.drop(1).toLong(16))
-   val onPrimary = if(useBlackOnPrimary(brand.primaryColor)) Color.Black else Color.White
-   MaterialTheme(colorScheme = lightColorScheme(primary = primary, onPrimary = onPrimary,
-      primaryContainer = lerp(primary, Color.White, 0.85f), onPrimaryContainer = Color.Black))
+   val onPrimary = if (useBlackOnPrimary(brand.primaryColor)) Color.Black else Color.White
+   MaterialTheme(
+      colorScheme = lightColorScheme(
+         primary = primary, onPrimary = onPrimary,
+         primaryContainer = lerp(primary, Color.White, 0.85f), onPrimaryContainer = Color.Black
+      )
+   )
    {
       Surface()
       {
@@ -103,18 +139,18 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
             {
                logo?.let { AsyncImage(model = it, imageLoader = imageLoader, contentDescription = "${brand.displayName} logo", modifier = Modifier.size(40.dp)) }
                Text(brand.displayName, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-               if(!compatible) TextButton(onClick = onChangeServer) { Text("Change server") }
+               if (!compatible) TextButton(onClick = onChangeServer) { Text("Change server") }
             }
             Box(Modifier.weight(1f))
             {
-               if(compatible) CompositionLocalProvider(
+               if (compatible) CompositionLocalProvider(
                   LocalOpenDiagnostics provides { showDiagnostics = true },
                   LocalProcessInputAllowed provides { parentInputAllowed() && !showDiagnostics })
                { content(brand, runtime.diagnostics, runtime.compatibility, onChangeServer) }
                else Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp))
                {
                   Text(compatibilityError ?: "Checking QQQ UI API compatibility…")
-                  if(compatibilityError != null) Button(onClick = { attempt++ }) { Text("Retry compatibility check") }
+                  if (compatibilityError != null) Button(onClick = { attempt++ }) { Text("Retry compatibility check") }
                }
             }
             HorizontalDivider()
@@ -124,6 +160,6 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
             }
          }
       }
-      if(showDiagnostics) DiagnosticScreen(runtime.diagnostics, onBack = { showDiagnostics = false })
+      if (showDiagnostics) DiagnosticScreen(runtime.diagnostics, onBack = { showDiagnostics = false })
    }
 }

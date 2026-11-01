@@ -6,33 +6,47 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class LocationPolicyTest
-{
-   @Test fun missingPreferenceEnablesReportingAndExplicitChoicesArePreserved()
-   {
+/*******************************************************************************
+ **
+ *******************************************************************************/
+class LocationPolicyTest {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun missingPreferenceEnablesReportingAndExplicitChoicesArePreserved() {
       assertTrue(LocationPolicy.enabled(null))
       assertTrue(LocationPolicy.enabled(true))
       assertFalse(LocationPolicy.enabled(false))
    }
 
-   @Test fun initialPermissionRequestRequiresActiveSessionAndEnabledPreference()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun initialPermissionRequestRequiresActiveSessionAndEnabledPreference() {
       assertTrue(LocationPolicy.shouldRequestPermission(true, true, false, false))
       assertFalse(LocationPolicy.shouldRequestPermission(false, true, false, false))
       assertFalse(LocationPolicy.shouldRequestPermission(true, false, false, false))
       assertFalse(LocationPolicy.shouldRequestPermission(true, true, true, false))
    }
 
-   @Test fun denialDoesNotPromptAgainOnResumeRecreationOrNextSession()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun denialDoesNotPromptAgainOnResumeRecreationOrNextSession() {
       listOf(false, true, false, true).forEach { active ->
          assertFalse(LocationPolicy.shouldRequestPermission(active, true, false, true))
       }
       assertTrue(LocationPolicy.enabled(null))
    }
 
-   @Test fun settingsDistinguishOptOutPermissionProvidersAndAnActualFix()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun settingsDistinguishOptOutPermissionProvidersAndAnActualFix() {
       assertEquals("Location reporting is off", LocationPolicy.status(false, true, true, true, "AVAILABLE"))
       assertEquals("Location reporting is on; Android location permission is not granted", LocationPolicy.status(true, false, true, true, "UNAVAILABLE"))
       assertEquals("Location reporting is on; device location providers are off", LocationPolicy.status(true, true, false, true, "AVAILABLE"))

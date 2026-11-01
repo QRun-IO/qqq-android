@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -38,28 +39,32 @@ import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Dropdown
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
-/** Secondary settings preserve the active process until a server change is confirmed. */
+/*******************************************************************************
+ ** Secondary settings preserve the active process until a server change is confirmed.
+ *******************************************************************************/
 @Composable
-fun MenuDialog(qViewModel: QViewModel, appTitle: String, isMenuDialogOpen: MutableState<Boolean>)
-{
+fun MenuDialog(qViewModel: QViewModel, appTitle: String, isMenuDialogOpen: MutableState<Boolean>) {
    val selected = remember { mutableStateOf(qViewModel.environment) }
-   AlertDialog(onDismissRequest = { isMenuDialogOpen.value = false },
+   AlertDialog(
+      onDismissRequest = { isMenuDialogOpen.value = false },
       title = { Text("Settings", Modifier.testTag("menuDialog.title")) },
-      text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-         Text(appTitle)
-         Text("Server: ${qViewModel.environment.baseUrl}")
-         LocalDeviceSettings.current()
-         if(QAppContainer.availableEnvironments.size > 1)
-         {
-            Dropdown(value = selected.value, options = QAppContainer.availableEnvironments,
-               labelExtractor = { it.label }, onClick = { selected.value = it })
-            TextButton(enabled = selected.value != qViewModel.environment, onClick = {
-               isMenuDialogOpen.value = false
-               qViewModel.qNavigator.requestLeave("Change server and sign out?", "Change server", alwaysConfirm = true) {
-                  qViewModel.switchEnvironment(selected.value) {}
-               }
-            }) { Text("Switch") }
+      text = {
+         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(appTitle)
+            Text("Server: ${qViewModel.environment.baseUrl}")
+            LocalDeviceSettings.current()
+            if (QAppContainer.availableEnvironments.size > 1) {
+               Dropdown(
+                  value = selected.value, options = QAppContainer.availableEnvironments,
+                  labelExtractor = { it.label }, onClick = { selected.value = it })
+               TextButton(enabled = selected.value != qViewModel.environment, onClick = {
+                  isMenuDialogOpen.value = false
+                  qViewModel.qNavigator.requestLeave("Change server and sign out?", "Change server", alwaysConfirm = true) {
+                     qViewModel.switchEnvironment(selected.value) {}
+                  }
+               }) { Text("Switch") }
+            }
+            Text("Application version: ${QViewModel.applicationVersion}")
          }
-         Text("Application version: ${QViewModel.applicationVersion}")
-      } }, confirmButton = { TextButton(onClick = { isMenuDialogOpen.value = false }) { Text("Close") } })
+      }, confirmButton = { TextButton(onClick = { isMenuDialogOpen.value = false }) { Text("Close") } })
 }

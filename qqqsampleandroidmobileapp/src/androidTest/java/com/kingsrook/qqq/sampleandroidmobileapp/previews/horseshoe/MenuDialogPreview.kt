@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -28,13 +29,12 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.MenuDialog
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import com.kingsrook.qqq.sampleandroidmobileapp.previews.utils.PreviewUtils
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 400)
 @Composable
-fun MenuDialogPreviewNormal()
-{
+fun MenuDialogPreviewNormal() {
    QViewModel.applicationVersion = "17.47"
    QViewModel.applicationBuildTimestamp = "2024-11-04 14:36:00 UTC"
    val qViewModel = PreviewUtils.createQViewModel().also()
@@ -47,13 +47,12 @@ fun MenuDialogPreviewNormal()
    MenuDialog(qViewModel, "A Preview", isOpen)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 400)
 @Composable
-fun MenuDialogPreviewSuperLongName()
-{
+fun MenuDialogPreviewSuperLongName() {
    val qViewModel = PreviewUtils.createQViewModel().also()
    {
       it.logInSuccessful()
@@ -64,13 +63,12 @@ fun MenuDialogPreviewSuperLongName()
    MenuDialog(qViewModel, "A Preview", isOpen)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 400)
 @Composable
-fun MenuDialogPreviewNotLoggedIn()
-{
+fun MenuDialogPreviewNotLoggedIn() {
    val qViewModel = PreviewUtils.createQViewModel()
    val isOpen = remember { mutableStateOf(true) }
 

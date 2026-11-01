@@ -47,18 +47,23 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Real production scanner factory + separate ordinary UID. Only the disposable .qa host is permitted. */
+/*******************************************************************************
+ ** Real production scanner factory + separate ordinary UID. Only the disposable .qa host is permitted.
+ *******************************************************************************/
 @RunWith(AndroidJUnit4::class)
-class ScannerInjectionTest
-{
-   @get:Rule val ui = createAndroidComposeRule<ScannerActivity>()
+class ScannerInjectionTest {
+   @get:Rule
+   val ui = createAndroidComposeRule<ScannerActivity>()
    private val client = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build()
    private lateinit var origin: String
    private lateinit var adminCookie: String
    private val probePackage = "io.qrun.mobile.scanner.probe"
 
-   @Test fun unrelatedUidCannotSubmitAProductionScan()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun unrelatedUidCannotSubmitAProductionScan() {
       val instrumentation = InstrumentationRegistry.getInstrumentation()
       val context = instrumentation.targetContext
       check(context.packageName == "io.qrun.mobile.scanner.qa" && BuildConfig.BUILD_TYPE == "qa")
@@ -70,6 +75,9 @@ class ScannerInjectionTest
       val probeUid = requireNotNull(probe.applicationInfo).uid
       assertTrue("Probe must have an ordinary unrelated UID", probeUid >= 10000 && probeUid != context.applicationInfo.uid)
       assertTrue("Probe may not hold target or network permissions", probe.requestedPermissions.isNullOrEmpty())
+      /*******************************************************************************
+       **
+       *******************************************************************************/
       fun signers(info: android.content.pm.PackageInfo) = requireNotNull(info.signingInfo).apkContentsSigners
          .map { MessageDigest.getInstance("SHA-256").digest(it.toByteArray()).toList() }.toSet()
       assertTrue("Root must re-sign the probe with a distinct throwaway test key", signers(probe).intersect(signers(target)).isEmpty())
@@ -77,16 +85,16 @@ class ScannerInjectionTest
       val configFile = File(context.filesDir, "qa-injection.json")
       val config = JSONObject(configFile.readText())
       configFile.delete()
-      val expectedBarcode = if(config.has("expectedBarcode"))
-      {
+      val expectedBarcode = if (config.has("expectedBarcode")) {
          val value = config.get("expectedBarcode")
          check(value is String && value.length in 1..4096 && value.all { it.code in 32..126 })
          value
-      }
-      else null
+      } else null
       val server = URI(config.getString("serverUrl"))
-      check(server.scheme == "http" && server.host == "127.0.0.1" && server.port > 0 &&
-         server.userInfo == null && server.query == null && server.fragment == null && server.path == "/")
+      check(
+         server.scheme == "http" && server.host == "127.0.0.1" && server.port > 0 &&
+            server.userInfo == null && server.query == null && server.fragment == null && server.path == "/"
+      )
       origin = server.toString().trimEnd('/')
       waitFor("QQQ server URL")
       ui.onNodeWithText("QQQ server URL").performTextReplacement("$origin/")
@@ -98,16 +106,18 @@ class ScannerInjectionTest
       ui.onNode(hasText("Sign in") and hasClickAction()).performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
       waitFor("An administrator must approve this device before you can run mobile apps.")
       val device = DeviceCredentials(context, "$origin/")
-      adminCookie = client.newCall(Request.Builder().url("$origin/qqq/v1/manageSession")
-         .header("Authorization", Credentials.basic("admin", config.getString("adminPassword")))
-         .post("{}".toRequestBody("application/json".toMediaType())).build()).execute().use {
+      adminCookie = client.newCall(
+         Request.Builder().url("$origin/qqq/v1/manageSession")
+            .header("Authorization", Credentials.basic("admin", config.getString("adminPassword")))
+            .post("{}".toRequestBody("application/json".toMediaType())).build()
+      ).execute().use {
          assertEquals(200, it.code)
          it.headers("Set-Cookie").first { cookie -> cookie.startsWith("sessionUUID=") }.substringBefore(';')
       }
       val launch = process("mobileDeviceApprove", "/init", JSONObject())
       val id = launch.getString("processUUID")
       val applied = process("mobileDeviceApprove", "/$id/step/input", JSONObject().put("deviceId", device.deviceId))
-      if(applied.optString("nextStep") == "result") process("mobileDeviceApprove", "/$id/step/result", JSONObject())
+      if (applied.optString("nextStep") == "result") process("mobileDeviceApprove", "/$id/step/result", JSONObject())
       ui.onNodeWithText("Check approval").performScrollTo().performClick()
       waitForTag("appHome.rowForApp:mobileScanApp")
       ui.onNodeWithTag("appHome.rowForApp:mobileScanApp").performClick()
@@ -128,12 +138,12 @@ class ScannerInjectionTest
       val routed = java.util.concurrent.CopyOnWriteArrayList<Intent>()
       val delivered = CountDownLatch(4)
       // Route control in instrumentation only; it observes payloads and NEVER invokes a process/driver.
-      val observer = object : BroadcastReceiver()
-      {
-         override fun onReceive(receiverContext: Context?, intent: Intent?)
-         {
-            if(intent?.getStringExtra("com.symbol.datawedge.data_string")?.startsWith("$marker-route-") == true)
-            {
+      val observer = object : BroadcastReceiver() {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override fun onReceive(receiverContext: Context?, intent: Intent?) {
+            if (intent?.getStringExtra("com.symbol.datawedge.data_string")?.startsWith("$marker-route-") == true) {
                routed.add(Intent(intent))
                delivered.countDown()
             }
@@ -143,21 +153,25 @@ class ScannerInjectionTest
       ContextCompat.registerReceiver(context, observer, IntentFilter("io.qrun.mobile.scanner.SCAN").apply {
          addCategory(Intent.CATEGORY_DEFAULT)
       }, ContextCompat.RECEIVER_EXPORTED)
-      try
-      {
+      try {
          emitProbe(context, "$marker-route", probeUid)
          assertTrue("Actual SCAN payload must reach the route observer", delivered.await(10, TimeUnit.SECONDS))
          assertEquals((0 until 4).map { "$marker-route-$it" }.toSet(), routed.map { it.getStringExtra("com.symbol.datawedge.data_string") }.toSet())
-         assertTrue(routed.all { it.action == "io.qrun.mobile.scanner.SCAN" &&
-            it.getStringExtra("com.symbol.datawedge.label_type") == "LABEL-TYPE-CODE128" &&
-            it.getStringExtra("com.symbol.datawedge.decode_mode") == "single" })
+         assertTrue(routed.all {
+            it.action == "io.qrun.mobile.scanner.SCAN" &&
+               it.getStringExtra("com.symbol.datawedge.label_type") == "LABEL-TYPE-CODE128" &&
+               it.getStringExtra("com.symbol.datawedge.decode_mode") == "single"
+         })
          foreground(context)
+      } finally {
+         context.unregisterReceiver(observer)
       }
-      finally { context.unregisterReceiver(observer) }
       // The route observer is absent during the actual negative attempt.
       emitProbe(context, "$marker-negative", probeUid)
       val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
-      while(System.nanoTime() < deadline) { foreground(context); Thread.sleep(100) }
+      while (System.nanoTime() < deadline) {
+         foreground(context); Thread.sleep(100)
+      }
       val after = scans()
       assertEquals("Unrelated-UID broadcasts must not create any scan", before.size, after.size)
       assertFalse(after.any { it.optString("barcode").startsWith(marker) })
@@ -169,8 +183,7 @@ class ScannerInjectionTest
          putInt("qqqTargetUid", context.applicationInfo.uid)
          putInt("qqqForgedScanCount", 8)
       })
-      if(expectedBarcode != null)
-      {
+      if (expectedBarcode != null) {
          val events = mutableSetOf<String>()
          physicalScan(context, device.deviceId, expectedBarcode, "initial", after.size, events)
          ui.activityRule.scenario.recreate()
@@ -189,9 +202,13 @@ class ScannerInjectionTest
       }
    }
 
-   private fun physicalScan(context: Context, deviceId: String, expectedBarcode: String, phase: String,
-      expectedBefore: Int, events: MutableSet<String>)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun physicalScan(
+      context: Context, deviceId: String, expectedBarcode: String, phase: String,
+      expectedBefore: Int, events: MutableSet<String>
+   ) {
       waitFor("Scanner ready. Press the handheld trigger.")
       foreground(context)
       val before = scans()
@@ -199,34 +216,39 @@ class ScannerInjectionTest
       val priorIds = before.map { it.getString("id") }.toSet()
       val priorEvents = before.map { it.getString("eventId") }.toSet()
       val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(120)
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
       fun remainingMillis() = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()).coerceAtLeast(1)
-      fun pollScans(stage: String): List<JSONObject>
-      {
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      fun pollScans(stage: String): List<JSONObject> {
          val remaining = remainingMillis()
          // Do not start a near-deadline 1ms HTTP call that hides the actual operator wait failure.
-         if(remaining < 1000)
-         {
+         if (remaining < 1000) {
             Thread.sleep(remaining)
             throw AssertionError("Physical trigger deadline reached during $stage; no additional polling budget remains")
          }
-         return try { scans(remaining.coerceAtMost(20_000)) }
-         catch(error: java.io.InterruptedIOException)
-         {
-            if(System.nanoTime() >= deadline)
+         return try {
+            scans(remaining.coerceAtMost(20_000))
+         } catch (error: java.io.InterruptedIOException) {
+            if (System.nanoTime() >= deadline)
                throw AssertionError("Physical trigger deadline reached during $stage; the final status poll did not complete", error)
             throw error
          }
       }
       InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply { putString("qqqStage", "hardware-$phase-ready") })
       var saved: JSONObject? = null
-      while(saved == null)
-      {
+      while (saved == null) {
          assertTrue("Timed out waiting for the operator's physical trigger", System.nanoTime() < deadline)
          foreground(context, remainingMillis().coerceAtMost(5000))
          val current = pollScans("waiting for the operator's acknowledged scan")
          val added = current.filter { it.getString("id") !in priorIds }
          assertTrue("One trigger must not create multiple records", added.size <= 1 && current.size <= before.size + 1)
-         if(added.isNotEmpty()) saved = added.single() else Thread.sleep(200)
+         if (added.isNotEmpty()) saved = added.single() else Thread.sleep(200)
       }
       val row = requireNotNull(saved)
       assertTrue("Hardware barcode must exactly match the configured synthetic value", row.getString("barcode") == expectedBarcode)
@@ -243,21 +265,26 @@ class ScannerInjectionTest
       InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply { putString("qqqStage", "hardware-$phase-saved") })
    }
 
-   private fun emitProbe(context: Context, marker: String, probeUid: Int)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun emitProbe(context: Context, marker: String, probeUid: Int) {
       val completed = CountDownLatch(1)
       val result = AtomicReference<Bundle?>()
-      context.sendOrderedBroadcast(Intent("io.qrun.mobile.scanner.probe.EMIT")
-         .setComponent(ComponentName(probePackage, "$probePackage.ScanProbeReceiver"))
-         .putExtra("targetPackage", context.packageName).putExtra("marker", marker), null,
-         object : BroadcastReceiver()
-         {
-            override fun onReceive(receiverContext: Context?, intent: Intent?)
-            {
+      context.sendOrderedBroadcast(
+         Intent("io.qrun.mobile.scanner.probe.EMIT")
+            .setComponent(ComponentName(probePackage, "$probePackage.ScanProbeReceiver"))
+            .putExtra("targetPackage", context.packageName).putExtra("marker", marker), null,
+         object : BroadcastReceiver() {
+            /*******************************************************************************
+             **
+             *******************************************************************************/
+            override fun onReceive(receiverContext: Context?, intent: Intent?) {
                result.set(getResultExtras(false)?.apply { putInt("resultCode", resultCode) })
                completed.countDown()
             }
-         }, null, 0, null, null)
+         }, null, 0, null, null
+      )
       assertTrue("Separate probe must finish", completed.await(10, TimeUnit.SECONDS))
       assertEquals(1, result.get()?.getInt("resultCode"))
       assertEquals(probeUid, result.get()?.getInt("senderUid"))
@@ -265,13 +292,14 @@ class ScannerInjectionTest
       assertEquals(marker, result.get()?.getString("marker"))
    }
 
-   private fun foreground(context: Context, timeoutMillis: Long = 5000)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun foreground(context: Context, timeoutMillis: Long = 5000) {
       val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
       var ready = false
       var flags = "unavailable"
-      do
-      {
+      do {
          ui.activityRule.scenario.onActivity {
             val resumed = it.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
             val focused = it.window.decorView.hasWindowFocus()
@@ -280,31 +308,39 @@ class ScannerInjectionTest
             flags = "resumed=$resumed, focused=$focused, interactive=$interactive, locked=$locked"
             ready = resumed && focused && interactive && !locked
          }
-         if(ready) return
+         if (ready) return
          val remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime())
-         if(remaining > 0) Thread.sleep(remaining.coerceAtMost(50))
-      }
-      while(System.nanoTime() < deadline)
+         if (remaining > 0) Thread.sleep(remaining.coerceAtMost(50))
+      } while (System.nanoTime() < deadline)
       assertTrue("Target must regain resumed, unlocked foreground focus: $flags", ready)
    }
 
-   private fun scans(timeoutMillis: Long = 20_000): List<JSONObject>
-   {
-      val rows = json(Request.Builder().url("$origin/qqq/v1/table/mobileScan/query").header("Cookie", adminCookie)
-         .post("{}".toRequestBody("application/json".toMediaType())).build(), timeoutMillis).getJSONArray("records")
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun scans(timeoutMillis: Long = 20_000): List<JSONObject> {
+      val rows = json(
+         Request.Builder().url("$origin/qqq/v1/table/mobileScan/query").header("Cookie", adminCookie)
+            .post("{}".toRequestBody("application/json".toMediaType())).build(), timeoutMillis
+      ).getJSONArray("records")
       return (0 until rows.length()).map { rows.getJSONObject(it).getJSONObject("values") }
    }
 
-   private fun process(name: String, suffix: String, values: JSONObject): JSONObject
-   {
-      var result = json(Request.Builder().url("$origin/qqq/v1/processes/$name$suffix").header("Cookie", adminCookie)
-         .post(MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("values", values.toString())
-            .addFormDataPart("stepTimeoutMillis", "10000").build()).build())
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun process(name: String, suffix: String, values: JSONObject): JSONObject {
+      var result = json(
+         Request.Builder().url("$origin/qqq/v1/processes/$name$suffix").header("Cookie", adminCookie)
+            .post(
+               MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("values", values.toString())
+                  .addFormDataPart("stepTimeoutMillis", "10000").build()
+            ).build()
+      )
       val processId = result.optString("processUUID")
       val jobId = result.optString("jobUUID")
       val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
-      while(result.optString("type") in listOf("JOB_STARTED", "RUNNING"))
-      {
+      while (result.optString("type") in listOf("JOB_STARTED", "RUNNING")) {
          assertTrue(System.nanoTime() < deadline)
          Thread.sleep(50)
          result = json(Request.Builder().url("$origin/qqq/v1/processes/$name/$processId/status/$jobId").header("Cookie", adminCookie).build())
@@ -313,8 +349,10 @@ class ScannerInjectionTest
       return result
    }
 
-   private fun json(request: Request, timeoutMillis: Long = 20_000): JSONObject
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun json(request: Request, timeoutMillis: Long = 20_000): JSONObject {
       val call = client.newCall(request)
       call.timeout().timeout(timeoutMillis, TimeUnit.MILLISECONDS)
       return call.execute().use {
@@ -322,8 +360,18 @@ class ScannerInjectionTest
          JSONObject(requireNotNull(it.body).string())
       }
    }
-   private fun waitFor(text: String, substring: Boolean = false, timeoutMillis: Long = 60_000)
-   { ui.waitUntil(timeoutMillis) { ui.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() } }
-   private fun waitForTag(tag: String)
-   { ui.waitUntil(60_000) { runCatching { ui.onNodeWithTag(tag).fetchSemanticsNode() }.isSuccess } }
+
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun waitFor(text: String, substring: Boolean = false, timeoutMillis: Long = 60_000) {
+      ui.waitUntil(timeoutMillis) { ui.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() }
+   }
+
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun waitForTag(tag: String) {
+      ui.waitUntil(60_000) { runCatching { ui.onNodeWithTag(tag).fetchSemanticsNode() }.isSuccess }
+   }
 }

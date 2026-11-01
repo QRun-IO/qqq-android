@@ -35,6 +35,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Verify source headers, whitespace, imports and JavaScript syntax
+        run: node scripts/ci/check-source-standards.mjs
       - name: Install required Android SDK packages
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;34.0.0" "build-tools;35.0.0" "platform-tools"

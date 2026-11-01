@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -24,6 +25,9 @@ package com.kingsrook.qqq.frontend.android.core.model.widgets
 import com.kingsrook.qqq.frontend.android.core.model.MutableMapOfStringAny
 import kotlinx.serialization.Serializable
 
+/*******************************************************************************
+ ** Represent server widget structure without selecting client classes from arbitrary payload values.
+ *******************************************************************************/
 @Serializable
 data class WidgetBlock(
    val blockId: String,
@@ -34,54 +38,66 @@ data class WidgetBlock(
    val styles: MutableMapOfStringAny = mutableMapOf(),
    val values: MutableMapOfStringAny = mutableMapOf(),
    var subBlocks: List<WidgetBlock> = emptyList(),
-)
-{
-   companion object
-   {
-      fun fromMap(param: Any?): WidgetBlock?
-      {
-         if(param is Map<*, *>)
-         {
-            fun mapGetOrElse(map: Map<String, Any?>, key: String, elseValue: String? = null): String?
-            {
-               if(map[key] != null)
-               {
+) {
+   /*******************************************************************************
+    ** Centralize conversion of legacy map-shaped widget blocks into the semantic block model.
+    *******************************************************************************/
+   companion object {
+      /*******************************************************************************
+       ** Rebuild nested widget structure only from map/list input, retaining unknown block types for explicit UI handling.
+       *******************************************************************************/
+      fun fromMap(param: Any?): WidgetBlock? {
+         if (param is Map<*, *>) {
+            /*******************************************************************************
+             ** Preserve absent optional string values while adapting the legacy generic widget map.
+             *******************************************************************************/
+            fun mapGetOrElse(map: Map<*, *>, key: String, elseValue: String? = null): String? {
+               if (map[key] != null) {
                   return map[key].toString()
                }
 
                return elseValue
             }
 
-            val map: Map<String, Any?> = param as Map<String, Any?>
-            val blockId = if(map["blockId"] != null) "${map["blockId"]}" else ""
-            val blockType = if(map["blockType"] != null) "${map["blockType"]}"  else ""
-            val conditional = if(map["conditional"] != null) "${map["conditional"]}" else null
-            val layout = if(map["layout"] != null) "${map["layout"]}" else null
+            val map = param
+            val blockId = if (map["blockId"] != null) "${map["blockId"]}" else ""
+            val blockType = if (map["blockType"] != null) "${map["blockType"]}" else ""
+            val conditional = if (map["conditional"] != null) "${map["conditional"]}" else null
+            val layout = if (map["layout"] != null) "${map["layout"]}" else null
             val modalMode = mapGetOrElse(map, "modalMode")
 
-            val mapStyles = map["styles"]
-            val styles = if(mapStyles is Map<*, *>) mapStyles else mutableMapOf<String, Any>()
+            /*******************************************************************************
+             ** Copy validated JSON property names into owned mutable state; input maps
+             ** may be immutable or shared by another widget's decoded metadata.
+             *******************************************************************************/
+            fun copyStringMap(value: Any?): MutableMapOfStringAny {
+               val source = value as? Map<*, *> ?: return mutableMapOf()
+               val result = mutableMapOf<String, Any?>()
+               source.forEach { (key, itemValue) ->
+                  require(key is String) { "Widget property names must be strings" }
+                  result[key] = itemValue
+               }
+               return result
+            }
 
-            val mapValues = map["values"]
-            val values = if(mapValues is Map<*, *>) mapValues else mutableMapOf<String, Any>()
+            val styles = copyStringMap(map["styles"])
+            val values = copyStringMap(map["values"])
 
             val mapSubBlocks = map["subBlocks"]
 
             var subBlocks = emptyList<WidgetBlock>()
-            if(mapSubBlocks is List<*>)
-            {
+            if (mapSubBlocks is List<*>) {
                subBlocks = mutableListOf()
                mapSubBlocks.forEach()
                { subBlock ->
                   val subWidgetBlock = fromMap(subBlock)
-                  if(subWidgetBlock != null)
-                  {
+                  if (subWidgetBlock != null) {
                      subBlocks.add(subWidgetBlock)
                   }
                }
             }
 
-            return WidgetBlock(blockId, blockType, conditional, layout, modalMode, styles as MutableMapOfStringAny, values as MutableMapOfStringAny, subBlocks)
+            return WidgetBlock(blockId, blockType, conditional, layout, modalMode, styles, values, subBlocks)
          }
 
          return (null)

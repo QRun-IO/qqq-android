@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -43,9 +44,11 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import kotlinx.coroutines.launch
 
+/*******************************************************************************
+ ** Bind the provider browser result to the current server/login attempt before exchanging it for QQQ identity.
+ *******************************************************************************/
 @Composable
-fun QAuth0Login(qViewModel: QViewModel, modifier: Modifier = Modifier)
-{
+fun QAuth0Login(qViewModel: QViewModel, modifier: Modifier = Modifier) {
    val metadata = (qViewModel.authenticationMetaDataLoadState as? LoadState.Success)?.value as? Auth0AuthenticationMetaData ?: return
    val context = LocalContext.current
    val launcher = LocalAuth0Browser.current
@@ -56,42 +59,44 @@ fun QAuth0Login(qViewModel: QViewModel, modifier: Modifier = Modifier)
    DisposableEffect(qViewModel, qViewModel.environment.baseUrl, metadata, retry)
    {
       val attempt = qViewModel.prepareAuthentication()
-      if(attempt != null)
-      {
-         val callback = object : Callback<Credentials, AuthenticationException>
-         {
-            override fun onFailure(error: AuthenticationException)
-            {
+      if (attempt != null) {
+         val callback = object : Callback<Credentials, AuthenticationException> {
+            /*******************************************************************************
+             ** Cancel only the owning attempt and display a safe failure without exposing provider exception text.
+             *******************************************************************************/
+            override fun onFailure(error: AuthenticationException) {
                scope.launch {
-                  if(qViewModel.isCurrentAuthentication(attempt))
-                  {
+                  if (qViewModel.isCurrentAuthentication(attempt)) {
                      qViewModel.cancelAuthentication(attempt)
                      failed = true
                   }
                }
             }
-            override fun onSuccess(result: Credentials)
-            {
+
+            /*******************************************************************************
+             ** Accept browser credentials only through the original current authentication attempt.
+             *******************************************************************************/
+            override fun onSuccess(result: Credentials) {
                scope.launch {
-                  if(qViewModel.isCurrentAuthentication(attempt))
-                  {
+                  if (qViewModel.isCurrentAuthentication(attempt)) {
                      exchanging = true
                      qViewModel.completeAuth0Login(attempt, result.accessToken, result.user.nickname ?: "Unknown")
                   }
                }
             }
          }
-         try { launcher.login(context, QAuth0Service.makeAuth0Instance(qViewModel), metadata.values.audience, QAuth0Service.scheme, callback) }
-         catch(exception: Exception) { qViewModel.cancelAuthentication(attempt); failed = true }
+         try {
+            launcher.login(context, QAuth0Service.makeAuth0Instance(qViewModel), metadata.values.audience, QAuth0Service.scheme, callback)
+         } catch (exception: Exception) {
+            qViewModel.cancelAuthentication(attempt); failed = true
+         }
       }
-      onDispose { if(attempt != null) qViewModel.cancelAuthentication(attempt) }
+      onDispose { if (attempt != null) qViewModel.cancelAuthentication(attempt) }
    }
-   if(failed || (exchanging && qViewModel.manageSessionLoadState is LoadState.Error))
-   {
-      FullSizedAllCenteredColumn {
+   if (failed || (exchanging && qViewModel.manageSessionLoadState is LoadState.Error)) {
+      FullSizedAllCenteredColumn(modifier) {
          Text("Sign-in failed. Please try again.")
          Button(onClick = { failed = false; exchanging = false; retry++ }) { Text("Try again") }
       }
-   }
-   else FullScreenLoading(if(exchanging) "Creating Application Session…" else "Logging in…")
+   } else FullScreenLoading(if (exchanging) "Creating Application Session…" else "Logging in…", modifier)
 }

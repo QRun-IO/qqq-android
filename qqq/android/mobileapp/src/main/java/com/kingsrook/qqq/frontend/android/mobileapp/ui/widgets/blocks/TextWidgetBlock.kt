@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -45,18 +46,15 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.BlockStyleUtils
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.DynamicIcon
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.makeIcon
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun TextWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier)
-{
+fun TextWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier) {
    val widgetBlock = params.widgetBlock
 
    val color = BlockStyleUtils.getColorFromString("${widgetBlock.styles["color"]}") ?: Color.Black
 
-   val weight: FontWeight = when (widgetBlock.styles["weight"])
-   {
+   val weight: FontWeight = when (widgetBlock.styles["weight"]) {
       "bold" -> FontWeight.Bold
       "semibold" -> FontWeight.SemiBold
       "black" -> FontWeight.Black
@@ -76,22 +74,17 @@ fun TextWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier
       else -> FontWeight.Normal
    }
 
-   val size = when (val blockStyleSize = "${widgetBlock.styles["size"]}")
-   {
+   val size = when (val blockStyleSize = "${widgetBlock.styles["size"]}") {
       "largest" -> Typography().displayMedium.fontSize // 45
       "headline" -> Typography().headlineMedium.fontSize // 28
       "title" -> Typography().titleLarge.fontSize // 22
       "body" -> Typography().bodyLarge.fontSize // 16
       "smallest" -> Typography().labelMedium.fontSize // 12
-      else ->
-      {
+      else -> {
          val isNumeric = blockStyleSize.all { char -> char.isDigit() }
-         if(isNumeric)
-         {
+         if (isNumeric) {
             Integer.parseInt(blockStyleSize).sp
-         }
-         else
-         {
+         } else {
             Typography().bodyLarge.fontSize
          }
       }
@@ -112,12 +105,9 @@ fun TextWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier
    var textPadding = 0.dp
    var horizontalArrangement = Arrangement.Start
 
-   if(widgetBlock.styles["format"] == "alert")
-   {
+   if (widgetBlock.styles["format"] == "alert") {
       textPadding = 8.dp
-   }
-   else if(widgetBlock.styles["format"] == "banner")
-   {
+   } else if (widgetBlock.styles["format"] == "banner") {
       horizontalArrangement = Arrangement.Center
       textPadding = 8.dp
    }
@@ -125,20 +115,20 @@ fun TextWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier
    /////////////////////////////////////////////
    // build the stuff that'll go inside a box //
    /////////////////////////////////////////////
+   /*******************************************************************************
+    ** Apply the text block's declared presentation while keeping widget rendering independent of process navigation.
+    *******************************************************************************/
    @Composable
-   fun TextComposable()
-   {
-      Row(horizontalArrangement = horizontalArrangement, modifier = Modifier.padding(textPadding))
+   fun TextComposable(textModifier: Modifier = Modifier) {
+      Row(horizontalArrangement = horizontalArrangement, modifier = textModifier.padding(textPadding))
       {
-         if(startIcon != null)
-         {
+         if (startIcon != null) {
             DynamicIcon(startIcon, null, tint = color, modifier = Modifier.padding(end = 4.dp))
          }
 
          Text(text, color = color, fontWeight = weight, fontSize = size, lineHeight = lineHeight)
 
-         if(endIcon != null)
-         {
+         if (endIcon != null) {
             DynamicIcon(endIcon, null, tint = color, modifier = Modifier.padding(start = 4.dp))
          }
       }
@@ -147,29 +137,24 @@ fun TextWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier
    //////////////////
    // final output //
    //////////////////
-   if(widgetBlock.styles["format"] == "alert")
-   {
+   if (widgetBlock.styles["format"] == "alert") {
       Box(
-         modifier = Modifier
+         modifier = modifier
             .padding(4.dp)
             .fillMaxWidth()
             .border(1.dp, color, RoundedCornerShape(4.dp))
             .background(Brush.horizontalGradient(listOf(color, color)), RoundedCornerShape(4.dp), 0.2f)
       )
       { TextComposable() }
-   }
-   else if(widgetBlock.styles["format"] == "banner")
-   {
+   } else if (widgetBlock.styles["format"] == "banner") {
       Box(
-         contentAlignment = Alignment.Center, modifier = Modifier
+         contentAlignment = Alignment.Center, modifier = modifier
             .fillMaxWidth()
             .background(Brush.horizontalGradient(listOf(color, color)), RectangleShape, 0.2f)
       )
       { TextComposable() }
-   }
-   else
-   {
-      TextComposable()
+   } else {
+      TextComposable(modifier)
    }
 
 }

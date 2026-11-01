@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -26,16 +27,14 @@ import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import com.kingsrook.qqq.frontend.android.mobileapp.data.MockPreferencesDataStore
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-object PreviewUtils
-{
-   /***************************************************************************
+ *******************************************************************************/
+object PreviewUtils {
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   fun createQViewModel(): QViewModel
-   {
+    *******************************************************************************/
+   fun createQViewModel(): QViewModel {
       QAppContainer.availableEnvironments = listOf(
          Environment("Production", "https://live.coldtrack.com/"),
          Environment("Staging", "https://live.coldtrack-staging.com/"),

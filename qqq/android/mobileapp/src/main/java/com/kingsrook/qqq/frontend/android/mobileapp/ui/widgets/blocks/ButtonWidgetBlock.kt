@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -42,12 +43,10 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.BlockStyleUtils
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.DynamicIcon
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.makeIcon
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false)
-{
+fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false) {
    val widgetBlock = params.widgetBlock
    val actionCallback = params.actionCallback
 
@@ -56,41 +55,35 @@ fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifi
    val startIcon: QIcon? = makeIcon(widgetBlock.values["startIcon"])
    val endIcon: QIcon? = makeIcon(widgetBlock.values["endIcon"])
 
-   /***************************************************************************
+   /*******************************************************************************
     ** handle the button being clicked - basically, just go to the actionCallback.
-    ***************************************************************************/
-   fun onClick()
-   {
+    *******************************************************************************/
+   fun onClick() {
       val values = mutableMapOf("widgetBlock" to widgetBlock)
-      if(actionCallback != null)
-      {
-         if(widgetBlock.values["actionCode"] != null || widgetBlock.values["controlCode"] != null)
-         {
+      if (actionCallback != null) {
+         if (widgetBlock.values["actionCode"] != null || widgetBlock.values["controlCode"] != null) {
             actionCallback(values)
          }
       }
    }
 
-   val textColor = if(format == "outlined" || format == "text") color else Color.White
-   val bgColor = if(format == "outlined") Color.White else color
+   val textColor = if (format == "outlined" || format == "text") color else Color.White
+   val bgColor = if (format == "outlined") Color.White else color
 
-   /***************************************************************************
+   /*******************************************************************************
     ** row of <startIcon> text <endIcon>, to display inside the button
-    ***************************************************************************/
+    *******************************************************************************/
    @Composable
-   fun ButtonContent()
-   {
+   fun ButtonContent() {
       Row(verticalAlignment = Alignment.CenterVertically)
       {
-         if(startIcon != null)
-         {
+         if (startIcon != null) {
             DynamicIcon(startIcon, null, tint = textColor, modifier = Modifier.padding(end = 4.dp))
          }
 
          Text("${widgetBlock.values["label"] ?: widgetBlock.values["actionCode"] ?: "Button"}", color = textColor)
 
-         if(endIcon != null)
-         {
+         if (endIcon != null) {
             DynamicIcon(endIcon, null, tint = textColor, modifier = Modifier.padding(start = 4.dp))
          }
       }
@@ -101,10 +94,8 @@ fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifi
    ////////////////////////////////////////////////////////
    // choose different button composable based on format //
    ////////////////////////////////////////////////////////
-   when (format)
-   {
-      "outlined" ->
-      {
+   when (format) {
+      "outlined" -> {
          OutlinedButton(
             onClick = ::onClick,
             modifier = modifier,
@@ -117,8 +108,7 @@ fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifi
          }
       }
 
-      "filled" ->
-      {
+      "filled" -> {
          FilledTonalButton(
             onClick = ::onClick,
             modifier = modifier,
@@ -131,16 +121,14 @@ fun ButtonWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifi
          }
       }
 
-      "text" ->
-      {
+      "text" -> {
          TextButton(onClick = ::onClick, modifier = modifier, enabled = !disableControls)
          {
             ButtonContent()
          }
       }
 
-      else ->
-      {
+      else -> {
          Button(onClick = ::onClick, modifier = modifier, shape = shape, enabled = !disableControls)
          {
             ButtonContent()

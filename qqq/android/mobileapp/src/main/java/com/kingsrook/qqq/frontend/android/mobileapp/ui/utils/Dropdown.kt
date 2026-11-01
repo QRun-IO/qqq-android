@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -48,19 +49,17 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun <T> Dropdown(value: T, options: List<T>, labelExtractor: (t: T) -> String, onClick: (t: T) -> Unit, modifier: Modifier = Modifier)
-{
+fun <T> Dropdown(value: T, options: List<T>, labelExtractor: (t: T) -> String, onClick: (t: T) -> Unit, modifier: Modifier = Modifier) {
    val dropdownExpanded = remember { mutableStateOf(false) }
    val textFieldSize = remember { mutableStateOf(IntSize.Zero) }
    val selectedValue = remember { mutableStateOf(value) }
-   val icon = if(dropdownExpanded.value) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
+   val icon = if (dropdownExpanded.value) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
 
    Box(
-      Modifier
+      modifier
          .fillMaxWidth()
          .clickable { dropdownExpanded.value = !dropdownExpanded.value }
    ) {
@@ -74,7 +73,7 @@ fun <T> Dropdown(value: T, options: List<T>, labelExtractor: (t: T) -> String, o
       )
       {
          Text(text = labelExtractor.invoke(selectedValue.value))
-         Icon(icon, if(dropdownExpanded.value) "close" else "open")
+         Icon(icon, if (dropdownExpanded.value) "close" else "open")
       }
 
       DropdownMenu(
@@ -87,11 +86,11 @@ fun <T> Dropdown(value: T, options: List<T>, labelExtractor: (t: T) -> String, o
          { option ->
             DropdownMenuItem(
                onClick =
-               {
-                  selectedValue.value = option
-                  dropdownExpanded.value = false
-                  onClick.invoke(option)
-               },
+                  {
+                     selectedValue.value = option
+                     dropdownExpanded.value = false
+                     onClick.invoke(option)
+                  },
                text = { Text(text = labelExtractor.invoke(option)) }
             )
          }

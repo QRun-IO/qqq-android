@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -32,24 +33,18 @@ import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendComponent
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun ProcessComponentHTML(processViewModel: ProcessViewModel, component: QFrontendComponent)
+fun ProcessComponentHTML(processViewModel: ProcessViewModel, @Suppress("UNUSED_PARAMETER") component: QFrontendComponent) // Keep the uniform renderer API; this renderer reads HTML from the active process values.
 {
    val semanticText = processViewModel.processValues["${processViewModel.activeStep?.name}.text"] as? String
    val processValue = processViewModel.processValues["${processViewModel.activeStep?.name}.html"]
-   val html: String = if(processValue is String)
-   {
+   val html: String = if (processValue is String) {
       processValue
-   }
-   else if(processValue == null)
-   {
+   } else if (processValue == null) {
       ""
-   }
-   else
-   {
+   } else {
       processValue.toString()
    }
 

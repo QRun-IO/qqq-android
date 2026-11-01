@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -23,9 +24,8 @@ package com.kingsrook.qqq.frontend.android.core.model.metadata
 
 import kotlinx.serialization.Serializable
 
-/***************************************************************************
-**
-***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Serializable
 data class QAppTreeNode(
    val name: String,
@@ -34,7 +34,6 @@ data class QAppTreeNode(
    val children: List<QAppTreeNode>? = emptyList(),
    val icon: QIcon? = null,
    val keywords: List<String>? = emptyList(),
-)
-{
+) {
 
 }

@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -22,18 +23,18 @@ package com.kingsrook.qqq.sampleandroidmobileapp
 
 import org.junit.Test
 
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-class ExampleUnitTest
-{
+/*******************************************************************************
+ ** Example local unit test, which will execute on the development machine (host).
+ ** See [testing documentation](http://d.android.com/tools/testing).
+ *******************************************************************************/
+class ExampleUnitTest {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
-   fun addition_isCorrect()
-   {
+   fun addition_isCorrect() {
       assertEquals(4, 2 + 2)
    }
 }

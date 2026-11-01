@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -27,12 +28,11 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.QAppMetaData
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
 
-/***************************************************************************
+/*******************************************************************************
  ** screen that renders an app (e.g., a QQQAppMetaData)
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun QAppHome(qInstance: QInstance, modifier: Modifier = Modifier, app: QAppMetaData? = null, qNavigator: QNavigator? = null)
-{
+fun QAppHome(qInstance: QInstance, modifier: Modifier = Modifier, app: QAppMetaData? = null, qNavigator: QNavigator? = null) {
    ///////////////////////////////////////////////////////////////////////
    // idk, in case we do other layouts in the future, simple layer here //
    ///////////////////////////////////////////////////////////////////////

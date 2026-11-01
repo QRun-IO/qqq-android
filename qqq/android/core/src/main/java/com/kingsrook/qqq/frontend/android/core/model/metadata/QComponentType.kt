@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -20,12 +21,10 @@
 
 package com.kingsrook.qqq.frontend.android.core.model.metadata
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @kotlinx.serialization.Serializable(with = QComponentTypeSerializer::class)
-enum class QComponentType
-{
+enum class QComponentType {
    UNKNOWN,
    HELP_TEXT,
    BULK_EDIT_FORM,
@@ -41,10 +40,20 @@ enum class QComponentType
    HTML,
 }
 
-object QComponentTypeSerializer : kotlinx.serialization.KSerializer<QComponentType>
-{
+/*******************************************************************************
+ ** Keep unknown server enum values representable so additive metadata fails safely at the UI boundary.
+ *******************************************************************************/
+object QComponentTypeSerializer : kotlinx.serialization.KSerializer<QComponentType> {
    override val descriptor = kotlinx.serialization.descriptors.PrimitiveSerialDescriptor("QComponentType", kotlinx.serialization.descriptors.PrimitiveKind.STRING)
+
+   /*******************************************************************************
+    ** Map known wire names explicitly and preserve unsupported values through the enum's UNKNOWN member.
+    *******************************************************************************/
    override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): QComponentType =
       decoder.decodeString().let { value -> QComponentType.entries.firstOrNull { it.name == value } ?: QComponentType.UNKNOWN }
+
+   /*******************************************************************************
+    ** Write the stable enum wire name rather than a JVM implementation detail.
+    *******************************************************************************/
    override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: QComponentType) = encoder.encodeString(value.name)
 }

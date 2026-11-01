@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -23,11 +24,10 @@ package com.kingsrook.qqq.frontend.android.mobileapp.ui.utils
 
 import androidx.compose.ui.graphics.Color
 
-/***************************************************************************
+/*******************************************************************************
  ** define some standard colors
- ***************************************************************************/
-object Colors
-{
+ *******************************************************************************/
+object Colors {
    val SUCCESS = Color(0x2B, 0xA3, 0x3F)
    val WARNING = Color(0xCC, 0x84, 0x02)
    val ERROR = Color(0xFB, 0x41, 0x41)

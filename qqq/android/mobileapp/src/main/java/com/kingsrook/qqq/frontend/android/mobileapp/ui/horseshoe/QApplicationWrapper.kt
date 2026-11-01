@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -44,20 +45,19 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import kotlinx.serialization.Serializable
 
-/***************************************************************************
+/*******************************************************************************
  ** Composable that wraps our entire application - providing a login form
  ** when needed, else showing the app.
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun QApplicationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier, qNavigator: QNavigator? = null)
-{
+fun QApplicationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier, qNavigator: QNavigator? = null) {
    val qInstanceLoadState = qViewModel.qInstanceLoadState
    val loadStates = listOf(qInstanceLoadState)
 
    val navController = qNavigator?.navController ?: rememberNavController()
    val hostBackAction = LocalNavigationBackAction.current
    BackHandler(enabled = qNavigator?.atHome == false) {
-      if(hostBackAction != null) hostBackAction() else qNavigator?.popStack()
+      if (hostBackAction != null) hostBackAction() else qNavigator?.popStack()
    }
 
    LoadStateView(
@@ -81,12 +81,9 @@ fun QApplicationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier, q
             { backStackEntry ->
                val appRoute: AppRoute = backStackEntry.toRoute()
                val app = qInstance.apps?.get(appRoute.name)
-               if(app != null)
-               {
+               if (app != null) {
                   QAppHome(qInstance, modifier, app = app, qNavigator = qNavigator)
-               }
-               else
-               {
+               } else {
                   NotFound(qNavigator, "App not found (name=${appRoute.name})")
                }
             }
@@ -95,12 +92,9 @@ fun QApplicationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier, q
             { backStackEntry ->
                val processRoute: ProcessRoute = backStackEntry.toRoute()
                val process = qInstance.processes?.get(processRoute.name)
-               if(process != null)
-               {
+               if (process != null) {
                   QProcessHome(qViewModel, qInstance, modifier)
-               }
-               else
-               {
+               } else {
                   NotFound(qNavigator, "Process not found (name=${processRoute.name})")
                }
             }
@@ -110,12 +104,10 @@ fun QApplicationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier, q
    }
 }
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-private fun NotFound(qNavigator: QNavigator?, message: String)
-{
+private fun NotFound(qNavigator: QNavigator?, message: String) {
    FullSizedAllCenteredColumn()
    {
       Text(message, modifier = Modifier.padding(bottom = 16.dp))
@@ -126,21 +118,21 @@ private fun NotFound(qNavigator: QNavigator?, message: String)
    }
 }
 
-/***************************************************************************
+/*******************************************************************************
  ** route/data (singleton) to represent the home screen
- ***************************************************************************/
+ *******************************************************************************/
 @Serializable
 object HomeRoute
 
-/***************************************************************************
+/*******************************************************************************
  ** route/data to represent an app
- ***************************************************************************/
+ *******************************************************************************/
 @Serializable
 data class AppRoute(val name: String)
 
-/***************************************************************************
+/*******************************************************************************
  ** route/data to represent a process
- ***************************************************************************/
+ *******************************************************************************/
 @Serializable
 data class ProcessRoute(val name: String, val appName: String? = null)
 

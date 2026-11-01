@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -42,13 +43,12 @@ import kotlinx.coroutines.delay
 import java.time.format.DateTimeFormatter
 
 
-/***************************************************************************
+/*******************************************************************************
  ** Loading screen within a process - e.g., when server-side async processing
  ** is running long
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun ProcessStepLoading(processViewModel: ProcessViewModel)
-{
+fun ProcessStepLoading(processViewModel: ProcessViewModel) {
    val playCount = remember { mutableIntStateOf(0) }
    val playTick = rememberProcessSound(ProcessTone.LOADING)
 
@@ -59,8 +59,7 @@ fun ProcessStepLoading(processViewModel: ProcessViewModel)
    LaunchedEffect(processViewModel.jobRunningLastUpdated)
    {
       delay(1000)
-      if(processViewModel.waitingOnBackend)
-      {
+      if (processViewModel.waitingOnBackend) {
          processViewModel.checkIn()
       }
    }
@@ -69,13 +68,11 @@ fun ProcessStepLoading(processViewModel: ProcessViewModel)
    // use a separate effect, that will fire every second (regardless of if backend is responding), to play 'tick' //
    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    val format = FrontendStepFormat.of(processViewModel.activeStep?.format)
-   if(format.playOnLoadingSound())
-   {
+   if (format.playOnLoadingSound()) {
       LaunchedEffect(playCount.intValue)
       {
-         if(processViewModel.waitingOnBackend)
-         {
-             playTick()
+         if (processViewModel.waitingOnBackend) {
+            playTick()
             delay(1000)
             playCount.intValue += 1
          }
@@ -103,17 +100,13 @@ fun ProcessStepLoading(processViewModel: ProcessViewModel)
             .align(Alignment.CenterHorizontally)
             .padding(bottom = 4.dp)
 
-         if(processViewModel.jobRunningMessage != "")
-         {
+         if (processViewModel.jobRunningMessage != "") {
             Text(processViewModel.jobRunningMessage, modifier = commonModifier)
-         }
-         else
-         {
+         } else {
             Text("Working...", modifier = commonModifier)
          }
 
-         if(processViewModel.currentOfTotalMessage != "")
-         {
+         if (processViewModel.currentOfTotalMessage != "") {
             Text(processViewModel.currentOfTotalMessage, modifier = commonModifier)
          }
 

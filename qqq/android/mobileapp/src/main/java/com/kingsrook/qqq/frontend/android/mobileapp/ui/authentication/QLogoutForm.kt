@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -37,26 +38,22 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullSizedAllCenter
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
 
-/***************************************************************************
+/*******************************************************************************
  ** Display an appropriate logout screen/form, based on the authenticationMetaData
  ** type.
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun QLogoutForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticationMetaData, modifier: Modifier = Modifier)
-{
+fun QLogoutForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticationMetaData, modifier: Modifier = Modifier) {
    qViewModel.companyLogoutBinding?.let {
       QOAuth2Logout(qViewModel, it)
       return
    }
-   when (authenticationMetaData)
-   {
-      is Auth0AuthenticationMetaData ->
-      {
+   when (authenticationMetaData) {
+      is Auth0AuthenticationMetaData -> {
          QAuth0Logout(qViewModel, modifier)
       }
 
-      is FullyAnonymousAuthenticationMetaData, is TableBasedAuthenticationMetaData, is OAuth2AuthenticationMetaData ->
-      {
+      is FullyAnonymousAuthenticationMetaData, is TableBasedAuthenticationMetaData, is OAuth2AuthenticationMetaData -> {
          LaunchedEffect(true)
          {
             ///////////////////////////////////////////////////////////////////
@@ -76,8 +73,7 @@ fun QLogoutForm(qViewModel: QViewModel, authenticationMetaData: BaseAuthenticati
          }
       }
 
-      else ->
-      {
+      else -> {
          Text("Error: Unrecognized AuthenticationMetaData type: ${authenticationMetaData.javaClass.simpleName}", color = Color.Red)
       }
    }

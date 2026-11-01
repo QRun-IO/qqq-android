@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -39,25 +40,20 @@ import com.kingsrook.qqq.sampleandroidmobileapp.SampleAppMockQQQRepository
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import com.kingsrook.qqq.frontend.android.mobileapp.data.MockPreferencesDataStore
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-object TestUtils
-{
+ *******************************************************************************/
+object TestUtils {
    lateinit var qViewModel: QViewModel
    lateinit var toast: Toast
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   fun startStandardTest(composeTestRule: ComposeContentTestRule, qViewModelParam: QViewModel? = null)
-   {
-      if(qViewModelParam == null)
-      {
+    *******************************************************************************/
+   fun startStandardTest(composeTestRule: ComposeContentTestRule, qViewModelParam: QViewModel? = null) {
+      if (qViewModelParam == null) {
          this.qViewModel = createQViewModel()
-      }
-      else
-      {
+      } else {
          this.qViewModel = qViewModelParam
       }
 
@@ -72,96 +68,85 @@ object TestUtils
       }
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   fun login(composeTestRule: ComposeContentTestRule)
-   {
+    *******************************************************************************/
+   fun login(composeTestRule: ComposeContentTestRule) {
       composeTestRule.onNodeWithText("Log In").performClick()
-      composeTestRule.waitUntil("Should become authed", timeoutMillis = 5000, condition =
-      {
-         qViewModel.isAuthenticated
-      })
+      composeTestRule.waitUntil(
+         "Should become authed", timeoutMillis = 5000, condition =
+            {
+               qViewModel.isAuthenticated
+            })
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   fun createQViewModel(): QViewModel
-   {
+    *******************************************************************************/
+   fun createQViewModel(): QViewModel {
       val dataStore = MockPreferencesDataStore()
       val qViewModel = QViewModel(SampleAppMockQQQRepository(), dataStore)
       return (qViewModel)
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   fun sleep(composeTestRule: ComposeContentTestRule, seconds: Int)
-   {
-      composeTestRule.waitUntil("Intentional Sleep", timeoutMillis = (seconds + 1) * 1000L, condition =
-      {
-         try
-         {
-            Thread.sleep(seconds * 1000L)
-            return@waitUntil true
-         }
-         catch(e: Exception)
-         {
-            // noop, just return
-            return@waitUntil true
-         }
-      })
+    *******************************************************************************/
+   fun sleep(composeTestRule: ComposeContentTestRule, seconds: Int) {
+      composeTestRule.waitUntil(
+         "Intentional Sleep", timeoutMillis = (seconds + 1) * 1000L, condition =
+            {
+               try {
+                  Thread.sleep(seconds * 1000L)
+                  return@waitUntil true
+               } catch (e: Exception) {
+                  // noop, just return
+                  return@waitUntil true
+               }
+            })
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     ** Sleep, but, only when running locally, e.g., to see the screen and debug.
     ** will this cause tests to behave differently in CI?  We shall see!
-    ***************************************************************************/
-   fun localDebugSleep(composeTestRule: ComposeContentTestRule, seconds: Int = 300)
-   {
-      if(seconds == 0)
-      {
+    *******************************************************************************/
+   fun localDebugSleep(composeTestRule: ComposeContentTestRule, seconds: Int = 300) {
+      if (seconds == 0) {
          return
       }
 
-      if(System.getenv("CIRCLECI") != null)
-      {
+      if (System.getenv("CIRCLECI") != null) {
          println("In CIRCLECI - so - not doing a localDebugSleep")
          return
       }
 
-      showToast("Going into a localDebugSleep sleep \uD83D\uDECC now for ${seconds} second${if(seconds == 1) "" else "s"} ⏰")
+      showToast("Going into a localDebugSleep sleep \uD83D\uDECC now for ${seconds} second${if (seconds == 1) "" else "s"} ⏰")
       sleep(composeTestRule, seconds)
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   fun logTree(composeTestRule: ComposeContentTestRule, useUnmergedTree: Boolean = false)
-   {
+    *******************************************************************************/
+   fun logTree(composeTestRule: ComposeContentTestRule, useUnmergedTree: Boolean = false) {
       composeTestRule.onRoot(useUnmergedTree = useUnmergedTree)
          .printToLog("currentLabelExists")
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   fun showToast(text: String)
-   {
+    *******************************************************************************/
+   fun showToast(text: String) {
       toast.setText(text)
       toast.show()
    }
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @OptIn(ExperimentalTestApi::class) // for waitUntilAtLeastOneExists
-fun ComposeContentTestRule.clickAppScreenOption(type: QAppNodeType, childName: String)
-{
-   val testTag = "appHome.rowFor" + when(type)
-   {
+fun ComposeContentTestRule.clickAppScreenOption(type: QAppNodeType, childName: String) {
+   val testTag = "appHome.rowFor" + when (type) {
       QAppNodeType.APP -> "App:"
       QAppNodeType.TABLE -> "Table:"
       QAppNodeType.PROCESS -> "Process:"

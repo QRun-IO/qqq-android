@@ -47,19 +47,24 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
-/** Exercise real native controls in a constrained viewport, including the actions below their content. */
-class SemanticInputTests : BaseTest()
-{
-   @get:Rule val ui = createComposeRule()
+/*******************************************************************************
+ ** Exercise real native controls in a constrained viewport, including the actions below their content.
+ *******************************************************************************/
+class SemanticInputTests : BaseTest() {
+   @get:Rule
+   val ui = createComposeRule()
 
-   /** A short screen must still let an operator reach Sign in and actually call authentication. */
-   @Test fun loginIsReachableInAShortViewport()
-   {
+   /*******************************************************************************
+    ** A short screen must still let an operator reach Sign in and actually call authentication.
+    *******************************************************************************/
+   @Test
+   fun loginIsReachableInAShortViewport() {
       val loggedIn = AtomicReference<String?>()
-      val repository = object : QQQRepository by SampleAppMockQQQRepository()
-      {
-         override suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse
-         {
+      val repository = object : QQQRepository by SampleAppMockQQQRepository() {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse {
             loggedIn.set(username)
             return ManageSessionResponse("local-test-session")
          }
@@ -79,18 +84,33 @@ class SemanticInputTests : BaseTest()
       ui.waitUntil(10000) { loggedIn.get() == "operator" }
    }
 
-   /** The last field scrolls into view while the standard action remains outside the scrolling content. */
-   @Test fun longFormCanEditItsLastFieldAndSubmit()
-   {
+   /*******************************************************************************
+    ** The last field scrolls into view while the standard action remains outside the scrolling content.
+    *******************************************************************************/
+   @Test
+   fun longFormCanEditItsLastFieldAndSubmit() {
       val saved = AtomicReference<Map<String, Any?>?>()
-      val repository = object : QQQRepository by SampleAppMockQQQRepository()
-      {
-         override suspend fun getProcessMetaData(processName: String) = QProcessMetaData("long", "Long form", frontendSteps = listOf(
-            QFrontendStepMetaData("input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
-               formFields = (1..12).map { QFieldMetaData("field$it", "Field $it", type = QFieldType.STRING) })))
+      val repository = object : QQQRepository by SampleAppMockQQQRepository() {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun getProcessMetaData(processName: String) = QProcessMetaData(
+            "long", "Long form", frontendSteps = listOf(
+               QFrontendStepMetaData(
+                  "input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
+                  formFields = (1..12).map { QFieldMetaData("field$it", "Field $it", type = QFieldType.STRING) })
+            )
+         )
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
          override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?) = QJobComplete("p", nextStep = "input")
-         override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): QJobComplete
-         {
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): QJobComplete {
             saved.set(values)
             return QJobComplete("p")
          }
@@ -114,13 +134,18 @@ class SemanticInputTests : BaseTest()
       ui.onNodeWithText("Close").assertIsDisplayed()
    }
 
-   /** Autofocus is presentation metadata: arrow-prefixed data must not become a business action. */
-   @Test fun inputWidgetSubmitsArrowPrefixLiterally()
-   {
+   /*******************************************************************************
+    ** Autofocus is presentation metadata: arrow-prefixed data must not become a business action.
+    *******************************************************************************/
+   @Test
+   fun inputWidgetSubmitsArrowPrefixLiterally() {
       val submitted = AtomicReference<Map<String, Any>?>()
-      val block = WidgetBlock("input", "INPUT_FIELD", values = mutableMapOf(
-         "autoFocus" to true, "submitOnEnter" to true,
-         "fieldMetaData" to mapOf("name" to "code", "label" to "Code", "type" to "STRING")))
+      val block = WidgetBlock(
+         "input", "INPUT_FIELD", values = mutableMapOf(
+            "autoFocus" to true, "submitOnEnter" to true,
+            "fieldMetaData" to mapOf("name" to "code", "label" to "Code", "type" to "STRING")
+         )
+      )
       ui.setContent { MaterialTheme { InputFieldWidgetBlock(WidgetBlockParameters(block, { submitted.set(it) })) } }
       ui.onNodeWithText("Code").performTextReplacement("->literal")
       ui.onNodeWithText("Code").performImeAction()
@@ -128,11 +153,19 @@ class SemanticInputTests : BaseTest()
       assertEquals(mapOf("code" to "->literal"), submitted.get())
    }
 
-   /** Field presentation flags apply to widgets just as they do to semantic forms. */
-   @Test fun widgetPasswordReadonlyAndHiddenMetadataAreHonored()
-   {
-      fun block(name: String, type: String, properties: Map<String, Any> = emptyMap()) = WidgetBlock(name, "INPUT_FIELD", values = mutableMapOf(
-         "fieldMetaData" to (mapOf("name" to name, "label" to name, "type" to type) + properties)))
+   /*******************************************************************************
+    ** Field presentation flags apply to widgets just as they do to semantic forms.
+    *******************************************************************************/
+   @Test
+   fun widgetPasswordReadonlyAndHiddenMetadataAreHonored() {
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      fun block(name: String, type: String, properties: Map<String, Any> = emptyMap()) = WidgetBlock(
+         name, "INPUT_FIELD", values = mutableMapOf(
+            "fieldMetaData" to (mapOf("name" to name, "label" to name, "type" to type) + properties)
+         )
+      )
       ui.setContent {
          MaterialTheme {
             Column {

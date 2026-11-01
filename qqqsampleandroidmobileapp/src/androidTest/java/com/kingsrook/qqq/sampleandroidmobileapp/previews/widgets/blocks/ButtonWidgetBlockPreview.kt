@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -34,39 +35,39 @@ import com.kingsrook.qqq.frontend.android.core.model.widgets.WidgetBlock
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.ButtonWidgetBlock
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBlockParameters
 
+/*******************************************************************************
+ **
+ *******************************************************************************/
 @Composable
 fun ActionButton(
    styles: MutableMapOfStringAny = emptyMap<String, Any?>().toMutableMap(),
    values: MutableMapOfStringAny = emptyMap<String, Any?>().toMutableMap()
 ) = ButtonWidgetBlock(WidgetBlockParameters(WidgetBlock("", "BUTTON", styles = styles, values = values)))
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockDefault()
-{
+fun ActionButtonWidgetBlockDefault() {
    ActionButton(values = mutableMapOf("label" to "Default"))
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockSuccess()
-{
+fun ActionButtonWidgetBlockSuccess() {
    ActionButton(styles = mutableMapOf("color" to "SUCCESS"), values = mutableMapOf("label" to "Default"))
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockOutlined()
-{
+fun ActionButtonWidgetBlockOutlined() {
    Surface(modifier = Modifier.background(Color.Gray).padding(20.dp))
    {
       ActionButton(styles = mutableMapOf("format" to "outlined"), values = mutableMapOf("label" to "Outlined"))
@@ -74,78 +75,70 @@ fun ActionButtonWidgetBlockOutlined()
 }
 
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockOutlinedError()
-{
+fun ActionButtonWidgetBlockOutlinedError() {
    ActionButton(styles = mutableMapOf("color" to "ERROR", "format" to "outlined"), values = mutableMapOf("label" to "Outlined"))
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockFilled()
-{
+fun ActionButtonWidgetBlockFilled() {
    ActionButton(styles = mutableMapOf("format" to "filled"), values = mutableMapOf("label" to "Filled"))
 }
 
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockFilledError()
-{
+fun ActionButtonWidgetBlockFilledError() {
    ActionButton(styles = mutableMapOf("color" to "SUCCESS", "format" to "filled"), values = mutableMapOf("label" to "Filled"))
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockText()
-{
+fun ActionButtonWidgetBlockText() {
    ActionButton(styles = mutableMapOf("format" to "text"), values = mutableMapOf("label" to "Text"))
 }
 
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockTextError()
-{
+fun ActionButtonWidgetBlockTextError() {
    ActionButton(styles = mutableMapOf("color" to "ERROR", "format" to "text"), values = mutableMapOf("label" to "Text"))
 }
 
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockStartIcon()
-{
+fun ActionButtonWidgetBlockStartIcon() {
    ActionButton(styles = mutableMapOf("color" to "INFO", "format" to "outlined"), values = mutableMapOf("label" to "Text", "startIcon" to mapOf("name" to "check")))
 }
 
 
-
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ActionButtonWidgetBlockEndIcon()
-{
+fun ActionButtonWidgetBlockEndIcon() {
    ActionButton(styles = mutableMapOf("color" to "WARNING", "format" to "filled"), values = mutableMapOf("label" to "Text", "endIcon" to mapOf("name" to "warning")))
 }
 

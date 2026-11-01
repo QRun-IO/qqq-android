@@ -23,14 +23,14 @@ import androidx.compose.ui.window.DialogProperties
 import com.mikepenz.aboutlibraries.ui.compose.LibrariesContainer
 import com.mikepenz.aboutlibraries.ui.compose.LibraryDefaults
 
-/** Secondary settings entry; library definitions and complete license texts are bundled resources. */
+/*******************************************************************************
+ ** Secondary settings entry; library definitions and complete license texts are bundled resources.
+ *******************************************************************************/
 @Composable
-fun OpenSourceLicensesButton()
-{
+fun OpenSourceLicensesButton() {
    var visible by rememberSaveable { mutableStateOf(false) }
    TextButton(onClick = { visible = true }) { Text("Open-source licenses") }
-   if(visible)
-   {
+   if (visible) {
       Dialog(onDismissRequest = { visible = false }, properties = DialogProperties(usePlatformDefaultWidth = false))
       {
          Surface(modifier = Modifier.fillMaxSize())

@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -32,13 +33,12 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Reloader
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
-/***************************************************************************
+/*******************************************************************************
  ** Composable that wraps our entire application - providing a login form
  ** when needed, or a logout screen, else showing the app.
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun QAuthenticationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier, qNavigator: QNavigator? = null)
-{
+fun QAuthenticationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier, qNavigator: QNavigator? = null) {
    val isAuthenticated = qViewModel.isAuthenticated;
    val authenticationMetaDataLoadState = qViewModel.authenticationMetaDataLoadState;
    val initialLoadFromDataStoreLoadState = qViewModel.initialLoadFromDataStoreLoadState;
@@ -55,16 +55,11 @@ fun QAuthenticationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier
       {
          val authenticationMetaData = (authenticationMetaDataLoadState as LoadState.Success<BaseAuthenticationMetaData>).value
 
-         if(qViewModel.isLogoutRequested)
-         {
+         if (qViewModel.isLogoutRequested) {
             QLogoutForm(qViewModel, authenticationMetaData)
-         }
-         else if(isAuthenticated)
-         {
+         } else if (isAuthenticated) {
             LocalAuthenticatedContent.current(qViewModel) { QApplicationWrapper(qViewModel, Modifier, qNavigator) }
-         }
-         else
-         {
+         } else {
             QLoginForm(qViewModel, authenticationMetaData)
          }
       }

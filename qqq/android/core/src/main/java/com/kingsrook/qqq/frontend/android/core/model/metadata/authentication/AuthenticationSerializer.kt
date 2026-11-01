@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -27,16 +28,12 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/***************************************************************************
- **
- ***************************************************************************/
-object AuthenticationSerializer : JsonContentPolymorphicSerializer<BaseAuthenticationMetaData>(BaseAuthenticationMetaData::class)
-{
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun selectDeserializer(element: JsonElement) = when (element.jsonObject["type"]?.jsonPrimitive?.content)
-   {
+/*******************************************************************************
+ *******************************************************************************/
+object AuthenticationSerializer : JsonContentPolymorphicSerializer<BaseAuthenticationMetaData>(BaseAuthenticationMetaData::class) {
+   /*******************************************************************************
+    *******************************************************************************/
+   override fun selectDeserializer(element: JsonElement) = when (element.jsonObject["type"]?.jsonPrimitive?.content) {
       Auth0AuthenticationMetaData.TYPE -> Auth0AuthenticationMetaData.serializer()
       OAuth2AuthenticationMetaData.TYPE -> OAuth2AuthenticationMetaData.serializer()
       FullyAnonymousAuthenticationMetaData.TYPE -> FullyAnonymousAuthenticationMetaData.serializer()
@@ -45,5 +42,8 @@ object AuthenticationSerializer : JsonContentPolymorphicSerializer<BaseAuthentic
    }
 }
 
+/*******************************************************************************
+ ** Preserve an unknown authentication discriminator so unsupported methods fail explicitly in the UI.
+ *******************************************************************************/
 @kotlinx.serialization.Serializable
 data class UnsupportedAuthenticationMetaData(override val type: String, override val name: String = "Unsupported authentication") : BaseAuthenticationMetaData

@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -42,16 +43,14 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import com.kingsrook.qqq.sampleandroidmobileapp.ui.theme.AppTheme
 import java.io.File
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-class SampleAppMainActivity : ComponentActivity()
-{
-   /***************************************************************************
+ *******************************************************************************/
+class SampleAppMainActivity : ComponentActivity() {
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override fun onCreate(savedInstanceState: Bundle?)
-   {
+    *******************************************************************************/
+   override fun onCreate(savedInstanceState: Bundle?) {
       /////////////////////////////////////////////////////////////////////////////////////////////
       // configure your application:                                                             //
       // availableEnvironments: list of Environments - labels & Urls of your application servers //
@@ -67,7 +66,7 @@ class SampleAppMainActivity : ComponentActivity()
          Environment("Production", "https://live.coldtrack.com/"),
          Environment("Staging", "https://live.coldtrack-staging.com/"),
          Environment("Development", "https://live.coldtrack-dev.com/"),
-      ) + if(BuildConfig.DEBUG) listOf(
+      ) + if (BuildConfig.DEBUG) listOf(
          Environment("Local Dev", "http://192.168.4.122:8000/"),
          Environment("Bad URL", "http://no.such.domain.dot.dot/"),
       ) else emptyList()
@@ -94,7 +93,7 @@ class SampleAppMainActivity : ComponentActivity()
 
          AppTheme()
          {
-            QMobileAppMain(qViewModel, title = title, if(splashResourceId == null) null else painterResource(splashResourceId))
+            QMobileAppMain(qViewModel, title = title, if (splashResourceId == null) null else painterResource(splashResourceId))
          }
       }
    }

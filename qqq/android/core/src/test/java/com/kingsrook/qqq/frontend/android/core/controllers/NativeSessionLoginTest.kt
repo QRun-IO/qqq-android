@@ -10,18 +10,28 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class NativeSessionLoginTest
-{
+/*******************************************************************************
+ **
+ *******************************************************************************/
+class NativeSessionLoginTest {
    private val version = VERSION_FIXTURE.replace("1.8.0", "1.10.0").replace("\"widgets\"", "\"widgets\",\"nativeSessionLogin\",\"nativeSessionNonceValidation\"")
-   private val request = ManageSessionRequest(code = "synthetic-code", codeVerifier = "v".repeat(64),
+   private val request = ManageSessionRequest(
+      code = "synthetic-code", codeVerifier = "v".repeat(64),
       redirectUri = "io.qrun.mobile.scanner.oauth://callback/oauth2redirect",
-      authenticationFlow = OAuth2AuthenticationMetaData.SESSION_FLOW, expectedNonce = "original-nonce-canary-1234")
+      authenticationFlow = OAuth2AuthenticationMetaData.SESSION_FLOW, expectedNonce = "original-nonce-canary-1234"
+   )
 
-   @Test fun metadataKeepsNativeBearerDistinctFromAdvertisedSessionFlow()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun metadataKeepsNativeBearerDistinctFromAdvertisedSessionFlow() {
       val metadata = Json.decodeFromString<BaseAuthenticationMetaData>("""{"type":"OAUTH2","name":"organization","values":{"clientId":"server-client","baseUrl":"https://id.example/discovery-base/","scopes":"openid profile","nativeClientId":"public-bearer-client","nativeSessionLogin":{"flow":"AUTHORIZATION_CODE_PKCE_SESSION","codeChallengeMethod":"S256","prompt":"login","nonceValidation":"REQUIRED","issuer":"https://id.example/","discoveryUrl":"https://id.example/application/o/company/.well-known/openid-configuration","redirectUris":["io.qrun.mobile.scanner.oauth://callback/oauth2redirect"]}}}""") as OAuth2AuthenticationMetaData
       assertEquals("server-client", metadata.values.clientId)
       assertEquals("public-bearer-client", metadata.values.nativeClientId)
@@ -40,17 +50,26 @@ class NativeSessionLoginTest
       assertFalse(Json.encodeToString(ManageSessionRequest(accessToken = "synthetic-legacy-token")).contains("expectedNonce"))
    }
 
-   @Test fun featureAndVersionAreRequiredTogether()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun featureAndVersionAreRequiredTogether() {
       val supported = Json.decodeFromString<UiApiVersion>(version)
       UiApiCompatibility.validateNativeSessionLogin(supported)
-      for(unsupported in listOf(supported.copy(apiVersion = "1.8.9"), supported.copy(apiVersion = "1.9.0"), supported.copy(apiVersion = "2.0.0"),
+      for (unsupported in listOf(
+         supported.copy(apiVersion = "1.8.9"), supported.copy(apiVersion = "1.9.0"), supported.copy(apiVersion = "2.0.0"),
          supported.copy(apiVersion = "1.10.0-preview"), supported.copy(features = supported.features - "nativeSessionLogin"),
-         supported.copy(features = supported.features - "nativeSessionNonceValidation")))
+         supported.copy(features = supported.features - "nativeSessionNonceValidation")
+      ))
          assertTrue(runCatching { UiApiCompatibility.validateNativeSessionLogin(unsupported) }.exceptionOrNull() is UiApiCompatibilityException)
    }
 
-   @Test fun exchangeCookieIsDeferredAndDiscardNeverChangesCurrentSession() = runBlocking {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun exchangeCookieIsDeferredAndDiscardNeverChangesCurrentSession() = runBlocking {
       MockWebServer().use { server ->
          val origin = server.url("/").toString()
          server.enqueue(MockResponse().setBody(version))
@@ -78,7 +97,11 @@ class NativeSessionLoginTest
       }
    }
 
-   @Test fun missingFeaturePreventsSendingTheAuthorizationCode() = runBlocking {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun missingFeaturePreventsSendingTheAuthorizationCode() = runBlocking {
       MockWebServer().use { server ->
          server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
          val origin = server.url("/").toString()
@@ -92,18 +115,26 @@ class NativeSessionLoginTest
       }
    }
 
-   @Test fun invalidOriginalNoncePreventsAnyNetworkRequest() = runBlocking {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun invalidOriginalNoncePreventsAnyNetworkRequest() = runBlocking {
       MockWebServer().use { server ->
          val origin = server.url("/").toString()
          val repository = NetworkQQQRepository(origin)
          repository.setEnvironment(Environment("fixture", origin))
-         for(value in listOf(null, "", "n".repeat(15), "n".repeat(513), "not valid nonce", "n".repeat(20) + "="))
+         for (value in listOf(null, "", "n".repeat(15), "n".repeat(513), "not valid nonce", "n".repeat(20) + "="))
             assertTrue(runCatching { repository.exchangeNativeSession(request.copy(expectedNonce = value)) }.exceptionOrNull() is IllegalArgumentException)
          assertEquals(0, server.requestCount)
       }
    }
 
-   @Test fun rejectedNonceNeverRetriesAnUnprotectedExchange() = runBlocking {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun rejectedNonceNeverRetriesAnUnprotectedExchange() = runBlocking {
       MockWebServer().use { server ->
          server.enqueue(MockResponse().setBody(version))
          server.enqueue(MockResponse().setResponseCode(401).setBody("""{"code":"AUTHENTICATION_FAILED","message":"Sign-in failed"}"""))

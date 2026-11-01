@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -22,9 +23,8 @@ package com.kingsrook.qqq.frontend.android.core.model.metadata.authentication
 
 import kotlinx.serialization.Serializable
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Serializable
 data class ManageSessionRequest(
    val accessToken: String? = null,
@@ -34,10 +34,14 @@ data class ManageSessionRequest(
    val redirectUri: String? = null,
    val authenticationFlow: String? = null,
    val expectedNonce: String? = null
-)
-{
+) {
+   /*******************************************************************************
+    ** Redact authentication material so incidental object rendering cannot expose credentials.
+    *******************************************************************************/
    override fun toString(): String = "ManageSessionRequest(credentials redacted)"
 }
 
-/** AppAuth generates unpadded base64url; bound the semantic nonce before any code exchange. */
+/*******************************************************************************
+ ** AppAuth generates unpadded base64url; bound the semantic nonce before any code exchange.
+ *******************************************************************************/
 fun isValidExpectedNonce(value: String?): Boolean = value != null && Regex("[A-Za-z0-9_-]{16,512}").matches(value)

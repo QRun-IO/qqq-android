@@ -14,28 +14,49 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/*******************************************************************************
+ **
+ *******************************************************************************/
 @OptIn(ExperimentalCoroutinesApi::class)
-class MobileSessionTest
-{
-   private fun ready() = SessionScreen(true, true, true, true, false, true, false, 1, 1,
-      "warehouse", "count", "process-id", "scan", "Scan items")
+class MobileSessionTest {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun ready() = SessionScreen(
+      true, true, true, true, false, true, false, 1, 1,
+      "warehouse", "count", "process-id", "scan", "Scan items"
+   )
+
    private val lease = ScreenLease("lease-one", 30000, 1000, 640, 1280, 262144, 0)
    private val frame = ScreenFrame(byteArrayOf(1, 2, 3), 100, 200, "2026-10-30T12:00:00Z")
 
-   @Test fun captureIsBlockedOutsideTheApprovedVisibleApplication()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun captureIsBlockedOutsideTheApprovedVisibleApplication() {
       val state = ready()
       assertTrue(state.available)
-      listOf(state.copy(authenticated = false), state.copy(approved = false), state.copy(foreground = false),
-         state.copy(focused = false), state.copy(hasPassword = true), state.copy(ready = false), state.copy(paused = true))
+      listOf(
+         state.copy(authenticated = false), state.copy(approved = false), state.copy(foreground = false),
+         state.copy(focused = false), state.copy(hasPassword = true), state.copy(ready = false), state.copy(paused = true)
+      )
          .forEach { assertFalse(it.available); assertNotNull(it.blockedReason) }
    }
 
-   @Test fun frameTicketRejectsStateSessionAndLeaseRaces()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun frameTicketRejectsStateSessionAndLeaseRaces() {
       val state = ready()
       val ticket = ScreenTicket(8, state, "lease-one")
       assertTrue(ticket.valid(8, state, "lease-one", 100, 200))
@@ -46,8 +67,11 @@ class MobileSessionTest
       assertFalse(ticket.valid(8, state, "lease-one", 200, 200))
    }
 
-   @Test fun leaseDurationUsesServerTimeAndRespectsLocalLimits()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun leaseDurationUsesServerTimeAndRespectsLocalLimits() {
       val reply = SessionHeartbeat.parse(heartbeatJson("2099-01-01T00:00:00Z", "2099-01-01T00:00:25Z"))
       assertEquals(25000L, reply.lease!!.durationMillis)
       assertEquals(640, reply.lease.maxWidth)
@@ -56,7 +80,11 @@ class MobileSessionTest
       assertEquals(0L, SessionHeartbeat.parse(heartbeatJson("2099-01-01T00:01:00Z", "2099-01-01T00:00:25Z")).lease!!.durationMillis)
    }
 
-   @Test fun absenceOfViewerLeaseNeverInvokesCapture() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun absenceOfViewerLeaseNeverInvokesCapture() = runTest()
    {
       val transport = FakeTransport(null)
       var captures = 0
@@ -70,8 +98,11 @@ class MobileSessionTest
       job.cancel()
    }
 
-   @Test fun legacyHeartbeatDoesNotEnableDeviceScreenSharing()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun legacyHeartbeatDoesNotEnableDeviceScreenSharing() {
       val json = heartbeatJson("2026-10-30T00:00:00Z", "2026-10-30T00:00:30Z")
       val legacy = SessionHeartbeat.parse(json)
       assertEquals(setOf(CaptureMode.APP_CONTENT), legacy.supportedCaptureModes)
@@ -84,15 +115,20 @@ class MobileSessionTest
       assertThrows(IllegalArgumentException::class.java) { SessionHeartbeat.parse(device.toString()) }
    }
 
-   @Test fun deviceScreenWaitsForViewerAndStopsAfterThirtySecondsWithoutDemand() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun deviceScreenWaitsForViewerAndStopsAfterThirtySecondsWithoutDemand() = runTest()
    {
       val state = mutableStateOf(ready().copy(foreground = false, focused = false, captureMode = CaptureMode.DEVICE_SCREEN))
       val transport = FakeTransport(null, true)
       var stopped = 0
       var captured = 0
-      val controller = MobileSessionController("session", transport, { state.value }, { captured++; frame }, {},
+      val controller = MobileSessionController(
+         "session", transport, { state.value }, { captured++; frame }, {},
          { testScheduler.currentTime }, {
-            if(state.value.captureMode == CaptureMode.DEVICE_SCREEN) stopped++
+            if (state.value.captureMode == CaptureMode.DEVICE_SCREEN) stopped++
             state.value = state.value.copy(captureMode = CaptureMode.APP_CONTENT)
          })
       backgroundScope.launch { controller.run() }
@@ -106,11 +142,16 @@ class MobileSessionTest
       controller.invalidate()
    }
 
-   @Test fun deviceScreenContinuesBackgroundHeartbeatsButStopsOnLostViewerLease() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun deviceScreenContinuesBackgroundHeartbeatsButStopsOnLostViewerLease() = runTest()
    {
       val state = mutableStateOf(ready().copy(foreground = false, focused = false, captureMode = CaptureMode.DEVICE_SCREEN))
       val transport = FakeTransport(lease.copy(captureMode = CaptureMode.DEVICE_SCREEN), true)
-      val controller = MobileSessionController("session", transport, { state.value }, { frame.copy(captureMode = CaptureMode.DEVICE_SCREEN) }, {},
+      val controller = MobileSessionController(
+         "session", transport, { state.value }, { frame.copy(captureMode = CaptureMode.DEVICE_SCREEN) }, {},
          { testScheduler.currentTime }, { state.value = state.value.copy(captureMode = CaptureMode.APP_CONTENT) })
       backgroundScope.launch { controller.run() }; runCurrent()
       assertEquals(1, transport.uploads.size)
@@ -124,12 +165,17 @@ class MobileSessionTest
       controller.invalidate()
    }
 
-   @Test fun deviceModeCannotUseAppLeaseOrUploadAppFrame() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun deviceModeCannotUseAppLeaseOrUploadAppFrame() = runTest()
    {
       val state = mutableStateOf(ready().copy(captureMode = CaptureMode.DEVICE_SCREEN))
       val transport = FakeTransport(lease, true)
       var captured = 0
-      val controller = MobileSessionController("session", transport, { state.value }, { captured++; frame }, {},
+      val controller = MobileSessionController(
+         "session", transport, { state.value }, { captured++; frame }, {},
          { testScheduler.currentTime }, { state.value = state.value.copy(captureMode = CaptureMode.APP_CONTENT) })
       backgroundScope.launch { controller.run() }; runCurrent()
       assertEquals(0, captured)
@@ -140,12 +186,17 @@ class MobileSessionTest
       controller.invalidate()
    }
 
-   @Test fun devicePauseDiscardsEncodingInFlightAndReleasesProjection() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun devicePauseDiscardsEncodingInFlightAndReleasesProjection() = runTest()
    {
       val state = mutableStateOf(ready().copy(captureMode = CaptureMode.DEVICE_SCREEN))
       val transport = FakeTransport(lease.copy(captureMode = CaptureMode.DEVICE_SCREEN), true)
       val captured = CompletableDeferred<ScreenFrame>()
-      val controller = MobileSessionController("session", transport, { state.value }, { captured.await() }, {},
+      val controller = MobileSessionController(
+         "session", transport, { state.value }, { captured.await() }, {},
          { testScheduler.currentTime }, { state.value = state.value.copy(captureMode = CaptureMode.APP_CONTENT) })
       backgroundScope.launch { controller.run() }; runCurrent()
       controller.pauseViewing()
@@ -156,7 +207,11 @@ class MobileSessionTest
       controller.invalidate()
    }
 
-   @Test fun screenChangingToPasswordDuringCaptureDiscardsTheFrame() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun screenChangingToPasswordDuringCaptureDiscardsTheFrame() = runTest()
    {
       val state = mutableStateOf(ready())
       val transport = FakeTransport(lease)
@@ -172,7 +227,11 @@ class MobileSessionTest
       controller.end("SIGN_OUT")
    }
 
-   @Test fun endingSessionCancelsAnInFlightCaptureAndStopsUploads() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun endingSessionCancelsAnInFlightCaptureAndStopsUploads() = runTest()
    {
       val transport = FakeTransport(lease)
       val captured = CompletableDeferred<ScreenFrame>()
@@ -187,7 +246,11 @@ class MobileSessionTest
       assertEquals(listOf("session-a:SERVER_CHANGE"), transport.ends)
    }
 
-   @Test fun expiredLeaseDuringCaptureDiscardsTheFrame() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun expiredLeaseDuringCaptureDiscardsTheFrame() = runTest()
    {
       val transport = FakeTransport(lease.copy(durationMillis = 1000))
       val captured = CompletableDeferred<ScreenFrame>()
@@ -199,7 +262,11 @@ class MobileSessionTest
       controller.end("SIGN_OUT")
    }
 
-   @Test fun serverEndedSessionRequestsLogoutOnceAndFreshLoginHasSeparateIdentity() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun serverEndedSessionRequestsLogoutOnceAndFreshLoginHasSeparateIdentity() = runTest()
    {
       val transport = FakeTransport(lease)
       transport.rejectSession = "ended-session"
@@ -216,7 +283,11 @@ class MobileSessionTest
       fresh.end("SIGN_OUT")
    }
 
-   @Test fun operatorPauseClearsAvailabilityAndRejectsPendingFrame() = runTest()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun operatorPauseClearsAvailabilityAndRejectsPendingFrame() = runTest()
    {
       val transport = FakeTransport(lease)
       val captured = CompletableDeferred<ScreenFrame>()
@@ -228,7 +299,11 @@ class MobileSessionTest
       controller.end("SIGN_OUT")
    }
 
-   @Test fun networkPayloadUsesSemanticRoutesAndCarriesOnlyScreenMetadata() = runBlocking()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun networkPayloadUsesSemanticRoutesAndCarriesOnlyScreenMetadata() = runBlocking()
    {
       MockWebServer().use { server ->
          server.enqueue(MockResponse().setBody(VERSION))
@@ -257,7 +332,11 @@ class MobileSessionTest
       }
    }
 
-   @Test fun locationIsReportedOnlyWithAnAvailableForegroundFix() = runBlocking()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun locationIsReportedOnlyWithAnAvailableForegroundFix() = runBlocking()
    {
       MockWebServer().use { server ->
          server.enqueue(MockResponse().setBody(VERSION))
@@ -281,23 +360,45 @@ class MobileSessionTest
       }
    }
 
-   private inner class FakeTransport(var lease: ScreenLease?, private val supportsDevice: Boolean = false) : MobileSessionTransport
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private inner class FakeTransport(var lease: ScreenLease?, private val supportsDevice: Boolean = false) : MobileSessionTransport {
       val states = mutableListOf<SessionScreen>()
       val uploads = mutableListOf<Pair<String, Long>>()
       val ends = mutableListOf<String>()
       var rejectSession: String? = null
-      override suspend fun heartbeat(session: String, state: SessionScreen): SessionHeartbeat
-      {
-         if(session == rejectSession) throw UiApiException(401, "SESSION_ENDED", "Ended")
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      override suspend fun heartbeat(session: String, state: SessionScreen): SessionHeartbeat {
+         if (session == rejectSession) throw UiApiException(401, "SESSION_ENDED", "Ended")
          states += state
-         return SessionHeartbeat("public-session-id", 5000, lease,
-            if(supportsDevice) CaptureMode.entries.toSet() else setOf(CaptureMode.APP_CONTENT))
+         return SessionHeartbeat(
+            "public-session-id", 5000, lease,
+            if (supportsDevice) CaptureMode.entries.toSet() else setOf(CaptureMode.APP_CONTENT)
+         )
       }
-      override suspend fun end(session: String, reason: String) { ends += "$session:$reason" }
-      override suspend fun screen(session: String, leaseId: String, sequence: Long, frame: ScreenFrame) { uploads += session to sequence }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      override suspend fun end(session: String, reason: String) {
+         ends += "$session:$reason"
+      }
+
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      override suspend fun screen(session: String, leaseId: String, sequence: Long, frame: ScreenFrame) {
+         uploads += session to sequence
+      }
    }
 
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    private fun heartbeatJson(server: String, expires: String) = """{"sessionId":"public-id","status":"ACTIVE","serverTime":"$server","heartbeatIntervalMillis":5000,"screenMirror":{"leaseId":"lease-one","expiresAt":"$expires","frameIntervalMillis":1000,"maxWidth":640,"maxHeight":1280,"maxBytes":262144,"nextSequence":0}}"""
 }
 

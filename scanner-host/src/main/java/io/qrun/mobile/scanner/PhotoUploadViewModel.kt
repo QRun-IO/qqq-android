@@ -23,11 +23,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-/** One photo intent belongs to one authenticated process. Rotation retains it; logout never reassigns its actor. */
-internal class PhotoUploadViewModel(private val api: RecordFilesTransport, private val session: String,
+/*******************************************************************************
+ ** One photo intent belongs to one authenticated process. Rotation retains it; logout never reassigns its actor.
+ *******************************************************************************/
+internal class PhotoUploadViewModel(
+   private val api: RecordFilesTransport, private val session: String,
    private val target: RecordPhotoTarget, private val directory: File, private val io: CoroutineDispatcher = Dispatchers.IO,
-   private val isCurrentSession: () -> Boolean) : ViewModel()
-{
+   private val isCurrentSession: () -> Boolean
+) : ViewModel() {
    var limits by mutableStateOf<PhotoUploadLimits?>(null)
       private set
    var checking by mutableStateOf(true)
@@ -52,24 +55,33 @@ internal class PhotoUploadViewModel(private val api: RecordFilesTransport, priva
    private val copyingInput = AtomicReference<Closeable?>()
    val pending: Boolean get() = captureFile != null || intent != null && !saved
 
-   init { checkCapabilities() }
+   init {
+      checkCapabilities()
+   }
 
-   /** Capability denial hides photo actions without disabling the rest of the process. */
-   fun checkCapabilities()
-   {
-      if(busy || released) return
+   /*******************************************************************************
+    ** Capability denial hides photo actions without disabling the rest of the process.
+    *******************************************************************************/
+   fun checkCapabilities() {
+      if (busy || released) return
       operation = viewModelScope.launch {
          checking = true
-         try { checkSession(); limits = api.capabilities(session, target) }
-         catch(exception: CancellationException) { throw exception }
-         catch(exception: Exception) { limits = null; message = "Photo upload is unavailable. Check the connection or ask your administrator." }
-         finally { checking = false }
+         try {
+            checkSession(); limits = api.capabilities(session, target)
+         } catch (exception: CancellationException) {
+            throw exception
+         } catch (exception: Exception) {
+            limits = null; message = "Photo upload is unavailable. Check the connection or ask your administrator."
+         } finally {
+            checking = false
+         }
       }
    }
 
-   /** Allocate only a private app-cache original for the camera's temporary URI grant. */
-   fun prepareCamera(): File
-   {
+   /*******************************************************************************
+    ** Allocate only a private app-cache original for the camera's temporary URI grant.
+    *******************************************************************************/
+   fun prepareCamera(): File {
       checkSession()
       check(!pending && !busy && limits?.mediaTypes?.contains("image/jpeg") == true)
       clearSavedIntent()
@@ -79,18 +91,17 @@ internal class PhotoUploadViewModel(private val api: RecordFilesTransport, priva
       return File(directory, "photo-${UUID.randomUUID()}.jpg").also { ownedFiles.add(it); captureFile = it }
    }
 
-   /** A cancelled camera produces no upload; successful originals are hashed without transformation. */
-   fun cameraResult(success: Boolean)
-   {
+   /*******************************************************************************
+    ** A cancelled camera produces no upload; successful originals are hashed without transformation.
+    *******************************************************************************/
+   fun cameraResult(success: Boolean) {
       val file = captureFile ?: return
-      if(released || !isCurrentSession())
-      {
+      if (released || !isCurrentSession()) {
          deleteOwned(file)
          captureFile = null
          return
       }
-      if(!success)
-      {
+      if (!success) {
          deleteOwned(file)
          captureFile = null
          message = "Photo capture cancelled."
@@ -99,46 +110,47 @@ internal class PhotoUploadViewModel(private val api: RecordFilesTransport, priva
       stage(file, "image/jpeg", "CAMERA")
    }
 
-   /** The selected URI is read immediately under its temporary grant; no broad media permission is needed. */
-   fun galleryResult(mediaType: String, open: () -> InputStream?)
-   {
-      if(pending || busy || released || !isCurrentSession()) return
+   /*******************************************************************************
+    ** The selected URI is read immediately under its temporary grant; no broad media permission is needed.
+    *******************************************************************************/
+   fun galleryResult(mediaType: String, open: () -> InputStream?) {
+      if (pending || busy || released || !isCurrentSession()) return
       val policy = limits ?: return
-      if(!mediaType.startsWith("image/") || mediaType !in policy.mediaTypes)
-      {
+      if (!mediaType.startsWith("image/") || mediaType !in policy.mediaTypes) {
          message = "This photo type is not accepted by the server."
          return
       }
       clearSavedIntent()
       directory.mkdirs()
-      val extension = when(mediaType) { "image/jpeg" -> "jpg"; "image/png" -> "png"; "image/webp" -> "webp"; else -> "image" }
+      val extension = when (mediaType) {
+         "image/jpeg" -> "jpg"; "image/png" -> "png"; "image/webp" -> "webp"; else -> "image"
+      }
       val file = File(directory, "photo-${UUID.randomUUID()}.$extension")
       ownedFiles.add(file)
       captureFile = file
       stage(file, mediaType, "GALLERY", open)
    }
 
-   /** Copy/hash with a strict server/local byte bound and delete only this newly created temporary file on failure. */
-   private fun stage(file: File, mediaType: String, origin: String, open: (() -> InputStream?)? = null)
-   {
+   /*******************************************************************************
+    ** Copy/hash with a strict server/local byte bound and delete only this newly created temporary file on failure.
+    *******************************************************************************/
+   private fun stage(file: File, mediaType: String, origin: String, open: (() -> InputStream?)? = null) {
       val policy = limits ?: return
       busy = true
       operation = viewModelScope.launch {
          var startCameraUpload = false
-         try
-         {
+         try {
             checkSession()
             val staged = withContext(io) {
-               if(open != null) (open() ?: error("Photo could not be opened.")).use { input ->
+               if (open != null) (open() ?: error("Photo could not be opened.")).use { input ->
                   copyingInput.set(input)
                   file.outputStream().use { output ->
                      val buffer = ByteArray(65536)
                      var total = 0L
-                     while(true)
-                     {
+                     while (true) {
                         ensureActive()
                         val count = input.read(buffer)
-                        if(count < 0) break
+                        if (count < 0) break
                         total += count
                         require(total <= policy.maximumFileBytes) { "Photo exceeds the server limit." }
                         output.write(buffer, 0, count)
@@ -154,35 +166,36 @@ internal class PhotoUploadViewModel(private val api: RecordFilesTransport, priva
             saved = false
             uploadId = null
             createAttempted = false
-            message = if(origin == "CAMERA") "Uploading photo…" else "Photo ready to upload."
+            message = if (origin == "CAMERA") "Uploading photo…" else "Photo ready to upload."
             startCameraUpload = origin == "CAMERA"
-         }
-         catch(exception: CancellationException) { deleteOwned(file); throw exception }
-         catch(exception: Exception)
-         {
+         } catch (exception: CancellationException) {
+            deleteOwned(file); throw exception
+         } catch (exception: Exception) {
             deleteOwned(file)
             message = "The photo could not be prepared or exceeds the server's size limit. Choose another photo."
+         } finally {
+            copyingInput.set(null); captureFile = null; busy = false
          }
-         finally { copyingInput.set(null); captureFile = null; busy = false }
-         if(startCameraUpload) upload()
+         if (startCameraUpload) upload()
       }
    }
 
-   /** Reconnect by recovering the same manifest/status; never allocate a second intent after a lost response. */
-   fun upload()
-   {
+   /*******************************************************************************
+    ** Reconnect by recovering the same manifest/status; never allocate a second intent after a lost response.
+    *******************************************************************************/
+   fun upload() {
       val original = intent ?: return
-      if(busy || saved || released) return
+      if (busy || saved || released) return
       busy = true
       operation = viewModelScope.launch {
-         try
-         {
+         try {
             checkSession()
             var status = recover(original)
-            if(status.getString("state") == "COMPLETE") { acceptReceipt(original, status); return@launch }
+            if (status.getString("state") == "COMPLETE") {
+               acceptReceipt(original, status); return@launch
+            }
             require(status.getString("state") in setOf("OPEN", "FAILED", "FINALIZING"))
-            if(status.getString("state") != "FINALIZING")
-            {
+            if (status.getString("state") != "FINALIZING") {
                withContext(io) { require(original.file.length() == original.size && hash(original.file) == original.sha256) }
                val frozen = PhotoUploadLimits.parse(status.getJSONObject("limits"))
                require(original.size <= frozen.maximumFileBytes && original.mediaType in frozen.mediaTypes)
@@ -194,11 +207,10 @@ internal class PhotoUploadViewModel(private val api: RecordFilesTransport, priva
                require(known.all { it in 0 until count })
                withContext(io) {
                   RandomAccessFile(original.file, "r").use { file ->
-                     for(index in 0 until count)
-                     {
+                     for (index in 0 until count) {
                         ensureActive()
                         checkSession()
-                        if(index in known) continue
+                        if (index in known) continue
                         val offset = index.toLong() * frozen.chunkBytes
                         val bytes = ByteArray(minOf(frozen.chunkBytes.toLong(), original.size - offset).toInt())
                         file.seek(offset)
@@ -211,29 +223,35 @@ internal class PhotoUploadViewModel(private val api: RecordFilesTransport, priva
             checkSession()
             status = api.finalize(session, uploadId!!, original.requestId)
             acceptReceipt(original, status)
+         } catch (exception: CancellationException) {
+            message = "Upload paused. Check the same upload when connected."; throw exception
+         } catch (exception: Exception) {
+            message = "Upload is not confirmed. Retry/check the same upload when connected. Do not select the photo again."
+         } finally {
+            busy = false
          }
-         catch(exception: CancellationException) { message = "Upload paused. Check the same upload when connected."; throw exception }
-         catch(exception: Exception) { message = "Upload is not confirmed. Retry/check the same upload when connected. Do not select the photo again." }
-         finally { busy = false }
       }
    }
 
-   /** Discard recovers an uncertain create before cancelling; it never claims to delete retained originals. */
-   fun discard()
-   {
+   /*******************************************************************************
+    ** Discard recovers an uncertain create before cancelling; it never claims to delete retained originals.
+    *******************************************************************************/
+   fun discard() {
       val original = intent ?: return
-      if(busy || released) return
+      if (busy || released) return
       busy = true
       operation = viewModelScope.launch {
-         try
-         {
+         try {
             checkSession()
-            if(createAttempted)
-            {
+            if (createAttempted) {
                val status = recover(original)
-               if(status.getString("state") == "COMPLETE") { acceptReceipt(original, status); return@launch }
+               if (status.getString("state") == "COMPLETE") {
+                  acceptReceipt(original, status); return@launch
+               }
                val cancelled = api.cancel(session, uploadId!!)
-               if(cancelled.getString("state") == "COMPLETE") { acceptReceipt(original, cancelled); return@launch }
+               if (cancelled.getString("state") == "COMPLETE") {
+                  acceptReceipt(original, cancelled); return@launch
+               }
                require(cancelled.getString("state") in setOf("CANCELLED", "EXPIRED"))
             }
             deleteOwned(original.file)
@@ -241,21 +259,28 @@ internal class PhotoUploadViewModel(private val api: RecordFilesTransport, priva
             uploadId = null
             createAttempted = false
             message = "Photo discarded."
+         } catch (exception: CancellationException) {
+            throw exception
+         } catch (exception: Exception) {
+            message = "Cancellation is not confirmed. Keep this screen and retry when connected."
+         } finally {
+            busy = false
          }
-         catch(exception: CancellationException) { throw exception }
-         catch(exception: Exception) { message = "Cancellation is not confirmed. Keep this screen and retry when connected." }
-         finally { busy = false }
       }
    }
 
-   /** Backgrounding cancels transport but preserves the exact intent for explicit foreground recovery. */
-   fun pause() { operation?.cancel() }
+   /*******************************************************************************
+    ** Backgrounding cancels transport but preserves the exact intent for explicit foreground recovery.
+    *******************************************************************************/
+   fun pause() {
+      operation?.cancel()
+   }
 
-   /** A new capture cannot reactivate a completed intent whose temporary original was already removed. */
-   private fun clearSavedIntent()
-   {
-      if(saved)
-      {
+   /*******************************************************************************
+    ** A new capture cannot reactivate a completed intent whose temporary original was already removed.
+    *******************************************************************************/
+   private fun clearSavedIntent() {
+      if (saved) {
          intent = null
          uploadId = null
          createAttempted = false
@@ -263,54 +288,60 @@ internal class PhotoUploadViewModel(private val api: RecordFilesTransport, priva
       }
    }
 
-   /** Recover creation only with the same actor and immutable request; record its server identity immediately. */
-   private suspend fun recover(original: PhotoUploadIntent): JSONObject
-   {
+   /*******************************************************************************
+    ** Recover creation only with the same actor and immutable request; record its server identity immediately.
+    *******************************************************************************/
+   private suspend fun recover(original: PhotoUploadIntent): JSONObject {
       checkSession()
       val id = uploadId
-      val status = if(id == null)
-      {
+      val status = if (id == null) {
          createAttempted = true
          api.create(session, original)
-      }
-      else api.status(session, id)
+      } else api.status(session, id)
       val returned = status.getString("uploadId")
       require(UUID.fromString(returned).toString() == returned && (id == null || id == returned))
       uploadId = returned
       return status
    }
 
-   /** A matching COMPLETE receipt alone permits local cleanup and the Saved label. */
-   private fun acceptReceipt(original: PhotoUploadIntent, status: JSONObject)
-   {
+   /*******************************************************************************
+    ** A matching COMPLETE receipt alone permits local cleanup and the Saved label.
+    *******************************************************************************/
+   private fun acceptReceipt(original: PhotoUploadIntent, status: JSONObject) {
       checkSession()
       require(status.getString("uploadId") == uploadId)
       val receipt = original.verifyReceipt(status)
       saved = true
       deleteOwned(original.file)
-      message = if(receipt.getJSONArray("items").getJSONObject(0).getString("lifecycleAtCommit") == "QUARANTINED")
+      message = if (receipt.getJSONArray("items").getJSONObject(0).getString("lifecycleAtCommit") == "QUARANTINED")
          "Saved photo. Awaiting server review." else "Saved photo."
    }
 
-   /** A rotated Activity is allowed; a changed/expired authenticated session is not. */
-   private fun checkSession() { check(!released && isCurrentSession()) { "The photo session has ended." } }
-
-   /** Only files allocated by this instance are eligible for cleanup; the selected gallery original is never owned. */
-   private fun deleteOwned(file: File)
-   {
-      if(file !in ownedFiles) return
-      if(file.delete() || !file.exists()) ownedFiles.remove(file)
+   /*******************************************************************************
+    ** A rotated Activity is allowed; a changed/expired authenticated session is not.
+    *******************************************************************************/
+   private fun checkSession() {
+      check(!released && isCurrentSession()) { "The photo session has ended." }
    }
 
-   /** Destruction differs from rotation/background: cancel I/O, close the active source, then remove our temporary originals. */
-   override fun onCleared()
-   {
+   /*******************************************************************************
+    ** Only files allocated by this instance are eligible for cleanup; the selected gallery original is never owned.
+    *******************************************************************************/
+   private fun deleteOwned(file: File) {
+      if (file !in ownedFiles) return
+      if (file.delete() || !file.exists()) ownedFiles.remove(file)
+   }
+
+   /*******************************************************************************
+    ** Destruction differs from rotation/background: cancel I/O, close the active source, then remove our temporary originals.
+    *******************************************************************************/
+   override fun onCleared() {
       released = true
       val work = operation
       work?.cancel()
       runCatching { copyingInput.getAndSet(null)?.close() }
       // Completion runs after the copy's use/finally has closed its writer, avoiding delete/write races.
-      if(work == null) ownedFiles.toList().forEach(::deleteOwned)
+      if (work == null) ownedFiles.toList().forEach(::deleteOwned)
       else work.invokeOnCompletion { ownedFiles.toList().forEach(::deleteOwned) }
       captureFile = null
       intent = null
@@ -319,16 +350,16 @@ internal class PhotoUploadViewModel(private val api: RecordFilesTransport, priva
       super.onCleared()
    }
 
-   /** Hash originals using fixed memory, preserving camera/gallery bytes exactly. */
-   private fun hash(file: File): String
-   {
+   /*******************************************************************************
+    ** Hash originals using fixed memory, preserving camera/gallery bytes exactly.
+    *******************************************************************************/
+   private fun hash(file: File): String {
       val digest = MessageDigest.getInstance("SHA-256")
       file.inputStream().use { input ->
          val buffer = ByteArray(65536)
-         while(true)
-         {
+         while (true) {
             val size = input.read(buffer)
-            if(size < 0) break
+            if (size < 0) break
             digest.update(buffer, 0, size)
          }
       }

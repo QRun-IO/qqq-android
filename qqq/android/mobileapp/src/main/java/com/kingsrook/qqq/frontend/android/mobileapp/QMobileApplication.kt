@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -24,18 +25,14 @@ import android.app.Application
 import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer
 import com.kingsrook.qqq.frontend.android.mobileapp.container.QDefaultAppContainer
 
-/***************************************************************************
- **
- ***************************************************************************/
-class QMobileApplication : Application()
-{
+/*******************************************************************************
+ *******************************************************************************/
+class QMobileApplication : Application() {
    lateinit var container: QAppContainer
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun onCreate()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   override fun onCreate() {
       super.onCreate()
       container = QDefaultAppContainer()
    }

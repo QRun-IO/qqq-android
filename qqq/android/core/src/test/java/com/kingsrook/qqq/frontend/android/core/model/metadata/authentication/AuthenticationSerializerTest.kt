@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -24,24 +25,23 @@ package com.kingsrook.qqq.frontend.android.core.model.metadata.authentication
 import kotlinx.serialization.json.Json
 import org.junit.Test
 
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-class AuthenticationSerializerTest
-{
-   /***************************************************************************
+ *******************************************************************************/
+class AuthenticationSerializerTest {
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testDecodeAuth0()
-   {
+   fun testDecodeAuth0() {
       val json = """
         {
            "name":"auth0",
            "type":"AUTH_0",
-           "values": 
+           "values":
            {
               "baseUrl":"https://auth.coldtrack-dev.com/",
               "clientId":"Q7hjPeDrfq11EgZyFxpoXQRTPhTn3KzN",

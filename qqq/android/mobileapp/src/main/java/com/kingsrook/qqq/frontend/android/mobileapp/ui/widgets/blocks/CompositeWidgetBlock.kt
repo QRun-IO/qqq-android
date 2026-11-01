@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -46,51 +47,45 @@ import androidx.compose.ui.window.DialogProperties
 import com.kingsrook.qqq.frontend.android.core.model.widgets.WidgetBlock
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.BlockStyleUtils
 
-/***************************************************************************
+/*******************************************************************************
  ** render a block of type "Composite" - which is - a block that contains
  ** child (sub) blocks.
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun CompositeWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false)
-{
+fun CompositeWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false) {
    val widgetBlock = params.widgetBlock
 
-   if(widgetBlock.modalMode == null)
+   Box(modifier = modifier)
    {
-      ContentsInLayout(params, disableControls)
-   }
-   else
-   {
-      when (widgetBlock.modalMode)
-      {
-         "MODAL" ->
-         {
-            Modal(params, disableControls)
+      if (widgetBlock.modalMode == null) {
+         ContentsInLayout(params, disableControls)
+      } else {
+         when (widgetBlock.modalMode) {
+            "MODAL" -> {
+               Modal(params, disableControls)
+            }
          }
       }
    }
 }
 
-/***************************************************************************
+/*******************************************************************************
  ** render the list of sub-blocks
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun BlockList(params: WidgetBlockParameters, subBlocks: List<WidgetBlock>, disableControls: Boolean = false)
-{
-   for(subBlock in subBlocks)
-   {
+fun BlockList(params: WidgetBlockParameters, subBlocks: List<WidgetBlock>, disableControls: Boolean = false) {
+   for (subBlock in subBlocks) {
       val subParams = WidgetBlockParameters(subBlock, params.actionCallback, params.qViewModel, params.values)
       WidgetBlockComposable(subParams, Modifier.padding(4.dp), disableControls)
    }
 }
 
-/***************************************************************************
+/*******************************************************************************
  ** apply layout-specific formatting, to wrap a block-list
- ***************************************************************************/
+ *******************************************************************************/
 @OptIn(ExperimentalLayoutApi::class) // for FlowRow
 @Composable
-fun ContentsInLayout(params: WidgetBlockParameters, disableControls: Boolean = false)
-{
+fun ContentsInLayout(params: WidgetBlockParameters, disableControls: Boolean = false) {
    val widgetBlock = params.widgetBlock
 
    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,16 +94,14 @@ fun ContentsInLayout(params: WidgetBlockParameters, disableControls: Boolean = f
    var boxModifier = Modifier.padding(0.dp)
 
    val backgroundColor = BlockStyleUtils.getColorFromString(BlockStyleUtils.getOptionalStringFromMap(widgetBlock.styles, "backgroundColor"))
-   if(backgroundColor != null)
-   {
+   if (backgroundColor != null) {
       boxModifier = boxModifier.background(backgroundColor, RectangleShape)
    }
 
    boxModifier = boxModifier.padding(BlockStyleUtils.getPaddingValuesFromStyleMap(widgetBlock.styles))
 
    // TABLE_SUB_ROW_DETAILS, BADGES_WRAPPER
-   when (widgetBlock.layout)
-   {
+   when (widgetBlock.layout) {
       "FLEX_ROW_CENTER" -> FlowRow(horizontalArrangement = Arrangement.Center, modifier = boxModifier.fillMaxWidth())
       {
          BlockList(params, widgetBlock.subBlocks, disableControls)
@@ -141,23 +134,19 @@ fun ContentsInLayout(params: WidgetBlockParameters, disableControls: Boolean = f
    }
 }
 
-/***************************************************************************
+/*******************************************************************************
  ** if the composable is modal, wrap it accordingly
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun Modal(params: WidgetBlockParameters, disableControls: Boolean = false)
-{
+fun Modal(params: WidgetBlockParameters, disableControls: Boolean = false) {
    val isModalShown = remember { mutableStateOf(params.values[params.widgetBlock.blockId] == true) }
 
-   /***************************************************************************
+   /*******************************************************************************
     ** define a callback function that the view-model can call, to tell us that
     ** the modal's visible state should change
-    ***************************************************************************/
-   fun controlCallback()
-   {
+    *******************************************************************************/
+   fun controlCallback() {
       ////////////////////////////////////////////////////////
-      // todo - is toggle always appropriate here?          //
-      // if not, i suppose, callback needs to take a map... //
       ////////////////////////////////////////////////////////
       isModalShown.value = !isModalShown.value
    }
@@ -177,18 +166,17 @@ fun Modal(params: WidgetBlockParameters, disableControls: Boolean = false)
 
    key(params.values[params.widgetBlock.blockId])
    {
-      if(isModalShown.value)
-      {
+      if (isModalShown.value) {
          Dialog(
             onDismissRequest =
-            {
-               ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-               // go through the action-callback - so it can internally adjust whatever it needs to track if we are visible //
-               ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-               val eventValues = mapOf("controlCode" to "hideModal:${params.widgetBlock.blockId}")
-               params.actionCallback?.invoke(eventValues)
-               isModalShown.value = false
-            },
+               {
+                  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                  // go through the action-callback - so it can internally adjust whatever it needs to track if we are visible //
+                  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                  val eventValues = mapOf("controlCode" to "hideModal:${params.widgetBlock.blockId}")
+                  params.actionCallback?.invoke(eventValues)
+                  isModalShown.value = false
+               },
 
             ////////////////////////////////////////////////////////
             // this line lets us go full-width (esp on landscape) //

@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -46,26 +47,21 @@ import java.util.TimeZone
 import java.util.concurrent.ConcurrentHashMap
 
 
-/***************************************************************************
- **
- ***************************************************************************/
-class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObserver: (RequestOutcome) -> Unit = {}, private val compatibility: UiApiCompatibility? = null, private val additionalHeaders: (String) -> Map<String, String> = { emptyMap() }) : QQQRepository
-{
+/*******************************************************************************
+ *******************************************************************************/
+class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObserver: (RequestOutcome) -> Unit = {}, private val compatibility: UiApiCompatibility? = null, private val additionalHeaders: (String) -> Map<String, String> = { emptyMap() }) : QQQRepository {
    private val sessionUUIDs = ConcurrentHashMap<String, String>()
    private val retroJson = Json { ignoreUnknownKeys = true }
    private val compatibilityByServer = ConcurrentHashMap<String, UiApiCompatibility>()
 
    private val qqqApiServiceMap: MutableMap<String, QQQApiService> = mutableMapOf()
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun setEnvironment(environment: Environment)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   override fun setEnvironment(environment: Environment) {
       baseUrl = environment.baseUrl
 
-      if(qqqApiServiceMap[baseUrl] == null)
-      {
+      if (qqqApiServiceMap[baseUrl] == null) {
          val thisRetrofit = buildRetrofit(baseUrl)
          val thisQQQApiService = thisRetrofit.create(QQQApiService::class.java)
          qqqApiServiceMap[baseUrl] = thisQQQApiService
@@ -75,11 +71,9 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
       // retrofit.create(QQQApiService::class.java)
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun buildRetrofit(baseUrl: String): Retrofit
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun buildRetrofit(baseUrl: String): Retrofit {
       return Retrofit.Builder()
          .addConverterFactory(retroJson.asConverterFactory("application/json".toMediaType()))
          .client(
@@ -97,15 +91,14 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
                .addInterceptor { chain ->
                   val request = chain.request().newBuilder()
                   val deferredSession = chain.request().tag(DeferredSessionCookie::class.java) != null
-                  if(!deferredSession) sessionUUIDs[baseUrl]?.takeIf { it.isNotBlank() }?.let { request.header("Cookie", "sessionUUID=$it") }
+                  if (!deferredSession) sessionUUIDs[baseUrl]?.takeIf { it.isNotBlank() }?.let { request.header("Cookie", "sessionUUID=$it") }
                   additionalHeaders(baseUrl).forEach { (name, value) -> request.header(name, value) }
                   request.header("X-QQQ-Client", ANDROID_CLIENT)
                   request.header("X-QQQ-UserTimezone", TimeZone.getDefault().toZoneId().toString())
                   val response = chain.proceed(request.build())
                   response.headers("Set-Cookie").forEach { header ->
                      Cookie.parse(response.request.url, header)?.let { cookie ->
-                        if(!deferredSession && cookie.name == "sessionUUID" && cookie.matches(response.request.url))
-                        {
+                        if (!deferredSession && cookie.name == "sessionUUID" && cookie.matches(response.request.url)) {
                            sessionUUIDs[baseUrl] = cookie.value
                         }
                      }
@@ -118,34 +111,33 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
          .build()
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun setSessionUUID(sessionUUID: String)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   override fun setSessionUUID(sessionUUID: String) {
       sessionUUIDs[baseUrl] = sessionUUID
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override suspend fun getAuthenticationMetaData(): BaseAuthenticationMetaData
-   {
-      // return qqqApiService.getAuthenticationMetaData()
+   /*******************************************************************************
+    *******************************************************************************/
+   override suspend fun getAuthenticationMetaData(): BaseAuthenticationMetaData {
       return qqqApiServiceMap[baseUrl]!!.getAuthenticationMetaData()
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   override suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse {
       val service = requireNotNull(qqqApiServiceMap[baseUrl])
       return resolveSession(service.manageSession(body, DeferredSessionCookie()))
    }
 
+   /*******************************************************************************
+    ** Discover native session and nonce-validation support before starting browser authorization.
+    *******************************************************************************/
    override suspend fun verifyNativeSessionLogin() = verifyNativeSessionLoginAt(baseUrl)
 
+   /*******************************************************************************
+    ** Check the captured origin's capability without allowing a later server switch to redirect the exchange.
+    *******************************************************************************/
    private suspend fun verifyNativeSessionLoginAt(server: String) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO)
    {
       val version = compatibilityByServer.getOrPut(server) {
@@ -154,10 +146,14 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
       UiApiCompatibility.validateNativeSessionLogin(version)
    }
 
-   override suspend fun exchangeNativeSession(body: ManageSessionRequest): ManageSessionResponse
-   {
-      require(body.authenticationFlow == com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData.SESSION_FLOW &&
-         com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.isValidExpectedNonce(body.expectedNonce)) {
+   /*******************************************************************************
+    ** Return a provisional session from the initiating origin; only the current login attempt may adopt it.
+    *******************************************************************************/
+   override suspend fun exchangeNativeSession(body: ManageSessionRequest): ManageSessionResponse {
+      require(
+         body.authenticationFlow == com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.OAuth2AuthenticationMetaData.SESSION_FLOW &&
+            com.kingsrook.qqq.frontend.android.core.model.metadata.authentication.isValidExpectedNonce(body.expectedNonce)
+      ) {
          "Native sign-in requires its original nonce"
       }
       val server = baseUrl
@@ -167,164 +163,168 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
       return resolveSession(response)
    }
 
-   /** Login cookies remain provisional until the initiating ViewModel accepts the response. */
-   private fun resolveSession(response: retrofit2.Response<ManageSessionResponse>): ManageSessionResponse
-   {
-      if(!response.isSuccessful) throw retrofit2.HttpException(response)
+   /*******************************************************************************
+    ** Login cookies remain provisional until the initiating ViewModel accepts the response.
+    *******************************************************************************/
+   private fun resolveSession(response: retrofit2.Response<ManageSessionResponse>): ManageSessionResponse {
+      if (!response.isSuccessful) throw retrofit2.HttpException(response)
       val result = response.body() ?: throw IllegalStateException("Sign-in response did not establish a session")
       val requestUrl = response.raw().request.url
       val cookie = response.headers().values("Set-Cookie").mapNotNull { Cookie.parse(requestUrl, it) }
          .lastOrNull { it.name == "sessionUUID" && it.matches(requestUrl) }?.value?.takeIf { it.isNotBlank() }
       return result.copy(uuid = cookie ?: result.uuid?.takeIf { it.isNotBlank() }
-         ?: throw IllegalStateException("Sign-in response did not establish a session"))
+      ?: throw IllegalStateException("Sign-in response did not establish a session"))
    }
 
-   override suspend fun discardNativeSession(server: String, session: String)
-   {
+   /*******************************************************************************
+    ** Revoke an abandoned exchange at its original server without activating its response cookie.
+    *******************************************************************************/
+   override suspend fun discardNativeSession(server: String, session: String) {
       val service = qqqApiServiceMap[server] ?: return
       service.discardNativeSession("sessionUUID=$session", DeferredSessionCookie()).close()
    }
 
-   /** Send credentials only to the session endpoint, never to subsequent requests. */
-   override suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse
-   {
+   /*******************************************************************************
+    ** Send credentials only to the session endpoint, never to subsequent requests.
+    *******************************************************************************/
+   override suspend fun loginWithPassword(username: String, password: String): ManageSessionResponse {
       val service = requireNotNull(qqqApiServiceMap[baseUrl])
       return resolveSession(service.loginWithPassword(Credentials.basic(username, password, Charsets.UTF_8), emptyMap(), DeferredSessionCookie()))
    }
 
-   /** Preserve the cookie until the server has received the revocation request. */
-   override suspend fun logout()
-   {
+   /*******************************************************************************
+    ** Preserve the cookie until the server has received the revocation request.
+    *******************************************************************************/
+   override suspend fun logout() {
       val server = baseUrl
       val session = sessionUUIDs[server]
-      try { if(!session.isNullOrBlank()) discardNativeSession(server, session) }
-      finally { if(session != null) sessionUUIDs.remove(server, session) }
+      try {
+         if (!session.isNullOrBlank()) discardNativeSession(server, session)
+      } finally {
+         if (session != null) sessionUUIDs.remove(server, session)
+      }
    }
 
-   /** Capture the original origin/cookie; neither a response cookie nor a server switch can adopt a session. */
-   override suspend fun logoutWithProvider(postLogoutRedirectUri: String): NativeLogoutData?
-   {
+   /*******************************************************************************
+    ** Capture the original origin/cookie; neither a response cookie nor a server switch can adopt a session.
+    *******************************************************************************/
+   override suspend fun logoutWithProvider(postLogoutRedirectUri: String): NativeLogoutData? {
       val server = baseUrl
       val session = sessionUUIDs[server] ?: return null
-      try
-      {
+      try {
          val supported = supportsNativeSessionLogoutAt(server)
-         if(!supported)
-         {
+         if (!supported) {
             discardNativeSession(server, session)
             return null
          }
-         return requireNotNull(qqqApiServiceMap[server]).logoutWithProvider("sessionUUID=$session",
-            NativeLogoutRequest(NativeLogout(postLogoutRedirectUri)), DeferredSessionCookie()).use { response ->
+         return requireNotNull(qqqApiServiceMap[server]).logoutWithProvider(
+            "sessionUUID=$session",
+            NativeLogoutRequest(NativeLogout(postLogoutRedirectUri)), DeferredSessionCookie()
+         ).use { response ->
             // Parse privately: serialization errors may include input fragments, so never propagate them.
             val source = response.source()
             source.request(65537)
-            if(source.buffer.size > 65536) return@use null
-            try { retroJson.decodeFromString<NativeLogoutResponse>(source.readUtf8()).nativeLogoutData }
-            catch(exception: Exception) { null }
+            if (source.buffer.size > 65536) return@use null
+            try {
+               retroJson.decodeFromString<NativeLogoutResponse>(source.readUtf8()).nativeLogoutData
+            } catch (exception: Exception) {
+               null
+            }
          }
+      } catch (exception: UiApiException) {
+         throw java.io.IOException("Company sign-out request failed")
+      } finally {
+         sessionUUIDs.remove(server, session)
       }
-      catch(exception: UiApiException) { throw java.io.IOException("Company sign-out request failed") }
-      finally { sessionUUIDs.remove(server, session) }
    }
 
+   /*******************************************************************************
+    ** Discover optional company sign-out independently from native login support.
+    *******************************************************************************/
    override suspend fun supportsNativeSessionLogout(): Boolean = supportsNativeSessionLogoutAt(baseUrl)
 
+   /*******************************************************************************
+    ** Use the captured server's public capability before sending its existing session for company sign-out.
+    *******************************************************************************/
    private suspend fun supportsNativeSessionLogoutAt(server: String): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO)
    {
-      try
-      {
+      try {
          val version = compatibilityByServer.getOrPut(server) {
             compatibility?.takeIf { it.server == server } ?: UiApiCompatibility(server, observer = { requestObserver(it) })
          }.verify()
          UiApiCompatibility.validateNativeSessionLogout(version)
          true
+      } catch (exception: UiApiCompatibilityException) {
+         false
       }
-      catch(exception: UiApiCompatibilityException) { false }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   /*******************************************************************************
+    *******************************************************************************/
    override suspend fun getMetaData(
       frontendName: String, frontendVersion: String, applicationName: String, applicationVersion: String
-   ): QInstance
-   {
+   ): QInstance {
       return qqqApiServiceMap[baseUrl]!!.getMetaData(frontendName, frontendVersion, applicationName, applicationVersion)
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override suspend fun getProcessMetaData(processName: String): QProcessMetaData
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   override suspend fun getProcessMetaData(processName: String): QProcessMetaData {
       return qqqApiServiceMap[baseUrl]!!.getProcessMetaData(processName)
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?): ProcessStepResult
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?): ProcessStepResult {
       return qqqApiServiceMap[baseUrl]!!.processInit(processName, buildProcessInitOrStepRequestBodyV1(values, recordsParam, recordIds, filterJSON, stepTimeoutMillis))
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): ProcessStepResult
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): ProcessStepResult {
       return qqqApiServiceMap[baseUrl]!!.processStep(processName, processUUID, stepName, buildProcessInitOrStepRequestBodyV1(values, stepTimeoutMillis = stepTimeoutMillis))
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override suspend fun processCancel(processName: String, processUUID: String)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   override suspend fun processCancel(processName: String, processUUID: String) {
       qqqApiServiceMap[baseUrl]!!.processCancel(processName, processUUID).close()
    }
 
-   override suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult
-   {
+   /*******************************************************************************
+    ** Poll the exact process/job identity supplied by the server instead of assuming background completion.
+    *******************************************************************************/
+   override suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult {
       return qqqApiServiceMap[baseUrl]!!.processJobStatus(processName, processUUID, jobUUID)
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun buildProcessInitOrStepRequestBodyV1(values: Map<String, Any?>, recordsParam: String? = null, recordIds: String? = null, filterJSON: String? = null, stepTimeoutMillis: Int? = null): RequestBody
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun buildProcessInitOrStepRequestBodyV1(values: Map<String, Any?>, recordsParam: String? = null, recordIds: String? = null, filterJSON: String? = null, stepTimeoutMillis: Int? = null): RequestBody {
       val bodyBuilder = MultipartBody.Builder()
          .setType(MultipartBody.FORM)
 
-      if(!values.isEmpty())
-      {
+      if (!values.isEmpty()) {
          val valuesJson = JSONObject()
-         for(entry in values.entries)
-         {
+         for (entry in values.entries) {
             valuesJson.put(entry.key, entry.value ?: JSONObject.NULL)
          }
          bodyBuilder.addFormDataPart("values", valuesJson.toString())
       }
 
-      if(recordsParam != null)
-      {
+      if (recordsParam != null) {
          bodyBuilder.addFormDataPart("recordsParam", recordsParam)
       }
 
-      if(recordIds != null)
-      {
+      if (recordIds != null) {
          bodyBuilder.addFormDataPart("recordIds", recordIds)
       }
 
-      if(filterJSON != null)
-      {
+      if (filterJSON != null) {
          bodyBuilder.addFormDataPart("filterJSON", filterJSON)
       }
 
-      if(stepTimeoutMillis != null)
-      {
+      if (stepTimeoutMillis != null) {
          bodyBuilder.addFormDataPart("stepTimeoutMillis", stepTimeoutMillis.toString())
       }
 
@@ -332,22 +332,18 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
       return requestBody
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   /*******************************************************************************
+    *******************************************************************************/
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun getURI(path: String): String
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   override fun getURI(path: String): String {
       val uri = java.net.URI(baseUrl).resolve(path)
       require(uri.scheme in setOf("https", "http") && uri.userInfo == null && uri.host != null) { "Unsupported media URL" }
       return uri.toASCIIString()
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   /*******************************************************************************
+    *******************************************************************************/
 }

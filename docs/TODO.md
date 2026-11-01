@@ -1,5 +1,11 @@
 # TODO
 
+- [x] Apply scoped copyright/import/header/formatter corrections, mechanical CI gate and Kotlin warnings-as-errors;163JVM plus46TC22 sample native cases pass. See [review](CODING-STANDARDS-REVIEW-2026-11-01.md) for the remaining formatter CI limitation.
+- [x] Add Query artwork, app version, Dogfooding/Query links and license access under Settings → About QQQ Mobile.
+- [x] Qualify real Authentik desktop nonce rejection and retained-browser A → company logout → fresh B; actual Android callback acceptance remains separate.
+
+- [ ] Resolve the explicitly retained [legacy source follow-ups](LEGACY-SOURCE-FOLLOWUPS.md): metadata typing, renderer contracts, navigation/action validation and build identity. Removing inline work markers does not implement these features.
+
 - [x] Replace the raw diagnostics popup with tested full-screen status/activity, filtering, pause, copy/share/clear and Back; 159 client JVM tests, zero-warning lint/build and the focused TC22 diagnostics UI test pass.
 - [x] Default foreground location reporting on, preserving explicit opt-out and one-time Android permission behavior; settings/policy tests pass.
 - [x] Verify current trusted EMDK Code128, QR leading zeros and menu/reopen on installed checkpoint1c766bf/E34AC3C6.

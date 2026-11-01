@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -51,17 +52,17 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.semanticInitialVal
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.semanticFieldHint
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.validateSemanticField
 
-/** A typed native input: autofocus changes focus only and never reinterprets field data as an action. */
+/*******************************************************************************
+ ** A typed native input: autofocus changes focus only and never reinterprets field data as an action.
+ *******************************************************************************/
 @Composable
-fun InputFieldWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false)
-{
+fun InputFieldWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false) {
    val field = SemanticProcess.inputField(params.widgetBlock.values)
-   if(field == null || (!field.isHidden && !SemanticProcess.supportedWidgetInput(field)))
-   {
+   if (field == null || (!field.isHidden && !SemanticProcess.supportedWidgetInput(field))) {
       Text("This field requires an input control unavailable in this client.", color = Colors.ERROR)
       return
    }
-   if(field.isHidden) return
+   if (field.isHidden) return
    var text by remember(field.name) { mutableStateOf(semanticInitialValue(field, params.values)?.toString().orEmpty()) }
    var error by remember(field.name) { mutableStateOf<String?>(null) }
    val enabled = field.isEditable && !disableControls
@@ -69,20 +70,20 @@ fun InputFieldWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Mo
    val focusRequester = remember { FocusRequester() }
    LaunchedEffect(field.name)
    {
-      if(field.isEditable)
-      {
-         if(!params.values.containsKey(field.name)) params.values[field.name] = semanticInitialValue(field, params.values)
+      if (field.isEditable) {
+         if (!params.values.containsKey(field.name)) params.values[field.name] = semanticInitialValue(field, params.values)
          params.qViewModel?.activeProcessViewModel?.registerFormFieldName(field.name)
-         if(params.widgetBlock.values["autoFocus"] == true) focusRequester.requestFocus()
+         if (params.widgetBlock.values["autoFocus"] == true) focusRequester.requestFocus()
       }
    }
 
-   /** The process submission boundary also validates/converts this declared field. */
-   fun submit(value: String)
-   {
-      if(!enabled) return
+   /*******************************************************************************
+    ** The process submission boundary also validates/converts this declared field.
+    *******************************************************************************/
+   fun submit(value: String) {
+      if (!enabled) return
       error = validateSemanticField(field, value)
-      if(error == null) params.actionCallback?.invoke(mapOf(field.name to value))
+      if (error == null) params.actionCallback?.invoke(mapOf(field.name to value))
    }
 
    Column(modifier)
@@ -93,22 +94,20 @@ fun InputFieldWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Mo
          isError = error != null,
          onValueChange = { value ->
             val submitted = submitOnEnter && value.endsWith('\n')
-            text = if(submitted) value.dropLast(1) else value
+            text = if (submitted) value.dropLast(1) else value
             params.values[field.name] = text
-            if(submitted) submit(text)
+            if (submitted) submit(text)
          },
          label = { Text(field.label) },
          singleLine = true,
-         visualTransformation = if(field.type == QFieldType.PASSWORD) PasswordVisualTransformation() else VisualTransformation.None,
-         keyboardOptions = KeyboardOptions(imeAction = if(submitOnEnter) ImeAction.Done else ImeAction.Default),
-         keyboardActions = KeyboardActions(onDone = { if(submitOnEnter) submit(text) }),
+         visualTransformation = if (field.type == QFieldType.PASSWORD) PasswordVisualTransformation() else VisualTransformation.None,
+         keyboardOptions = KeyboardOptions(imeAction = if (submitOnEnter) ImeAction.Done else ImeAction.Default),
+         keyboardActions = KeyboardActions(onDone = { if (submitOnEnter) submit(text) }),
          modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onPreviewKeyEvent { event ->
-            if(submitOnEnter && event.key == Key.Enter)
-            {
-               if(event.type == KeyEventType.KeyUp) submit(text)
+            if (submitOnEnter && event.key == Key.Enter) {
+               if (event.type == KeyEventType.KeyUp) submit(text)
                true
-            }
-            else false
+            } else false
          }
       )
       error?.let { Text(it, color = Colors.ERROR) }

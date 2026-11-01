@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2026. Kingsrook, LLC
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,9 +27,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/*******************************************************************************
+ **
+ *******************************************************************************/
 @RunWith(AndroidJUnit4::class)
-class SampleHostSecurityTests
-{
+class SampleHostSecurityTests {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
    fun sessionStorageIsExcludedFromBackup() = runBlocking()
    {
@@ -36,14 +42,11 @@ class SampleHostSecurityTests
       assertFalse(context.applicationInfo.flags and ApplicationInfo.FLAG_ALLOW_BACKUP != 0)
       assertEquals(BuildConfig.DEBUG, NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted)
       val settings = SettingsRepository(context.dataStore)
-      try
-      {
+      try {
          settings.setSessionUUID("synthetic-backup-exclusion-test")
          assertEquals("synthetic-backup-exclusion-test", settings.getSessionUUID())
          assertTrue(File(context.noBackupFilesDir, "settings.preferences_pb").isFile)
-      }
-      finally
-      {
+      } finally {
          settings.setSessionUUID("")
       }
    }

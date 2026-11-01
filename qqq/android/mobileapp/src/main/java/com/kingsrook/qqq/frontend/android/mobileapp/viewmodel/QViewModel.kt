@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -62,16 +63,15 @@ import kotlinx.coroutines.sync.withLock
 
 private const val TAG = "QViewModel"
 
-/***************************************************************************
+/*******************************************************************************
  ** Main view-model for the QQQ Mobile app:
  ** - high-level data, e.g., what environment, its auth meta-data and instance
  ** - user/session level status/data
- ***************************************************************************/
+ *******************************************************************************/
 open class QViewModel(
    val qqqRepository: QQQRepository,
    private val dataStore: DataStore<Preferences>
-) : ViewModel()
-{
+) : ViewModel() {
    private var settingsRepository: SettingsRepository = SettingsRepository(dataStore)
 
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -130,10 +130,14 @@ open class QViewModel(
    var supportedCustomWidgetTypes: Set<String> = emptySet()
    var activeProcessViewModel: ProcessViewModel? by mutableStateOf(null)
 
-   /** A host may end its own session resources before the ordinary QQQ logout. */
+   /*******************************************************************************
+    ** A host may end its own session resources before the ordinary QQQ logout.
+    *******************************************************************************/
    var beforeLogout: suspend () -> Unit = {}
 
-   /** Hosts refresh this action after Activity recreation; a retained leave dialog must not call an obsolete UI scope. */
+   /*******************************************************************************
+    ** Hosts refresh this action after Activity recreation; a retained leave dialog must not call an obsolete UI scope.
+    *******************************************************************************/
    var changeServerAction: (() -> Unit)? = null
 
    var oauth2LoginPhase: OAuth2LoginPhase by mutableStateOf(OAuth2LoginPhase.READY)
@@ -154,12 +158,16 @@ open class QViewModel(
       private set
    private val companyLogoutAttempt = OAuth2LogoutAttempt()
 
-   /** Opaque login identity: callbacks and responses belong to their initiating server and generation. */
-   class AuthenticationAttempt internal constructor(internal val generation: Long, internal val server: String,
-      internal val metadata: BaseAuthenticationMetaData?)
-   {
+   /*******************************************************************************
+    ** Opaque login identity: callbacks and responses belong to their initiating server and generation.
+    *******************************************************************************/
+   class AuthenticationAttempt internal constructor(
+      internal val generation: Long, internal val server: String,
+      internal val metadata: BaseAuthenticationMetaData?
+   ) {
       internal var exchangeStarted = false
    }
+
    private var authenticationGeneration = 0L
    private var authenticationAttempt: AuthenticationAttempt? = null
    private var authenticationJob: Job? = null
@@ -168,71 +176,80 @@ open class QViewModel(
    private var auth0ProviderLogoutJob: Job? = null
    private val settingsMutex = Mutex()
 
-   fun prepareAuthentication(): AuthenticationAttempt?
-   {
-      if(isAuthenticated || isLogoutRequested || logoutInProgress) return null
+   /*******************************************************************************
+    ** Capture the current server and metadata only while a new authentication attempt is eligible.
+    *******************************************************************************/
+   fun prepareAuthentication(): AuthenticationAttempt? {
+      if (isAuthenticated || isLogoutRequested || logoutInProgress) return null
       val metadata = (authenticationMetaDataLoadState as? LoadState.Success)?.value ?: return null
       cancelAuthentication()
       cancelOAuth2Login()
       return AuthenticationAttempt(authenticationGeneration, environment.baseUrl, metadata).also { authenticationAttempt = it }
    }
 
+   /*******************************************************************************
+    ** Reject results after server, metadata, generation or authentication eligibility changes.
+    *******************************************************************************/
    fun isCurrentAuthentication(attempt: AuthenticationAttempt): Boolean =
       authenticationAttempt === attempt && attempt.generation == authenticationGeneration &&
          attempt.server == environment.baseUrl && attempt.metadata == (authenticationMetaDataLoadState as? LoadState.Success)?.value &&
          !isAuthenticated && !isLogoutRequested && !logoutInProgress
 
-   fun cancelAuthentication(attempt: AuthenticationAttempt? = null)
-   {
-      if(attempt != null && authenticationAttempt !== attempt) return
+   /*******************************************************************************
+    ** Invalidate the attempt before cancelling its job so late responses cannot become the active session.
+    *******************************************************************************/
+   fun cancelAuthentication(attempt: AuthenticationAttempt? = null) {
+      if (attempt != null && authenticationAttempt !== attempt) return
       authenticationGeneration++
       authenticationAttempt = null
       authenticationJob?.cancel()
       authenticationJob = null
    }
 
-   fun completeAuth0Login(attempt: AuthenticationAttempt, accessToken: String, userName: String)
-   {
+   /*******************************************************************************
+    ** Exchange browser credentials only while their initiating authentication attempt remains current.
+    *******************************************************************************/
+   fun completeAuth0Login(attempt: AuthenticationAttempt, accessToken: String, userName: String) {
       viewModelScope.launch {
-         if(isCurrentAuthentication(attempt)) exchangeAuthentication(attempt, userName) {
+         if (isCurrentAuthentication(attempt)) exchangeAuthentication(attempt, userName) {
             qqqRepository.manageSession(ManageSessionRequest(accessToken = accessToken, uuid = null))
          }
       }
    }
 
-   private fun exchangeAuthentication(attempt: AuthenticationAttempt, userName: String?, exchange: suspend () -> ManageSessionResponse)
-   {
-      if(!isCurrentAuthentication(attempt) || attempt.exchangeStarted) return
+   /*******************************************************************************
+    ** Adopt a provisional session at most once for the current attempt and revoke abandoned server sessions.
+    *******************************************************************************/
+   private fun exchangeAuthentication(attempt: AuthenticationAttempt, userName: String?, exchange: suspend () -> ManageSessionResponse) {
+      if (!isCurrentAuthentication(attempt) || attempt.exchangeStarted) return
       attempt.exchangeStarted = true
       manageSessionLoadState = LoadState.Loading(Unit)
       authenticationJob = viewModelScope.launch {
          var newSession: String? = null
          var adopted = false
-         try
-         {
+         try {
             val response = exchange()
             newSession = response.uuid?.takeIf { it.isNotBlank() }
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
-            if(!isCurrentAuthentication(attempt)) return@launch
+            if (!isCurrentAuthentication(attempt)) return@launch
             sessionUUID = requireNotNull(newSession)
             qqqRepository.setSessionUUID(sessionUUID)
-            if(userName != null) doSetSessionUserFullName(userName)
+            if (userName != null) doSetSessionUserFullName(userName)
             manageSessionLoadState = LoadState.Success(response)
             logInSuccessful()
             adopted = true
             authenticationAttempt = null
             loadQInstance()
-         }
-         catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
-         catch(exception: Exception)
-         {
-            if(isCurrentAuthentication(attempt)) manageSessionLoadState = LoadState.Error("Sign-in failed. Check your credentials and connection.")
-         }
-         finally
-         {
-            if(!adopted && newSession != null) kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-               try { kotlinx.coroutines.withTimeout(3000) { qqqRepository.discardNativeSession(attempt.server, newSession!!) } }
-               catch(exception: Exception) { /* Never adopt an abandoned credential. */ }
+         } catch (exception: kotlinx.coroutines.CancellationException) {
+            throw exception
+         } catch (exception: Exception) {
+            if (isCurrentAuthentication(attempt)) manageSessionLoadState = LoadState.Error("Sign-in failed. Check your credentials and connection.")
+         } finally {
+            if (!adopted && newSession != null) kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+               try {
+                  kotlinx.coroutines.withTimeout(3000) { qqqRepository.discardNativeSession(attempt.server, newSession) }
+               } catch (exception: Exception) { /* Never adopt an abandoned credential. */
+               }
             }
          }
       }
@@ -242,20 +259,17 @@ open class QViewModel(
    // note - new properties - do you want to add them to clearAll()? //
    ////////////////////////////////////////////////////////////////////
 
-   init
-   {
+   init {
       val generation = authenticationGeneration
       viewModelScope.launch()
       {
          doInitialLoadFromDataStore().join()
-         if(generation != authenticationGeneration)
-         {
+         if (generation != authenticationGeneration) {
             initialLoadFromDataStoreLoadState = LoadState.Success(Unit)
             return@launch
          }
          loadAuthenticationMetaData().join()
-         if(generation != authenticationGeneration)
-         {
+         if (generation != authenticationGeneration) {
             initialLoadFromDataStoreLoadState = LoadState.Success(Unit)
             return@launch
          }
@@ -263,62 +277,52 @@ open class QViewModel(
       }
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     ** as part of not re-creating all the things upon orientation change -
     ** own the qNavigator & navController here
-    ***************************************************************************/
-   fun setNavController(navController: NavHostController?)
-   {
-      if(!initedQNavigator)
-      {
+    *******************************************************************************/
+   fun setNavController(navController: NavHostController?) {
+      if (!initedQNavigator) {
          qNavigator = QNavigator(navController, this)
          initedQNavigator = true
-      }
-      else
-      {
+      } else {
          qNavigator.navController = navController
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun reInitAfterFailure()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun reInitAfterFailure() {
       clearAll()
       loadAuthenticationMetaData()
    }
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun resetApp()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun resetApp() {
       clearAll()
       loadAuthenticationMetaData()
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun clearAll(preserveLogoutScreen: Boolean = false)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun clearAll(preserveLogoutScreen: Boolean = false) {
       cancelAuthentication()
       cancelOAuth2Login()
-      if(!preserveLogoutScreen) cancelCompanyLogout()
+      if (!preserveLogoutScreen) cancelCompanyLogout()
       ////////////////////////////////////////////
       // reset all the things to initial values //
       ////////////////////////////////////////////
       // storedSessionDance = LoadState.Loading(Unit) // well, not this one - it's only for our very first load.
       isAuthenticated = false
-      if(!preserveLogoutScreen) isLogoutRequested = false
+      if (!preserveLogoutScreen) isLogoutRequested = false
       sessionUUID = ""
       storedSessionUUIDLoadState = LoadState.Loading(Unit)
       sessionUserFullName = ""
       storedSessionUserFullName = LoadState.Loading(Unit)
       storedEnvironmentLoadState = LoadState.Loading(Unit)
-      if(!preserveLogoutScreen) authenticationMetaDataLoadState = LoadState.Loading(Unit)
+      if (!preserveLogoutScreen) authenticationMetaDataLoadState = LoadState.Loading(Unit)
       manageSessionLoadState = LoadState.Loading(Unit)
       qInstanceLoadState = LoadState.Loading(Unit)
       topBarStatusText = ""
@@ -326,45 +330,36 @@ open class QViewModel(
       activeProcessViewModel = null
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun loadAuthenticationMetaData(): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun loadAuthenticationMetaData(): Job {
       val generation = authenticationGeneration
       val server = environment.baseUrl
       return viewModelScope.launch()
       {
-         val result: LoadState<BaseAuthenticationMetaData> = try
-         {
+         val result: LoadState<BaseAuthenticationMetaData> = try {
             LoadState.Success(qqqRepository.getAuthenticationMetaData())
-         }
-         catch(e: Exception)
-         {
+         } catch (e: Exception) {
             Log.w(TAG, "Error loading Authentication MetaData")
             LoadState.Error(e, "Error loading Authentication MetaData")
          }
          kotlinx.coroutines.currentCoroutineContext().ensureActive()
-         if(generation == authenticationGeneration && server == environment.baseUrl) authenticationMetaDataLoadState = result
+         if (generation == authenticationGeneration && server == environment.baseUrl) authenticationMetaDataLoadState = result
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   open fun manageSession(accessToken: String)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   open fun manageSession(accessToken: String) {
       val attempt = prepareAuthentication() ?: return
       exchangeAuthentication(attempt, sessionUserFullName.takeIf { it.isNotBlank() }) {
          qqqRepository.manageSession(ManageSessionRequest(accessToken = accessToken, uuid = null))
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun logInFailed()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun logInFailed() {
       isAuthenticated = false
 
       ///////////////////////////////////////////////////
@@ -373,20 +368,16 @@ open class QViewModel(
       storeSessionUUID("")
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun logInSuccessful()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun logInSuccessful() {
       isAuthenticated = true
       storeSessionUUID(sessionUUID)
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun requestLogout()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun requestLogout() {
       cancelCompanyLogout()
       cancelAuthentication()
       cancelOAuth2Login()
@@ -394,21 +385,17 @@ open class QViewModel(
       qNavigator.goHome(cancelActiveProcess = false)
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun requestLogin()
-   {
-      if(companyLogoutPhase == OAuth2LogoutPhase.PREPARING || companyLogoutPhase == OAuth2LogoutPhase.BROWSER || logoutInProgress) return
+   /*******************************************************************************
+    *******************************************************************************/
+   fun requestLogin() {
+      if (companyLogoutPhase == OAuth2LogoutPhase.PREPARING || companyLogoutPhase == OAuth2LogoutPhase.BROWSER || logoutInProgress) return
       cancelCompanyLogout()
       isLogoutRequested = false
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun doInitialLoadFromDataStore(): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun doInitialLoadFromDataStore(): Job {
       return viewModelScope.launch()
       {
          ////////////////////////////////////////
@@ -428,42 +415,32 @@ open class QViewModel(
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun tryLoginFromDataStore(): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun tryLoginFromDataStore(): Job {
       val generation = authenticationGeneration
       return viewModelScope.launch()
       {
-         when (storedSessionUUIDLoadState)
-         {
-            is LoadState.Success<String> ->
-            {
+         when (storedSessionUUIDLoadState) {
+            is LoadState.Success<String> -> {
                Log.d(TAG, "loadStoredSessionUUID was success")
                sessionUUID = (storedSessionUUIDLoadState as LoadState.Success<String>).value
 
-               if(sessionUUID == "")
-               {
+               if (sessionUUID == "") {
                   Log.d(TAG, "loadStoredSessionUUID was empty - no more dance")
                   logInFailed()
-               }
-               else
-               {
+               } else {
                   Log.d(TAG, "loadStoredSessionUUID was set - trying to load instance now")
                   qqqRepository.setSessionUUID(sessionUUID)
                   loadQInstance().join()
-                  if(generation != authenticationGeneration || isLogoutRequested) return@launch
+                  if (generation != authenticationGeneration || isLogoutRequested) return@launch
 
-                  when (qInstanceLoadState)
-                  {
-                     is LoadState.Success<QInstance> ->
-                     {
+                  when (qInstanceLoadState) {
+                     is LoadState.Success<QInstance> -> {
                         loadStoredSessionUserFullName().join()
-                        if(generation != authenticationGeneration || isLogoutRequested) return@launch
+                        if (generation != authenticationGeneration || isLogoutRequested) return@launch
 
-                        sessionUserFullName = when (val it = storedSessionUserFullName)
-                        {
+                        sessionUserFullName = when (val it = storedSessionUserFullName) {
                            is LoadState.Success<String> -> it.value
                            else -> "Unknown"
                         }
@@ -472,8 +449,7 @@ open class QViewModel(
                         logInSuccessful()
                      }
 
-                     else ->
-                     {
+                     else -> {
                         qInstanceLoadState = LoadState.Loading(Unit)
                         Log.d(TAG, "Stored session rejected")
                         logInFailed()
@@ -482,8 +458,7 @@ open class QViewModel(
                }
             }
 
-            else ->
-            {
+            else -> {
                ///////////
                // noop. //
                ///////////
@@ -495,65 +470,49 @@ open class QViewModel(
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun loadStoredSessionUUID(): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun loadStoredSessionUUID(): Job {
       return viewModelScope.launch()
       {
-         storedSessionUUIDLoadState = try
-         {
+         storedSessionUUIDLoadState = try {
             LoadState.Success(settingsRepository.getSessionUUID())
-         }
-         catch(e: Exception)
-         {
+         } catch (e: Exception) {
             Log.w(TAG, "Error loading stored session UUID")
             LoadState.Error(e, "Error loading stored session UUID")
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun loadStoredEnvironmentOrDefault(): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun loadStoredEnvironmentOrDefault(): Job {
       return viewModelScope.launch()
       {
-         try
-         {
+         try {
             var env: Environment? = settingsRepository.getEnvironment()
 
-            if(env == null)
-            {
+            if (env == null) {
                Log.d(TAG, "got null environment from settings repo.  Using default.")
                env = defaultEnvironment
-            }
-            else
-            {
+            } else {
                Log.d(TAG, "Loaded environment from settings.")
             }
 
             activateEnvironment(env).join()
-         }
-         catch(e: Exception)
-         {
+         } catch (e: Exception) {
             Log.w(TAG, "Error loading stored environment")
             storedEnvironmentLoadState = LoadState.Error(e, "Error loading stored environment")
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun activateEnvironment(environment: Environment): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun activateEnvironment(environment: Environment): Job {
       return viewModelScope.launch()
       {
-         if(this@QViewModel.environment.baseUrl != environment.baseUrl)
-         {
+         if (this@QViewModel.environment.baseUrl != environment.baseUrl) {
             authenticationMetaDataLoadState = LoadState.Loading(Unit)
             manageSessionLoadState = LoadState.Loading(Unit)
          }
@@ -564,11 +523,9 @@ open class QViewModel(
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun switchEnvironment(environment: Environment, postSwitchCallback: () -> Unit)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun switchEnvironment(environment: Environment, postSwitchCallback: () -> Unit) {
       cancelCompanyLogout()
       cancelAuthentication()
       cancelOAuth2Login()
@@ -582,64 +539,57 @@ open class QViewModel(
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun loadStoredSessionUserFullName(): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun loadStoredSessionUserFullName(): Job {
       return viewModelScope.launch()
       {
-         storedSessionUserFullName = try
-         {
+         storedSessionUserFullName = try {
             LoadState.Success(settingsRepository.getSessionUserFullName())
-         }
-         catch(e: Exception)
-         {
+         } catch (e: Exception) {
             Log.w(TAG, "Error loading stored session user full name")
             LoadState.Error(e, "Error loading stored session user full name")
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun storeSessionUUID(value: String)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun storeSessionUUID(value: String) {
       val generation = authenticationGeneration
       viewModelScope.launch()
       {
          settingsMutex.withLock {
-            if(generation == authenticationGeneration) settingsRepository.setSessionUUID(value)
+            if (generation == authenticationGeneration) settingsRepository.setSessionUUID(value)
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun doSetSessionUserFullName(value: String)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun doSetSessionUserFullName(value: String) {
       sessionUserFullName = value
       val generation = authenticationGeneration
       viewModelScope.launch()
       {
          settingsMutex.withLock {
-            if(generation == authenticationGeneration) settingsRepository.setSessionUserFullName(value)
+            if (generation == authenticationGeneration) settingsRepository.setSessionUserFullName(value)
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   /*******************************************************************************
+    *******************************************************************************/
    fun logOut(): Job = performLogout()
 
-   /** Optional provider material is captured only by the initiating coroutine, never by ViewModel state. */
-   private fun performLogout(providerLogout: (suspend () -> Unit)? = null): Job
-   {
-      logoutJob?.takeIf { it.isActive || (!isAuthenticated && sessionUUID.isBlank() &&
-         authenticationAttempt == null && oauth2LoginPhase == OAuth2LoginPhase.READY) }?.let { return it }
+   /*******************************************************************************
+    ** Optional provider material is captured only by the initiating coroutine, never by ViewModel state.
+    *******************************************************************************/
+   private fun performLogout(providerLogout: (suspend () -> Unit)? = null): Job {
+      logoutJob?.takeIf {
+         it.isActive || (!isAuthenticated && sessionUUID.isBlank() &&
+            authenticationAttempt == null && oauth2LoginPhase == OAuth2LoginPhase.READY)
+      }?.let { return it }
       cancelAuthentication()
       cancelOAuth2Login()
       isAuthenticated = false
@@ -654,158 +604,177 @@ open class QViewModel(
          activeProcessViewModel?.reset()
          logoutMessage = "Signing out…"
          var serverConfirmed = false
-         try
-         {
+         try {
             settingsMutex.withLock { settingsRepository.setSessionUUID(""); settingsRepository.setSessionUserFullName("") }
-            try { kotlinx.coroutines.withTimeoutOrNull(3000) { beforeLogout() } }
-            catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
-            catch(exception: Exception) { /* Core logout and local clearing still run. */ }
+            try {
+               kotlinx.coroutines.withTimeoutOrNull(3000) { beforeLogout() }
+            } catch (exception: kotlinx.coroutines.CancellationException) {
+               throw exception
+            } catch (exception: Exception) { /* Core logout and local clearing still run. */
+            }
             serverConfirmed = kotlinx.coroutines.withTimeoutOrNull(3000) {
-               if(providerLogout == null) qqqRepository.logout() else providerLogout()
+               if (providerLogout == null) qqqRepository.logout() else providerLogout()
                true
             } ?: false
-         }
-         catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
-         catch(exception: Exception) { /* Local sign-out still completes when the network is unavailable. */ }
-         finally
-         {
+         } catch (exception: kotlinx.coroutines.CancellationException) {
+            throw exception
+         } catch (exception: Exception) { /* Local sign-out still completes when the network is unavailable. */
+         } finally {
             val current = logoutGeneration == authenticationGeneration && logoutServer == environment.baseUrl
-            if(current)
-            {
+            if (current) {
                clearAll(preserveLogoutScreen = true)
                qqqRepository.setSessionUUID("")
             }
             kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                settingsMutex.withLock { settingsRepository.setSessionUUID(""); settingsRepository.setSessionUserFullName("") }
             }
-            if(current)
-            {
+            if (current) {
                isLogoutRequested = capturedIsLogoutRequested
                authenticationMetaDataLoadState = capturedAuthLoadState
             }
             logoutInProgress = false
             lastLogoutServerConfirmed = current && serverConfirmed
-            logoutMessage = if(serverConfirmed) "Signed out."
-               else "Signed out on this device. Server sign-out could not be confirmed."
-            if(companyLogoutPhase == OAuth2LogoutPhase.FINISHED)
+            logoutMessage = if (serverConfirmed) "Signed out."
+            else "Signed out on this device. Server sign-out could not be confirmed."
+            if (companyLogoutPhase == OAuth2LogoutPhase.FINISHED)
                logoutMessage += " Company sign-out did not complete. Your organization may still be signed in in the browser."
          }
       }.also { logoutJob = it }
    }
 
-   /** Invoked only by an explicit host opt-in; ordinary requestLogout remains local-only. */
-   fun requestCompanyLogout(binding: OAuth2LogoutBinding)
-   {
-      if(!isAuthenticated || logoutInProgress || binding.login.server != environment.baseUrl) return
+   /*******************************************************************************
+    ** Invoked only by an explicit host opt-in; ordinary requestLogout remains local-only.
+    *******************************************************************************/
+   fun requestCompanyLogout(binding: OAuth2LogoutBinding) {
+      if (!isAuthenticated || logoutInProgress || binding.login.server != environment.baseUrl) return
       val metadata = (authenticationMetaDataLoadState as? LoadState.Success)?.value as? OAuth2AuthenticationMetaData ?: return
       val logout = metadata.values.nativeSessionLogout ?: return
       val login = metadata.values.nativeSessionLogin ?: return
-      if(binding.login != OAuth2LoginBinding(environment.baseUrl, metadata.name, login.issuer, login.discoveryUrl,
-            metadata.values.clientId, metadata.values.scopes, binding.login.redirectUri, login.prompt, login.nonceValidation) ||
+      if (binding.login != OAuth2LoginBinding(
+            environment.baseUrl, metadata.name, login.issuer, login.discoveryUrl,
+            metadata.values.clientId, metadata.values.scopes, binding.login.redirectUri, login.prompt, login.nonceValidation
+         ) ||
          login.flow != OAuth2AuthenticationMetaData.SESSION_FLOW || login.codeChallengeMethod != "S256" || login.prompt != "login" ||
          login.nonceValidation != "REQUIRED" ||
          binding.login.redirectUri !in login.redirectUris || binding.postLogoutRedirectUri != binding.login.redirectUri ||
-         logout.flow != OAuth2AuthenticationMetaData.LOGOUT_FLOW || binding.postLogoutRedirectUri !in logout.postLogoutRedirectUris) return
+         logout.flow != OAuth2AuthenticationMetaData.LOGOUT_FLOW || binding.postLogoutRedirectUri !in logout.postLogoutRedirectUris
+      ) return
       requestLogout()
       companyLogoutBinding = binding
       companyLogoutPhase = OAuth2LogoutPhase.PREPARING
    }
 
+   /*******************************************************************************
+    ** Bind company sign-out callbacks to their original server, configuration and logout generation.
+    *******************************************************************************/
    fun isCurrentCompanyLogout(generation: Long, binding: OAuth2LogoutBinding): Boolean =
       generation == companyLogoutGeneration && companyLogoutBinding == binding &&
          binding.login.server == environment.baseUrl && isLogoutRequested
 
-   /** Local invalidation finishes before the browser sees the optional transient hint. */
-   suspend fun logOutWithProvider(generation: Long, binding: OAuth2LogoutBinding): NativeLogoutData?
-   {
-      if(!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.PREPARING) return null
+   /*******************************************************************************
+    ** Local invalidation finishes before the browser sees the optional transient hint.
+    *******************************************************************************/
+   suspend fun logOutWithProvider(generation: Long, binding: OAuth2LogoutBinding): NativeLogoutData? {
+      if (!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.PREPARING) return null
       var material: NativeLogoutData? = null
-      try
-      {
+      try {
          performLogout { material = qqqRepository.logoutWithProvider(binding.postLogoutRedirectUri) }.join()
-         return material.takeIf { isCurrentCompanyLogout(generation, binding) && companyLogoutPhase == OAuth2LogoutPhase.PREPARING &&
-            lastLogoutServerConfirmed && !isAuthenticated && !logoutInProgress }
+         return material.takeIf {
+            isCurrentCompanyLogout(generation, binding) && companyLogoutPhase == OAuth2LogoutPhase.PREPARING &&
+               lastLogoutServerConfirmed && !isAuthenticated && !logoutInProgress
+         }
+      } finally {
+         material = null
       }
-      finally { material = null }
    }
 
-   fun beginCompanyLogoutBrowser(generation: Long, binding: OAuth2LogoutBinding, endpoint: String, state: String): Boolean
-   {
-      if(!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.PREPARING ||
-         isAuthenticated || logoutInProgress) return false
+   /*******************************************************************************
+    ** Allow the provider browser only after local identity is invalidated and the current logout is prepared.
+    *******************************************************************************/
+   fun beginCompanyLogoutBrowser(generation: Long, binding: OAuth2LogoutBinding, endpoint: String, state: String): Boolean {
+      if (!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.PREPARING ||
+         isAuthenticated || logoutInProgress
+      ) return false
       companyLogoutAttempt.begin(binding, endpoint, state)
       companyLogoutPhase = OAuth2LogoutPhase.BROWSER
       return true
    }
 
-   /** Dedicated end-session responses never establish QQQ identity or restore cleared private screens. */
-   fun completeCompanyLogout(generation: Long, binding: OAuth2LogoutBinding, state: String?, requestState: String?,
-      requestEndpoint: String?, requestRedirect: String?)
-   {
-      if(!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.BROWSER) return
+   /*******************************************************************************
+    ** Dedicated end-session responses never establish QQQ identity or restore cleared private screens.
+    *******************************************************************************/
+   fun completeCompanyLogout(
+      generation: Long, binding: OAuth2LogoutBinding, state: String?, requestState: String?,
+      requestEndpoint: String?, requestRedirect: String?
+   ) {
+      if (!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.BROWSER) return
       val verified = companyLogoutAttempt.consume(binding, state, requestState, requestEndpoint, requestRedirect)
       setCompanyLogoutResult(generation, binding, verified)
    }
 
-   /** Cancellation/unavailable paths cannot claim successful provider logout. */
+   /*******************************************************************************
+    ** Cancellation/unavailable paths cannot claim successful provider logout.
+    *******************************************************************************/
    fun finishCompanyLogout(generation: Long, binding: OAuth2LogoutBinding) = setCompanyLogoutResult(generation, binding, false)
 
-   private fun setCompanyLogoutResult(generation: Long, binding: OAuth2LogoutBinding, completed: Boolean)
-   {
-      if(!isCurrentCompanyLogout(generation, binding)) return
-      if(companyLogoutPhase == OAuth2LogoutPhase.FINISHED) return
+   /*******************************************************************************
+    ** Finalize company sign-out once and distinguish verified provider completion from ordinary local logout.
+    *******************************************************************************/
+   private fun setCompanyLogoutResult(generation: Long, binding: OAuth2LogoutBinding, completed: Boolean) {
+      if (!isCurrentCompanyLogout(generation, binding)) return
+      if (companyLogoutPhase == OAuth2LogoutPhase.FINISHED) return
       companyLogoutAttempt.cancel()
       companyLogoutPhase = OAuth2LogoutPhase.FINISHED
-      logoutMessage += if(completed) " Company sign-out completed."
-         else " Company sign-out did not complete. Your organization may still be signed in in the browser."
+      logoutMessage += if (completed) " Company sign-out completed."
+      else " Company sign-out did not complete. Your organization may still be signed in in the browser."
    }
 
-   private fun cancelCompanyLogout()
-   {
+   /*******************************************************************************
+    ** Invalidate pending provider state before another authentication or logout lifetime begins.
+    *******************************************************************************/
+   private fun cancelCompanyLogout() {
       companyLogoutGeneration++
       companyLogoutAttempt.cancel()
       companyLogoutBinding = null
       companyLogoutPhase = OAuth2LogoutPhase.IDLE
    }
 
-   /** Activity recreation may render logout again; each logical sign-out opens the provider only once. */
-   fun claimAuth0ProviderLogout(): Boolean
-   {
+   /*******************************************************************************
+    ** Activity recreation may render logout again; each logical sign-out opens the provider only once.
+    *******************************************************************************/
+   fun claimAuth0ProviderLogout(): Boolean {
       val current = logoutJob ?: return false
-      if(auth0ProviderLogoutJob === current) return false
+      if (auth0ProviderLogoutJob === current) return false
       auth0ProviderLogoutJob = current
       return true
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun loadQInstance(): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun loadQInstance(): Job {
       val generation = authenticationGeneration
       val server = environment.baseUrl
       return viewModelScope.launch()
       {
-         val result: LoadState<QInstance> = try
-         {
-            // todo - get frontend name & version from ... somewhere!
+         val result: LoadState<QInstance> = try {
             val value = qqqRepository.getMetaData("qqq-android", "1.0", applicationName, applicationVersion)
             LoadState.Success(value)
-         }
-         catch(e: Exception)
-         {
+         } catch (e: Exception) {
             Log.w(TAG, "Error loading QInstance")
-            LoadState.Error(e,"Error loading QInstance")
+            LoadState.Error(e, "Error loading QInstance")
          }
          kotlinx.coroutines.currentCoroutineContext().ensureActive()
-         if(generation == authenticationGeneration && server == environment.baseUrl) qInstanceLoadState = result
+         if (generation == authenticationGeneration && server == environment.baseUrl) qInstanceLoadState = result
       }
    }
 
-   fun prepareOAuth2Login(binding: OAuth2LoginBinding): Long?
-   {
-      if(oauth2LoginPhase != OAuth2LoginPhase.READY || isAuthenticated || isLogoutRequested || logoutInProgress ||
-         binding.server != environment.baseUrl || binding.nonceValidation != "REQUIRED") return null
+   /*******************************************************************************
+    ** Capture an eligible server-advertised nonce policy before beginning native browser discovery.
+    *******************************************************************************/
+   fun prepareOAuth2Login(binding: OAuth2LoginBinding): Long? {
+      if (oauth2LoginPhase != OAuth2LoginPhase.READY || isAuthenticated || isLogoutRequested || logoutInProgress ||
+         binding.server != environment.baseUrl || binding.nonceValidation != "REQUIRED"
+      ) return null
       cancelAuthentication()
       oauth2Generation++
       oauth2Binding = binding
@@ -815,20 +784,27 @@ open class QViewModel(
       return oauth2Generation
    }
 
+   /*******************************************************************************
+    ** Reject results from stale server, metadata or generation even when the browser returns successfully.
+    *******************************************************************************/
    fun isCurrentOAuth2Login(generation: Long, binding: OAuth2LoginBinding): Boolean =
       generation == oauth2Generation && binding == oauth2Binding && binding.server == environment.baseUrl &&
          oauth2Metadata == (authenticationMetaDataLoadState as? LoadState.Success)?.value && !isAuthenticated && !isLogoutRequested && !logoutInProgress
 
-   fun beginOAuth2Browser(generation: Long, binding: OAuth2LoginBinding, state: String, nonce: String, verifier: String): Boolean
-   {
-      if(!isCurrentOAuth2Login(generation, binding) || oauth2LoginPhase != OAuth2LoginPhase.PREPARING) return false
+   /*******************************************************************************
+    ** Bind the original state, nonce and verifier exactly once before entering the browser phase.
+    *******************************************************************************/
+   fun beginOAuth2Browser(generation: Long, binding: OAuth2LoginBinding, state: String, nonce: String, verifier: String): Boolean {
+      if (!isCurrentOAuth2Login(generation, binding) || oauth2LoginPhase != OAuth2LoginPhase.PREPARING) return false
       oauth2Attempt.begin(binding, state, nonce, verifier)
       oauth2LoginPhase = OAuth2LoginPhase.BROWSER
       return true
    }
 
-   fun cancelOAuth2Login(message: String? = null)
-   {
+   /*******************************************************************************
+    ** Invalidate browser and exchange ownership before dropping pending credentials and cancelling work.
+    *******************************************************************************/
+   fun cancelOAuth2Login(message: String? = null) {
       oauth2Generation++
       oauth2Attempt.cancel()
       oauth2Binding = null
@@ -839,14 +815,17 @@ open class QViewModel(
       oauth2ExchangeJob = null
    }
 
-   fun completeOAuth2Login(binding: OAuth2LoginBinding, state: String?, requestState: String?, requestNonce: String?,
-      requestClientId: String, requestRedirect: String, requestPrompt: String?, code: String?)
-   {
+   /*******************************************************************************
+    ** Consume the original browser proof, exchange it once and adopt identity only for the still-current server attempt.
+    *******************************************************************************/
+   fun completeOAuth2Login(
+      binding: OAuth2LoginBinding, state: String?, requestState: String?, requestNonce: String?,
+      requestClientId: String, requestRedirect: String, requestPrompt: String?, code: String?
+   ) {
       val generation = oauth2Generation
-      if(oauth2LoginPhase != OAuth2LoginPhase.BROWSER || !isCurrentOAuth2Login(generation, binding)) return
+      if (oauth2LoginPhase != OAuth2LoginPhase.BROWSER || !isCurrentOAuth2Login(generation, binding)) return
       val exchange = oauth2Attempt.consume(binding, state, requestState, requestNonce, requestClientId, requestRedirect, requestPrompt, code)
-      if(exchange == null)
-      {
+      if (exchange == null) {
          cancelOAuth2Login("Sign-in could not be verified. Please start again.")
          return
       }
@@ -854,14 +833,17 @@ open class QViewModel(
       oauth2ExchangeJob = viewModelScope.launch {
          var newSession: String? = null
          var adopted = false
-         try
-         {
-            val response = qqqRepository.exchangeNativeSession(ManageSessionRequest(code = exchange.code,
-               codeVerifier = exchange.verifier, redirectUri = exchange.redirectUri,
-               authenticationFlow = OAuth2AuthenticationMetaData.SESSION_FLOW, expectedNonce = exchange.expectedNonce))
+         try {
+            val response = qqqRepository.exchangeNativeSession(
+               ManageSessionRequest(
+                  code = exchange.code,
+                  codeVerifier = exchange.verifier, redirectUri = exchange.redirectUri,
+                  authenticationFlow = OAuth2AuthenticationMetaData.SESSION_FLOW, expectedNonce = exchange.expectedNonce
+               )
+            )
             newSession = response.uuid?.takeIf { it.isNotBlank() }
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
-            if(!isCurrentOAuth2Login(generation, binding)) return@launch
+            if (!isCurrentOAuth2Login(generation, binding)) return@launch
             sessionUUID = requireNotNull(newSession)
             qqqRepository.setSessionUUID(sessionUUID)
             manageSessionLoadState = LoadState.Success(response)
@@ -871,49 +853,44 @@ open class QViewModel(
             oauth2Binding = null
             oauth2Metadata = null
             loadQInstance()
-         }
-         catch(exception: kotlinx.coroutines.CancellationException) { throw exception }
-         catch(exception: Exception)
-         {
-            if(generation == oauth2Generation)
-            {
+         } catch (exception: kotlinx.coroutines.CancellationException) {
+            throw exception
+         } catch (exception: Exception) {
+            if (generation == oauth2Generation) {
                oauth2LoginPhase = OAuth2LoginPhase.READY
                oauth2Binding = null
                oauth2Metadata = null
                oauth2LoginMessage = "Sign-in failed. Check your connection or contact your administrator."
             }
-         }
-         finally
-         {
-            if(!adopted && newSession != null) kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-               try { kotlinx.coroutines.withTimeout(3000) { qqqRepository.discardNativeSession(binding.server, newSession!!) } }
-               catch(exception: Exception) { /* Never activate an abandoned session, even when revocation cannot be confirmed. */ }
+         } finally {
+            if (!adopted && newSession != null) kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+               try {
+                  kotlinx.coroutines.withTimeout(3000) { qqqRepository.discardNativeSession(binding.server, newSession) }
+               } catch (exception: Exception) { /* Never activate an abandoned session, even when revocation cannot be confirmed. */
+               }
             }
          }
       }
    }
 
-   /** Password remains in this request only; the returned session drives the existing host. */
-   fun loginWithPassword(username: String, password: String)
-   {
+   /*******************************************************************************
+    ** Password remains in this request only; the returned session drives the existing host.
+    *******************************************************************************/
+   fun loginWithPassword(username: String, password: String) {
       val attempt = prepareAuthentication() ?: return
       exchangeAuthentication(attempt, username) { qqqRepository.loginWithPassword(username, password) }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun getURI(path: String): String
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun getURI(path: String): String {
       val uri = qqqRepository.getURI(path)
       return uri
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   companion object
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   companion object {
       var applicationName: String = "anonymousApp"
       var applicationVersion: String = "0"
       var applicationBuildTimestamp: String? = null

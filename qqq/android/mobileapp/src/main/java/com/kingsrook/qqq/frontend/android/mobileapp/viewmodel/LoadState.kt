@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -20,33 +21,37 @@
 
 package com.kingsrook.qqq.frontend.android.mobileapp.viewmodel
 
-/***************************************************************************
- **
- ***************************************************************************/
-sealed interface LoadState<T>
-{
+/*******************************************************************************
+ *******************************************************************************/
+sealed interface LoadState<T> {
+   /*******************************************************************************
+    ** Carry a completed value separately from loading and display-safe failure states.
+    *******************************************************************************/
    data class Success<T>(val value: T) : LoadState<T>
-   data class Error<T>(val message: String) : LoadState<T>
-   {
+
+   /*******************************************************************************
+    ** Carry the UI failure message without requiring the presentation layer to inspect transport exceptions.
+    *******************************************************************************/
+   data class Error<T>(val message: String) : LoadState<T> {
       constructor(e: Exception, m: String) : this("${m}: ${e.message ?: "Error details not available"}")
    }
 
-   data class Loading<T>(val unit: Unit) : LoadState<T>
-   {
+   /*******************************************************************************
+    ** Mark an in-progress operation and retain its start time for loading presentation.
+    *******************************************************************************/
+   data class Loading<T>(val unit: Unit) : LoadState<T> {
       val start = System.currentTimeMillis()
    }
 
-   companion object
-   {
-      /***************************************************************************
-       **
-       ***************************************************************************/
-      fun areAnyErrors(loadStates: List<LoadState<*>>): Boolean
-      {
-         for(loadState in loadStates)
-         {
-            if(loadState is Error)
-            {
+   /*******************************************************************************
+    ** Share aggregate loading/error decisions across composed metadata and process screens.
+    *******************************************************************************/
+   companion object {
+      /*******************************************************************************
+       *******************************************************************************/
+      fun areAnyErrors(loadStates: List<LoadState<*>>): Boolean {
+         for (loadState in loadStates) {
+            if (loadState is Error) {
                return (true);
             }
          }
@@ -54,17 +59,13 @@ sealed interface LoadState<T>
          return (false);
       }
 
-      /***************************************************************************
-       **
-       ***************************************************************************/
-      fun getErrorMessages(loadStates: List<LoadState<*>>): List<String>
-      {
+      /*******************************************************************************
+       *******************************************************************************/
+      fun getErrorMessages(loadStates: List<LoadState<*>>): List<String> {
          val rs: MutableList<String> = mutableListOf();
 
-         for(loadState in loadStates)
-         {
-            if(loadState is Error)
-            {
+         for (loadState in loadStates) {
+            if (loadState is Error) {
                rs.add(loadState.message)
             }
          }
@@ -72,15 +73,11 @@ sealed interface LoadState<T>
          return (rs)
       }
 
-      /***************************************************************************
-       **
-       ***************************************************************************/
-      fun areAnyLoading(loadStates: List<LoadState<*>>): Boolean
-      {
-         for(loadState in loadStates)
-         {
-            if(loadState is Loading)
-            {
+      /*******************************************************************************
+       *******************************************************************************/
+      fun areAnyLoading(loadStates: List<LoadState<*>>): Boolean {
+         for (loadState in loadStates) {
+            if (loadState is Loading) {
                return (true);
             }
          }

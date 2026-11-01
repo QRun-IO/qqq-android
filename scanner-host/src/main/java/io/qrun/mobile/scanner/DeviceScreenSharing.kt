@@ -28,9 +28,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import java.util.UUID
 
-/** A consent attempt belongs to one authenticated host lifetime, never a saved preference. */
-internal class DeviceScreenSharing(private val context: Context)
-{
+/*******************************************************************************
+ ** A consent attempt belongs to one authenticated host lifetime, never a saved preference.
+ *******************************************************************************/
+internal class DeviceScreenSharing(private val context: Context) {
    var active by mutableStateOf(false)
       private set
    var pending by mutableStateOf(false)
@@ -46,19 +47,23 @@ internal class DeviceScreenSharing(private val context: Context)
    var onSystemStop: () -> Unit = {}
    var onStarted: () -> Unit = {}
 
-   fun beginConsent(): String
-   {
+   /*******************************************************************************
+    ** Revoke any previous grant before creating a fresh ticket for Android's consent result.
+    *******************************************************************************/
+   fun beginConsent(): String {
       stop()
       pending = true
       message = ""
       return consentAttempt.begin()
    }
 
-   fun accept(ticket: String, resultCode: Int, data: Intent?, allowed: () -> Boolean)
-   {
-      if(!consentAttempt.current(ticket) || !pending) return
+   /*******************************************************************************
+    ** Consume consent only for the current authenticated host, then recheck permission when binding completes.
+    *******************************************************************************/
+   fun accept(ticket: String, resultCode: Int, data: Intent?, allowed: () -> Boolean) {
+      if (!consentAttempt.current(ticket) || !pending) return
       pending = false
-      if(!consentAttempt.consume(ticket, resultCode == Activity.RESULT_OK && data != null, allowed())) {
+      if (!consentAttempt.consume(ticket, resultCode == Activity.RESULT_OK && data != null, allowed())) {
          message = "Device screen sharing was not started."
          return
       }
@@ -66,37 +71,77 @@ internal class DeviceScreenSharing(private val context: Context)
       connecting = true
       val serviceIntent = Intent(context, DeviceScreenCaptureService::class.java)
       val binding = object : ServiceConnection {
-         override fun onServiceConnected(name: ComponentName, binder: IBinder)
-         {
-            if(!consentAttempt.current(ticket) || connection !== this) { runCatching { context.unbindService(this) }; return }
-            if(!allowed()) { stop(); return }
+         /*******************************************************************************
+          ** Reject stale bindings and recheck host eligibility before handing Android consent to the service.
+          *******************************************************************************/
+         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+            if (!consentAttempt.current(ticket) || connection !== this) {
+               runCatching { context.unbindService(this) }; return
+            }
+            if (!allowed()) {
+               stop(); return
+            }
             val current = (binder as DeviceScreenCaptureService.LocalBinder).service()
             service = current
             active = current.begin(owner, resultCode, data) {
-               if(consentAttempt.current(ticket)) { stop(); onSystemStop() }
+               if (consentAttempt.current(ticket)) {
+                  stop(); onSystemStop()
+               }
             }
-            if(active) onStarted()
+            if (active) onStarted()
             connecting = false
-            if(!active) { stop(); message = "Device screen sharing could not start. Try again from the app." }
+            if (!active) {
+               stop(); message = "Device screen sharing could not start. Try again from the app."
+            }
          }
-         private fun disconnected() { if(connection === this) { stop(); onSystemStop() } }
-         override fun onServiceDisconnected(name: ComponentName) { disconnected() }
-         override fun onBindingDied(name: ComponentName) { disconnected() }
-         override fun onNullBinding(name: ComponentName) { disconnected() }
+
+         /*******************************************************************************
+          ** Invalidate the current binding and notify its host when Android removes the projection service.
+          *******************************************************************************/
+         private fun disconnected() {
+            if (connection === this) {
+               stop(); onSystemStop()
+            }
+         }
+
+         /*******************************************************************************
+          ** Treat service loss as revoked sharing rather than automatically reconnecting without consent.
+          *******************************************************************************/
+         override fun onServiceDisconnected(name: ComponentName) {
+            disconnected()
+         }
+
+         /*******************************************************************************
+          ** A dead binding invalidates this host's projection and requires a new operator action.
+          *******************************************************************************/
+         override fun onBindingDied(name: ComponentName) {
+            disconnected()
+         }
+
+         /*******************************************************************************
+          ** A rejected service binding ends the attempt rather than retaining a pending consent state.
+          *******************************************************************************/
+         override fun onNullBinding(name: ComponentName) {
+            disconnected()
+         }
       }
       connection = binding
       try {
          ContextCompat.startForegroundService(context, serviceIntent)
-         if(!context.bindService(serviceIntent, binding, Context.BIND_AUTO_CREATE)) {
+         if (!context.bindService(serviceIntent, binding, Context.BIND_AUTO_CREATE)) {
             connection = null
             stop()
             message = "Device screen sharing could not start."
          }
-      } catch(exception: Exception) { stop(); message = "Device screen sharing could not start. Check notification permission." }
+      } catch (exception: Exception) {
+         stop(); message = "Device screen sharing could not start. Check notification permission."
+      }
    }
 
-   fun stop()
-   {
+   /*******************************************************************************
+    ** Invalidate the consent ticket before unbinding so late results cannot resume sharing.
+    *******************************************************************************/
+   fun stop() {
       consentAttempt.invalidate()
       active = false
       pending = false
@@ -106,17 +151,27 @@ internal class DeviceScreenSharing(private val context: Context)
       val binding = connection
       connection = null
       previous?.stop(owner)
-      if(binding != null) runCatching { context.unbindService(binding) }
+      if (binding != null) runCatching { context.unbindService(binding) }
    }
 
-   suspend fun frame(lease: ScreenLease): ScreenFrame? = if(active) service?.frame(owner, lease) else null
-   fun boundLease(expiresAt: Long) { if(active) service?.boundLease(owner, expiresAt) }
+   /*******************************************************************************
+    ** Delegate capture only while this host still owns an active projection.
+    *******************************************************************************/
+   suspend fun frame(lease: ScreenLease): ScreenFrame? = if (active) service?.frame(owner, lease) else null
+
+   /*******************************************************************************
+    ** Pass the authenticated viewer's deadline only to this host's active projection grant.
+    *******************************************************************************/
+   fun boundLease(expiresAt: Long) {
+      if (active) service?.boundLease(owner, expiresAt)
+   }
 }
 
-/** Only a deliberate device operator action launches Android's fresh consent dialog. */
+/*******************************************************************************
+ ** Only a deliberate device operator action launches Android's fresh consent dialog.
+ *******************************************************************************/
 @Composable
-internal fun DeviceScreenSharingControl(sharing: DeviceScreenSharing, controller: MobileSessionController, allowed: () -> Boolean)
-{
+internal fun DeviceScreenSharingControl(sharing: DeviceScreenSharing, controller: MobileSessionController, allowed: () -> Boolean) {
    val context = LocalContext.current
    val currentAllowed by rememberUpdatedState(allowed)
    var disclosure by remember { mutableStateOf(false) }
@@ -126,33 +181,38 @@ internal fun DeviceScreenSharingControl(sharing: DeviceScreenSharing, controller
    val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
       val currentTicket = ticket
       ticket = null
-      if(currentTicket != null) sharing.accept(currentTicket, result.resultCode, result.data) {
+      if (currentTicket != null) sharing.accept(currentTicket, result.resultCode, result.data) {
          currentAllowed() && controller.supportsDeviceScreen
       }
    }
-   if(sharing.active) {
+   if (sharing.active) {
       Text("Sharing this device screen, including other apps and notifications.")
       TextButton(onClick = { controller.pauseViewing() }) { Text("Stop device screen sharing") }
-   } else if(controller.supportsDeviceScreen) {
-      val canNotify = remember(permissionRevision) { Build.VERSION.SDK_INT < 33 ||
-         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED }
-      if(!canNotify) TextButton(onClick = { if(Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }) {
+   } else if (controller.supportsDeviceScreen) {
+      val canNotify = remember(permissionRevision) {
+         Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+      }
+      if (!canNotify) TextButton(onClick = { if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }) {
          Text("Enable sharing notification")
       } else TextButton(enabled = !sharing.pending && !sharing.connecting && allowed(), onClick = { disclosure = true }) { Text("Share device screen…") }
-      if(sharing.connecting) Text("Starting device screen sharing…")
-      if(sharing.message.isNotBlank()) Text(sharing.message)
+      if (sharing.connecting) Text("Starting device screen sharing…")
+      if (sharing.message.isNotBlank()) Text(sharing.message)
    }
-   if(disclosure) AlertDialog(onDismissRequest = { disclosure = false }, title = { Text("Share this device screen?") },
+   if (disclosure) AlertDialog(
+      onDismissRequest = { disclosure = false }, title = { Text("Share this device screen?") },
       text = { Text("An authorized administrator can see other apps and notifications while viewing this session. Android will ask for permission. Sharing stops if the viewer disconnects, you sign out, or this activity restarts. Use Stop sharing in the notification or Android's sharing indicator at any time.") },
       dismissButton = { TextButton(onClick = { disclosure = false }) { Text("Cancel") } },
-      confirmButton = { TextButton(onClick = {
-         disclosure = false
-         if(currentAllowed() && controller.supportsDeviceScreen && context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()) {
-            ticket = sharing.beginConsent()
-            val manager = context.getSystemService(MediaProjectionManager::class.java)
-            val intent = if(Build.VERSION.SDK_INT >= 34) manager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
+      confirmButton = {
+         TextButton(onClick = {
+            disclosure = false
+            if (currentAllowed() && controller.supportsDeviceScreen && context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()) {
+               ticket = sharing.beginConsent()
+               val manager = context.getSystemService(MediaProjectionManager::class.java)
+               val intent = if (Build.VERSION.SDK_INT >= 34) manager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
                else manager.createScreenCaptureIntent()
-            consent.launch(intent)
-         }
-      }) { Text("Continue to Android permission") } })
+               consent.launch(intent)
+            }
+         }) { Text("Continue to Android permission") }
+      })
 }

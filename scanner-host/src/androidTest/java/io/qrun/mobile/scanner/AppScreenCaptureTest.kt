@@ -17,18 +17,25 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.launch
-import org.junit.Assert.*
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/*******************************************************************************
+ **
+ *******************************************************************************/
 @RunWith(AndroidJUnit4::class)
-class AppScreenCaptureTest
-{
-   @get:Rule val ui = createAndroidComposeRule<ScannerActivity>()
+class AppScreenCaptureTest {
+   @get:Rule
+   val ui = createAndroidComposeRule<ScannerActivity>()
 
-   @Test fun pixelCopyCapturesActualAppPixelsAsABoundedJpeg()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun pixelCopyCapturesActualAppPixelsAsABoundedJpeg() {
       ui.runOnUiThread {
          ui.activity.setContent {
             Row(Modifier.fillMaxSize()) {
@@ -46,8 +53,11 @@ class AppScreenCaptureTest
          view.getLocationInWindow(location)
          val bounds = Rect(location[0], location[1], location[0] + view.width, location[1] + view.height)
          ui.activity.lifecycleScope.launch {
-            try { result = captureAppScreen(ui.activity.window, bounds, ScreenLease("test", 30000, 1000, 640, 1280, 262144, 0)) }
-            finally { done.countDown() }
+            try {
+               result = captureAppScreen(ui.activity.window, bounds, ScreenLease("test", 30000, 1000, 640, 1280, 262144, 0))
+            } finally {
+               done.countDown()
+            }
          }
       }
       assertTrue("PixelCopy must finish", done.await(20, TimeUnit.SECONDS))

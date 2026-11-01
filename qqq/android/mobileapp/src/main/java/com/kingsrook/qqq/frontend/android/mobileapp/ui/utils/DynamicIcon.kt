@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -32,19 +33,18 @@ import androidx.compose.ui.res.painterResource
 import com.kingsrook.qqq.frontend.android.core.model.metadata.QIcon
 import kotlinx.serialization.json.Json
 
-/***************************************************************************
+/*******************************************************************************
  ** Render an icon - given a QIcon model, a defaultResourceId to use if it
  ** isn't found, and so-on.
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun DynamicIcon(icon: QIcon?, defaultResourceId: Int?, modifier: Modifier = Modifier, contentDescription: String? = null, tint: Color = Color.Black)
-{
+fun DynamicIcon(icon: QIcon?, defaultResourceId: Int?, modifier: Modifier = Modifier, contentDescription: String? = null, tint: Color = Color.Black) {
    val context = LocalContext.current
    val drawableId = remember(icon?.semanticName, icon?.name) {
       DrawableUtils.loadDrawableId(context, icon?.semanticName) ?: DrawableUtils.loadDrawableId(context, icon?.name)
    }
 
-   val actualId = if(drawableId != null) drawableId else if(defaultResourceId != null) defaultResourceId else return
+   val actualId = if (drawableId != null) drawableId else if (defaultResourceId != null) defaultResourceId else return
 
    Icon(
       painter = painterResource(id = actualId),
@@ -55,24 +55,18 @@ fun DynamicIcon(icon: QIcon?, defaultResourceId: Int?, modifier: Modifier = Modi
 }
 
 
-/***************************************************************************
+/*******************************************************************************
  ** Convert an Any (could be a map, or a json string) into a QIcon
- ***************************************************************************/
-fun makeIcon(value: Any?): QIcon?
-{
-   if(value is Map<*, *>)
-   {
+ *******************************************************************************/
+fun makeIcon(value: Any?): QIcon? {
+   if (value is Map<*, *>) {
       return (QIcon(value["name"]?.toString(), value["path"]?.toString(), value["color"]?.toString(), semanticName = value["semanticName"]?.toString()))
    }
 
-   if(value is String)
-   {
-      try
-      {
+   if (value is String) {
+      try {
          return Json { ignoreUnknownKeys = true }.decodeFromString<QIcon>(value)
-      }
-      catch(e: Exception)
-      {
+      } catch (e: Exception) {
          // Unknown icon metadata is decorative; retain the caller's fallback.
       }
    }

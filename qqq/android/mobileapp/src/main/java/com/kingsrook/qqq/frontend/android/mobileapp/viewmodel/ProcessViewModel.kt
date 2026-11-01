@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -50,11 +51,9 @@ import java.time.LocalDateTime
 
 private const val TAG = "ProcessViewModel"
 
-/***************************************************************************
- **
- ***************************************************************************/
-open class ProcessViewModel : ViewModel()
-{
+/*******************************************************************************
+ *******************************************************************************/
+open class ProcessViewModel : ViewModel() {
    lateinit var qqqRepository: QQQRepository
    lateinit var qInstance: QInstance
    lateinit var processName: String
@@ -73,37 +72,42 @@ open class ProcessViewModel : ViewModel()
    private val clientWork = mutableStateMapOf<String, String>()
    val clientWorkBlockReason: String? get() = clientWork.values.firstOrNull()
 
-   /** Native controls retain their own operation identity while preventing process exit or advancement. */
-   fun setClientWork(key: String, reason: String?)
-   {
-      if(reason == null) clientWork.remove(key) else clientWork[key] = reason
+   /*******************************************************************************
+    ** Native controls retain their own operation identity while preventing process exit or advancement.
+    *******************************************************************************/
+   fun setClientWork(key: String, reason: String?) {
+      if (reason == null) clientWork.remove(key) else clientWork[key] = reason
    }
+
    var unconfirmedSubmission: Boolean by mutableStateOf(false)
       private set
 
-   /** Native navigation never interrupts a submitted mutation or pending native work. */
-   fun navigationBlockReason(): String? = when
-   {
+   /*******************************************************************************
+    ** Native navigation never interrupts a submitted mutation or pending native work.
+    *******************************************************************************/
+   fun navigationBlockReason(): String? = when {
       clientWorkBlockReason != null -> clientWorkBlockReason
       waitingOnBackend && processUUID != null && initLoadState !is LoadState.Loading -> "Wait for the running request to finish before leaving."
       else -> null
    }
 
-   /** Leaving is an explicit choice; a missing receipt is not proof that the scan was rejected. */
-   fun navigationWarning(): String? = if(pendingStepValues != null)
+   /*******************************************************************************
+    ** Leaving is an explicit choice; a missing receipt is not proof that the scan was rejected.
+    *******************************************************************************/
+   fun navigationWarning(): String? = if (pendingStepValues != null)
       "The last scan is not confirmed and may already be saved. Stay to retry the same scan, or leave to stop retrying. Leaving does not undo a saved scan."
-      else null
+   else null
 
-   fun requestClose()
-   {
-      if(::qViewModel.isInitialized) qViewModel.qNavigator.popStack() else cancel()
+   /*******************************************************************************
+    ** Use guarded navigation when attached to the host; standalone process owners still cancel explicitly.
+    *******************************************************************************/
+   fun requestClose() {
+      if (::qViewModel.isInitialized) qViewModel.qNavigator.popStack() else cancel()
    }
 
    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
    // function that this view-model can call, if user chose, within the process, to leave the process.         //
    // so process can do its cleanup work, and then let the navigation event occur to go to a different screen. //
-   // we are probably missing the reverse of this - where a navigation event (e.g., back arrow) isn't letting  //
-   // this view-model know that it is ending, so, that's a potential todo                                      //
    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
    var closeProcessCallback: (() -> Unit)? = null
 
@@ -228,26 +232,21 @@ open class ProcessViewModel : ViewModel()
    ////////////////////////////////////////////////////////////////////////////
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun doInit()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun doInit() {
       viewModelScope.launch()
       {
          loadProcessMetaData().join()
-         if(processMetaData != null)
-         {
+         if (processMetaData != null) {
             initProcess()
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun reset()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun reset() {
       viewModelScope.coroutineContext.cancelChildren()
       initializing = false
       unconfirmedSubmission = false
@@ -282,105 +281,88 @@ open class ProcessViewModel : ViewModel()
       lastInvokedControlCallbackStepInstanceValues = mutableMapOf()
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun loadProcessMetaData(): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun loadProcessMetaData(): Job {
       val processViewModel = this
 
       return viewModelScope.launch()
       {
-         processMetaDataLoadState = try
-         {
+         processMetaDataLoadState = try {
             val processMetaData = qqqRepository.getProcessMetaData(processName)
             frontendSteps = processMetaData.frontendSteps ?: emptyList()
 
             processViewModel.processMetaData = processMetaData
 
             LoadState.Success(processMetaData)
-         }
-         catch(e: kotlinx.coroutines.CancellationException) { throw e }
-         catch(e: Exception)
-         {
+         } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+         } catch (e: Exception) {
             LoadState.Error(e, semanticError(e, "Error loading process metadata."))
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun initProcess(): Job
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun initProcess(): Job {
       return viewModelScope.launch()
       {
-         try
-         {
+         try {
             initializing = true
             waitingOnBackend = true
             initLoadState = LoadState.Loading(Unit)
 
             val value = qqqRepository.processInit(processName, emptyMap())
-            if(cancelling)
-            {
+            if (cancelling) {
                // Keep the response long enough to cancel the server process whose UUID was not yet known.
                processUUID = value.processUUID.takeIf { it.isNotBlank() }
-               if(value !is QJobComplete || !SemanticProcess.terminal(value))
-               {
+               if (value !is QJobComplete || !SemanticProcess.terminal(value)) {
                   val uuid = processUUID ?: error("Initialization did not return a process identity")
                   qqqRepository.processCancel(processName, uuid)
                }
                closeProcessCallback?.invoke()
-            }
-            else evaluateProcessResult(value)
-         }
-         catch(e: kotlinx.coroutines.CancellationException) { throw e }
-         catch(e: Exception)
-         {
+            } else evaluateProcessResult(value)
+         } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+         } catch (e: Exception) {
             waitingOnBackend = false
             cancellationFailed = cancelling
-            initLoadState = LoadState.Error(e, if(cancelling)
-               "The server did not confirm cancellation. The process may still be running. Retry cancellation if available, or contact your administrator."
-               else semanticError(e, "Error launching process."))
-         }
-         finally
-         {
+            initLoadState = LoadState.Error(
+               e, if (cancelling)
+                  "The server did not confirm cancellation. The process may still be running. Retry cancellation if available, or contact your administrator."
+               else semanticError(e, "Error launching process.")
+            )
+         } finally {
             initializing = false
             cancelling = false
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun setTopLevelError(message: String)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun setTopLevelError(message: String) {
       topLevelErrorState = LoadState.Error(message)
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun runStep(eventValues: Map<String, Any?> = emptyMap(), acknowledgment: ProcessAcknowledgment? = null)
-   {
-      if(waitingOnBackend || cancelling || getNoMoreSteps()) return
-      if(clientWorkBlockReason != null) return
-      if(unconfirmedSubmission && pendingStepValues == null) return
+   /*******************************************************************************
+    *******************************************************************************/
+   fun runStep(eventValues: Map<String, Any?> = emptyMap(), acknowledgment: ProcessAcknowledgment? = null) {
+      if (waitingOnBackend || cancelling || getNoMoreSteps()) return
+      if (clientWorkBlockReason != null) return
+      if (unconfirmedSubmission && pendingStepValues == null) return
       unsupportedReason()?.let { setTopLevelError(it); return }
       submissionError = null
       val localProcessUUID = processUUID
       val localActiveStepName = activeStepName
 
-      if(localProcessUUID == null)
-      {
+      if (localProcessUUID == null) {
          setTopLevelError("Missing process UUID.  Unable to continue running process.")
          return
       }
 
-      if(localActiveStepName == "")
-      {
+      if (localActiveStepName == "") {
          setTopLevelError("Missing current step name.  Unable to continue running process.")
          return
       }
@@ -393,26 +375,24 @@ open class ProcessViewModel : ViewModel()
       val editableFields = declaredFields.filter { it.isEditable && !it.isHidden }.distinctBy { it.name }
       val protectedFields = declaredFields.filter { !it.isEditable || it.isHidden }.map { it.name }.toSet()
       fieldErrors = editableFields.mapNotNull { field ->
-         validateSemanticField(field, if(eventValues.containsKey(field.name)) eventValues[field.name] else semanticInitialValue(field, processValues))?.let { field.name to it }
+         validateSemanticField(field, if (eventValues.containsKey(field.name)) eventValues[field.name] else semanticInitialValue(field, processValues))?.let { field.name to it }
       }.toMap()
-      if(fieldErrors.isNotEmpty()) return
+      if (fieldErrors.isNotEmpty()) return
       editableFields.forEach { formFieldNames.add(it.name) }
-      for(name in formFieldNames)
-      {
-         if(name in protectedFields) continue
+      for (name in formFieldNames) {
+         if (name in protectedFields) continue
          val field = editableFields.firstOrNull { it.name == name }
-         valuesToSubmit[name] = if(field == null) processValues[name] else semanticFieldValue(field, semanticInitialValue(field, processValues))
+         valuesToSubmit[name] = if (field == null) processValues[name] else semanticFieldValue(field, semanticInitialValue(field, processValues))
       }
 
-      for(entry in eventValues.entries)
-      {
-         if(entry.key in protectedFields) continue
+      for (entry in eventValues.entries) {
+         if (entry.key in protectedFields) continue
          val field = editableFields.firstOrNull { it.name == entry.key }
-         valuesToSubmit[entry.key] = if(field == null) entry.value else semanticFieldValue(field, entry.value)
+         valuesToSubmit[entry.key] = if (field == null) entry.value else semanticFieldValue(field, entry.value)
       }
 
       pendingAcknowledgment = acknowledgment
-      pendingStepValues = if(acknowledgment != null) valuesToSubmit.toMap() else null
+      pendingStepValues = if (acknowledgment != null) valuesToSubmit.toMap() else null
       topLevelErrorState = LoadState.Success(Unit)
 
       /////////////////////////////////////////
@@ -424,72 +404,67 @@ open class ProcessViewModel : ViewModel()
 
       viewModelScope.launch()
       {
-         try
-         {
+         try {
             onSubmitCallback?.invoke()
 
             val value = qqqRepository.processStep(processName, localProcessUUID, localActiveStepName, valuesToSubmit, stepTimeoutMillis = 1000)
             evaluateProcessResult(value)
-         }
-         catch(e: kotlinx.coroutines.CancellationException) { throw e }
-         catch(e: Exception)
-         {
+         } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+         } catch (e: Exception) {
             waitingOnBackend = false
-            if(e is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException)
-            {
+            if (e is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException) {
                fieldErrors = e.fieldErrors.associate { it.field to it.message }
-               if(e.fieldErrors.isNotEmpty()) submissionError = e.message
+               if (e.fieldErrors.isNotEmpty()) submissionError = e.message
                else setTopLevelError(e.message ?: "The server rejected this request.")
+            } else {
+               unconfirmedSubmission = true
+               setTopLevelError(
+                  if (e is retrofit2.HttpException && e.code() in listOf(401, 403))
+                     "Access denied. Your session may have expired or device approval may have been revoked. Sign in again or contact your administrator."
+                  else if (pendingStepValues != null) "The server did not confirm this request. Retry the same request when connected."
+                  else "The server did not confirm this request. Do not submit it again. Process reference: $localProcessUUID. Contact your administrator to check its result."
+               )
             }
-              else
-              {
-                 unconfirmedSubmission = true
-                 setTopLevelError(if(e is retrofit2.HttpException && e.code() in listOf(401, 403))
-                    "Access denied. Your session may have expired or device approval may have been revoked. Sign in again or contact your administrator."
-                    else if(pendingStepValues != null) "The server did not confirm this request. Retry the same request when connected."
-                    else "The server did not confirm this request. Do not submit it again. Process reference: $localProcessUUID. Contact your administrator to check its result.")
-              }
          }
       }
    }
 
-   /** Retain only the current request in memory so an uncertain response can be retried safely. */
+   /*******************************************************************************
+    ** Retain only the current request in memory so an uncertain response can be retried safely.
+    *******************************************************************************/
    var pendingStepValues: Map<String, Any?>? by mutableStateOf(null)
       private set
    private var pendingAcknowledgment: ProcessAcknowledgment? = null
 
-   /** Explicit retries preserve the scan event ID; no background queue is created. */
-   fun retryPendingStep()
-   {
-      if(waitingOnBackend || cancelling) return
-      if(activeJobUUID.isNotEmpty())
-      {
+   /*******************************************************************************
+    ** Explicit retries preserve the scan event ID; no background queue is created.
+    *******************************************************************************/
+   fun retryPendingStep() {
+      if (waitingOnBackend || cancelling) return
+      if (activeJobUUID.isNotEmpty()) {
          topLevelErrorState = LoadState.Success(Unit)
          waitingOnBackend = true
          checkIn()
-      }
-      else pendingStepValues?.let { runStep(it, pendingAcknowledgment) }
+      } else pendingStepValues?.let { runStep(it, pendingAcknowledgment) }
    }
 
-   /** Polling a known job is safe even when its original action was not an idempotent scanner event. */
-   fun retryLabel(): String? = when
-   {
+   /*******************************************************************************
+    ** Polling a known job is safe even when its original action was not an idempotent scanner event.
+    *******************************************************************************/
+   fun retryLabel(): String? = when {
       activeJobUUID.isNotEmpty() -> "Check result again"
       pendingStepValues != null -> "Retry same request"
       else -> null
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun evaluateProcessResult(value: ProcessStepResult)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun evaluateProcessResult(value: ProcessStepResult) {
       lastStepResult = value
 
-      when (value)
-      {
-         is QJobComplete ->
-         {
+      when (value) {
+         is QJobComplete -> {
             waitingOnBackend = false
             processJobCompleteResult(value)
 
@@ -497,70 +472,56 @@ open class ProcessViewModel : ViewModel()
             // if the initLoadState was loading, then it means we've finally completed the initial load - //
             // so now we can set a few things to indicate we've progressed past that.                     //
             ////////////////////////////////////////////////////////////////////////////////////////////////
-            if(initLoadState is LoadState.Loading)
-            {
+            if (initLoadState is LoadState.Loading) {
                processUUID = value.processUUID
                initLoadState = LoadState.Success(value)
             }
          }
 
-         is QJobError ->
-         {
+         is QJobError -> {
             waitingOnBackend = false
             activeJobUUID = ""
             setTopLevelError(value.userFacingError ?: value.error)
          }
 
-         is QJobStarted ->
-         {
+         is QJobStarted -> {
             waitingOnBackend = true
             jobRunningLastUpdated = LocalDateTime.now()
             activeJobUUID = value.jobUUID
             processUUID = value.processUUID
          }
 
-         is QJobRunning ->
-         {
+         is QJobRunning -> {
             waitingOnBackend = true
             jobRunningMessage = value.message
             jobRunningLastUpdated = LocalDateTime.now()
-            if(jobRunningMessage == "")
-            {
+            if (jobRunningMessage == "") {
                jobRunningMessage = "Working..."
             }
 
             val localCurrent = value.current
             val localTotal = value.total
-            currentOfTotalMessage = if(localCurrent != null && localTotal != null)
-            {
+            currentOfTotalMessage = if (localCurrent != null && localTotal != null) {
                "${localCurrent} of ${localTotal}"
-            }
-            else
-            {
+            } else {
                ""
             }
          }
 
-         else ->
-         {
+         else -> {
             setTopLevelError("Unexpected response state on a process step call (of type: ${value.javaClass.simpleName})")
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun processJobCompleteResult(value: QJobComplete)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun processJobCompleteResult(value: QJobComplete) {
       unconfirmedSubmission = false
-      if(pendingAcknowledgment?.matches(value.values) != false)
-      {
+      if (pendingAcknowledgment?.matches(value.values) != false) {
          pendingStepValues = null
          pendingAcknowledgment = null
-      }
-      else
-      {
+      } else {
          setTopLevelError("The server did not acknowledge this scan. Retry the same request when connected.")
          return
       }
@@ -583,79 +544,65 @@ open class ProcessViewModel : ViewModel()
 
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private fun updateActiveStepName(newActiveStepName: String)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   private fun updateActiveStepName(newActiveStepName: String) {
       activeStepName = newActiveStepName
       activeStep = null
 
-      for((index, qFrontendStepMetaData) in frontendSteps.withIndex())
-      {
-         if(qFrontendStepMetaData.name == activeStepName)
-         {
+      for ((index, qFrontendStepMetaData) in frontendSteps.withIndex()) {
+         if (qFrontendStepMetaData.name == activeStepName) {
             activeStepIndex = index
             activeStep = qFrontendStepMetaData
             return
          }
       }
 
-      if(!getNoMoreSteps()) setTopLevelError("The server returned an unknown process screen. Update the client or contact your administrator.")
+      if (!getNoMoreSteps()) setTopLevelError("The server returned an unknown process screen. Update the client or contact your administrator.")
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun checkIn()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun checkIn() {
       val localProcessUUID = processUUID
       val localJobUUID = activeJobUUID
 
-      if(localProcessUUID == null)
-      {
+      if (localProcessUUID == null) {
          setTopLevelError("Missing process UUID.  Unable to continue running process.")
          return
       }
 
-      if(localJobUUID.isEmpty() || cancelling)
-      {
+      if (localJobUUID.isEmpty() || cancelling) {
          setTopLevelError("Missing job UUID.  Unable to continue running process.")
          return
       }
 
       viewModelScope.launch()
       {
-         try
-         {
+         try {
             val value = qqqRepository.processJobStatus(processName, localProcessUUID, localJobUUID)
             evaluateProcessResult(value)
-         }
-         catch(e: kotlinx.coroutines.CancellationException) { throw e }
-         catch(e: Exception)
-         {
+         } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+         } catch (e: Exception) {
             waitingOnBackend = false
             setTopLevelError(semanticError(e, "The server did not confirm the running request. Retry to check the same request again."))
          }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun cancel()
-   {
-      if(cancelling) return
+   /*******************************************************************************
+    *******************************************************************************/
+   fun cancel() {
+      if (cancelling) return
       cancellationFailed = false
       val uuid = processUUID
-      if(uuid == null && initializing)
-      {
+      if (uuid == null && initializing) {
          // Cancelling transport here could discard the only response containing the server UUID.
          cancelling = true
          return
       }
-      if(uuid == null || getNoMoreSteps())
-      {
+      if (uuid == null || getNoMoreSteps()) {
          viewModelScope.coroutineContext.cancelChildren()
          closeProcessCallback?.invoke()
          return
@@ -663,51 +610,61 @@ open class ProcessViewModel : ViewModel()
       cancelling = true
       viewModelScope.coroutineContext.cancelChildren()
       viewModelScope.launch {
-         try
-         {
+         try {
             qqqRepository.processCancel(processName, uuid)
             pendingStepValues = null
             pendingAcknowledgment = null
             closeProcessCallback?.invoke()
-         }
-         catch(e: kotlinx.coroutines.CancellationException) { throw e }
-         catch(e: Exception)
-         {
+         } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+         } catch (e: Exception) {
             cancellationFailed = true
             waitingOnBackend = false
-            setTopLevelError(if(e is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException) e.message ?: "Cancellation failed." else "The server did not confirm cancellation. Try again when connected.")
+            setTopLevelError(if (e is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException) e.message ?: "Cancellation failed." else "The server did not confirm cancellation. Try again when connected.")
+         } finally {
+            cancelling = false
          }
-         finally { cancelling = false }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   /*******************************************************************************
+    *******************************************************************************/
    fun getNextButtonLabel(): String = "Next"
 
+   /*******************************************************************************
+    ** Expose the server-derived completion decision instead of inferring it from the last displayed step.
+    *******************************************************************************/
    fun getNoMoreSteps(): Boolean = processComplete
 
-   fun unsupportedReason(): String? = SemanticProcess.unsupported(activeStep, processValues,
-      if(::qInstance.isInitialized) qInstance else null, supportedCustomWidgetTypes)
+   /*******************************************************************************
+    ** Validate the current server screen against native controls before allowing submission.
+    *******************************************************************************/
+   fun unsupportedReason(): String? = SemanticProcess.unsupported(
+      activeStep, processValues,
+      if (::qInstance.isInitialized) qInstance else null, supportedCustomWidgetTypes
+   )
 
+   /*******************************************************************************
+    ** Expose semantic server messages only through their explicit exception type and otherwise use a safe fallback.
+    *******************************************************************************/
    private fun semanticError(error: Exception, fallback: String): String =
-      if(error is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException) error.message ?: fallback else fallback
-   fun registerFormFieldName(name: String)
-   {
+      if (error is com.kingsrook.qqq.frontend.android.core.controllers.UiApiException) error.message ?: fallback else fallback
+
+   /*******************************************************************************
+    ** Track editable semantic fields so the submission boundary validates the values rendered by this step.
+    *******************************************************************************/
+   fun registerFormFieldName(name: String) {
       formFieldNames.add(name)
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun actionCallback(eventValues: Map<String, Any>)
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun actionCallback(eventValues: Map<String, Any>) {
       val registerControlCallbackName = eventValues["registerControlCallbackName"]
       val registerControlCallbackFunction = eventValues["registerControlCallbackFunction"]
-      if(registerControlCallbackName is String && registerControlCallbackFunction != null)
-      {
-         controlCallbacks[registerControlCallbackName] = eventValues["registerControlCallbackFunction"] as () -> Unit
+      if (registerControlCallbackName is String && registerControlCallbackFunction != null) {
+         require(registerControlCallbackFunction is Function0<*>) { "Control callback must take no arguments" }
+         controlCallbacks[registerControlCallbackName] = { registerControlCallbackFunction.invoke(); Unit }
          return
       }
 
@@ -717,112 +674,80 @@ open class ProcessViewModel : ViewModel()
       var controlCallbackName: String? = null
 
       val widgetBlock = eventValues["widgetBlock"]
-      if(widgetBlock is WidgetBlock)
-      {
-         if(widgetBlock.blockType == "BUTTON" && widgetBlock.values["actionCode"] != null)
-         {
-            // todo maybe here if (eventValues && eventValues.actionCode && !ProcessWidgetBlockUtils.isActionCodeValid(eventValues.actionCode, activeStep, processValues))
+      if (widgetBlock is WidgetBlock) {
+         if (widgetBlock.blockType == "BUTTON" && widgetBlock.values["actionCode"] != null) {
             valuesForRunStep = mapOf("actionCode" to widgetBlock.values["actionCode"])
-         }
-         else if(widgetBlock.blockType == "BUTTON" && widgetBlock.values["controlCode"] != null)
-         {
+         } else if (widgetBlock.blockType == "BUTTON" && widgetBlock.values["controlCode"] != null) {
             controlCode = widgetBlock.values["controlCode"].toString()
          }
       }
 
-      if(eventValues["controlCode"] != null)
-      {
+      if (eventValues["controlCode"] != null) {
          controlCode = eventValues["controlCode"].toString()
       }
 
-      if(controlCode != null)
-      {
+      if (controlCode != null) {
          doRunStep = false
 
          val split = controlCode.split(Regex(":"), 2)
-         if(split.size == 2)
-         {
-            if(split[0] == "showModal")
-            {
+         if (split.size == 2) {
+            if (split[0] == "showModal") {
                processValues[split[1]] = true
                controlCallbackName = split[1]
-            }
-            else if(split[0] == "hideModal")
-            {
+            } else if (split[0] == "hideModal") {
                processValues[split[1]] = false
                controlCallbackName = split[1]
-            }
-            else if(split[0] == "toggleModal")
-            {
+            } else if (split[0] == "toggleModal") {
                val currentValue = processValues[split[1]]
-               if(currentValue is Boolean)
-               {
+               if (currentValue is Boolean) {
                   processValues[split[1]] = !currentValue
-               }
-               else
-               {
+               } else {
                   processValues[split[1]] = true
                }
                controlCallbackName = split[1]
-            }
-            else if(split[0] == "invokeControlCallbackOnlyOnce")
-            {
+            } else if (split[0] == "invokeControlCallbackOnlyOnce") {
                controlCallbackName = split[1]
-               if(lastInvokedControlCallbackStepInstanceValues[controlCallbackName] == stepInstanceCounter)
-               {
+               if (lastInvokedControlCallbackStepInstanceValues[controlCallbackName] == stepInstanceCounter) {
                   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                   // if we've already invoked the named control callback on this step, then un-set the callback name, so we won't invoke it again. //
                   // was: if we've already played audio on this step, then un-set the callback name, so we won't play it again.                    //
                   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                   controlCallbackName = null
-               }
-               else
-               {
+               } else {
                   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                   // else, if we haven't invoked the named control callback on this step, then set flag to indicate that we're calling it now. //
                   // was: else, if we haven't played audio on this step, then set flag to indicate that we're playing it now.                  //
                   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                   lastInvokedControlCallbackStepInstanceValues[controlCallbackName] = stepInstanceCounter
                }
-            }
-            else
-            {
+            } else {
                Log.w(TAG, "Unexpected part[0] (before colon) in controlCode: [${controlCode}]")
             }
-         }
-         else
-         {
+         } else {
             Log.w(TAG, "Expected controlCode to have 2 colon-delimited parts, but was: [${controlCode}]")
          }
       }
 
-      if(controlCallbackName != null)
-      {
-         if(controlCallbacks[controlCallbackName] != null)
-         {
-            try
-            {
+      if (controlCallbackName != null) {
+         if (controlCallbacks[controlCallbackName] != null) {
+            try {
                controlCallbacks[controlCallbackName]?.invoke()
-            }
-            catch(e: kotlinx.coroutines.CancellationException) { throw e }
-            catch(e: Exception)
-            {
+            } catch (e: kotlinx.coroutines.CancellationException) {
+               throw e
+            } catch (e: Exception) {
                Log.w(TAG, "Error calling control callback for [${controlCallbackName}]", e)
             }
          }
       }
 
-      if(doRunStep)
-      {
+      if (doRunStep) {
          runStep(valuesForRunStep)
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   companion object
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   companion object {
       val factory: ViewModelProvider.Factory = viewModelFactory()
       {
          initializer()

@@ -14,13 +14,19 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/*******************************************************************************
+ **
+ *******************************************************************************/
 @RunWith(AndroidJUnit4::class)
-class DiagnosticScreenTest
-{
-   @get:Rule val ui = createAndroidComposeRule<ScannerActivity>()
+class DiagnosticScreenTest {
+   @get:Rule
+   val ui = createAndroidComposeRule<ScannerActivity>()
 
-   @Test fun filtersPausesClearsAndReturnsWithoutNetworkOrCredentials()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun filtersPausesClearsAndReturnsWithoutNetworkOrCredentials() {
       val log = DiagnosticLog()
       log.record(DiagnosticCode.CONNECTION_OK, 200, 15)
       log.record(DiagnosticCode.DEVICE_RESPONSE, 403, 25)

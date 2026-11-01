@@ -3,15 +3,26 @@ package io.qrun.mobile.scanner
 
 import java.time.Instant
 import java.time.ZoneId
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class DiagnosticPresentationTest
-{
+/*******************************************************************************
+ **
+ *******************************************************************************/
+class DiagnosticPresentationTest {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    private fun event(code: DiagnosticCode, status: Int? = 200) = DiagnosticEvent(Instant.parse("2026-11-01T18:00:00Z"), code, status, 12)
 
-   @Test fun problemsIncludeTransportHttpAndInvalidSuccessfulResponses()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun problemsIncludeTransportHttpAndInvalidSuccessfulResponses() {
       val success = event(DiagnosticCode.CONNECTION_OK)
       val forbidden = event(DiagnosticCode.DEVICE_RESPONSE, 403)
       val malformed = event(DiagnosticCode.CONNECTION_FAILED)
@@ -22,8 +33,11 @@ class DiagnosticPresentationTest
       assertTrue(transport.detail().contains("No HTTP response"))
    }
 
-   @Test fun connectionSummaryNeverUsesAppDeviceOrSessionResponses()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun connectionSummaryNeverUsesAppDeviceOrSessionResponses() {
       val check = event(DiagnosticCode.CONNECTION_FAILED, 503)
       val activity = listOf(event(DiagnosticCode.DEVICE_RESPONSE), event(DiagnosticCode.SESSION_RESPONSE), event(DiagnosticCode.NATIVE_RESPONSE))
       assertNull(latestConnectionCheck(activity))
@@ -32,8 +46,11 @@ class DiagnosticPresentationTest
       assertEquals("Session request completed", activity[1].title())
    }
 
-   @Test fun exportUsesFriendlyLabelsLocalDateAndFixedFieldsOnly()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun exportUsesFriendlyLabelsLocalDateAndFixedFieldsOnly() {
       val events = DiagnosticCode.values().map { event(it, 401) }
       val report = diagnosticReport(events, false, ZoneId.of("America/Chicago"))
       assertTrue(report.contains("2026-11-01 12:00:00 CST"))
@@ -44,8 +61,11 @@ class DiagnosticPresentationTest
       assertTrue(diagnosticReport(emptyList(), true).endsWith("No events."))
    }
 
-   @Test fun snapshotsAreIndependentBoundedAndClearable()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun snapshotsAreIndependentBoundedAndClearable() {
       val log = DiagnosticLog(2)
       log.record(DiagnosticCode.CONNECTION_OK, 200, 1)
       val saved = log.snapshot()

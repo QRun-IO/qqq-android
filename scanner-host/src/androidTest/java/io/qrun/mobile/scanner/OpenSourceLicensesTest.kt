@@ -21,14 +21,19 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Uses the actual generated APK resources; no server or license download is required. */
+/*******************************************************************************
+ ** Uses the actual generated APK resources; no server or license download is required.
+ *******************************************************************************/
 @RunWith(AndroidJUnit4::class)
-class OpenSourceLicensesTest
-{
-   @get:Rule val ui = createAndroidComposeRule<ScannerActivity>()
+class OpenSourceLicensesTest {
+   @get:Rule
+   val ui = createAndroidComposeRule<ScannerActivity>()
 
-   @Test fun bundledNoticesOpenAndCloseFromSettings()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun bundledNoticesOpenAndCloseFromSettings() {
       ui.runOnUiThread {
          ui.activity.setContent { MaterialTheme { OpenSourceLicensesButton() } }
       }

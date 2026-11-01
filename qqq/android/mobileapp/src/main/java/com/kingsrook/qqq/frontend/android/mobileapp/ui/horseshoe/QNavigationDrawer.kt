@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -44,61 +45,56 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.TopLevelAppState
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun QNavigationDrawer(topLevelAppState: TopLevelAppState, content: @Composable ColumnScope.() -> Unit)
-{
+fun QNavigationDrawer(topLevelAppState: TopLevelAppState, content: @Composable ColumnScope.() -> Unit) {
    ModalNavigationDrawer(
       drawerState = topLevelAppState.navDrawerState,
       drawerContent =
-      {
-         ModalDrawerSheet(modifier = Modifier.padding(top = 24.dp))
          {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth())
+            ModalDrawerSheet(modifier = Modifier.padding(top = 24.dp))
             {
-               Text("QNav Drawer title", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
-
-               IconButton(onClick = topLevelAppState::closeNavDrawer)
+               Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth())
                {
-                  Icon(imageVector = Icons.Filled.Close, contentDescription = "Close Menu")
-               }
-            }
-            HorizontalDivider()
+                  Text("QNav Drawer title", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
 
-            if(topLevelAppState.isLoggedIn())
-            {
-               NavigationDrawerItem(
-                  label =
+                  IconButton(onClick = topLevelAppState::closeNavDrawer)
                   {
-                     Text(text = "Log Out")
-                  },
-                  icon = { Icon(imageVector = Icons.Default.AccountCircle, contentDescription = "Log Out") },
-                  selected = false,
-                  onClick =
-                  {
-                     topLevelAppState.logOut()
-                     topLevelAppState.closeNavDrawer()
+                     Icon(imageVector = Icons.Filled.Close, contentDescription = "Close Menu")
                   }
-               )
-            }
-            else
-            {
-               Row(
-                  horizontalArrangement = Arrangement.spacedBy(12.dp),
-                  verticalAlignment = Alignment.CenterVertically,
-                  modifier = Modifier.fillMaxWidth().padding(16.dp)
-               )
-               {
-                  Icon(imageVector = Icons.Default.AccountCircle, contentDescription = "Log Out", tint = Color.Gray)
-                  Text("Log Out", color = Color.Gray)
                }
-            }
+               HorizontalDivider()
 
-            // ...other drawer items
+               if (topLevelAppState.isLoggedIn()) {
+                  NavigationDrawerItem(
+                     label =
+                        {
+                           Text(text = "Log Out")
+                        },
+                     icon = { Icon(imageVector = Icons.Default.AccountCircle, contentDescription = "Log Out") },
+                     selected = false,
+                     onClick =
+                        {
+                           topLevelAppState.logOut()
+                           topLevelAppState.closeNavDrawer()
+                        }
+                  )
+               } else {
+                  Row(
+                     horizontalArrangement = Arrangement.spacedBy(12.dp),
+                     verticalAlignment = Alignment.CenterVertically,
+                     modifier = Modifier.fillMaxWidth().padding(16.dp)
+                  )
+                  {
+                     Icon(imageVector = Icons.Default.AccountCircle, contentDescription = "Log Out", tint = Color.Gray)
+                     Text("Log Out", color = Color.Gray)
+                  }
+               }
+
+               // ...other drawer items
+            }
          }
-      }
    ) {
       Column(modifier = Modifier, content = content)
    }

@@ -1,5 +1,13 @@
 # Session state
 
+## November 1 standards fixes and About update
+
+Applied the scoped standards review: copyright/SPDX, explicit imports, declaration headers, native official/three-space formatter profile, mechanical CI source gate and Kotlin warnings-as-errors. Strict compilation and163 JVM tests pass; all46 disposable sample native tests pass on TC22, and production QA instrumentation compiles. The native suite uses fixture providers; actual Android external-browser/provider acceptance remains separate. The existing formatter reports one unstable Gradle script and full formatter CI runner provisioning remains explicit in the review.
+
+Settings → About QQQ Mobile now shows bundled Query artwork, app version, Dogfooding/Query public links and open-source licenses. The normal APK rebuild uses drawable-nodpi for the artwork. No credential/device parameters are added to website links. The preceding diagnostics/default-on GPS update remains installed until the preserving update recorded below; actual GPS fix is still open.
+
+The real API1.10 Authentik desktop sequence now passes negative nonce rejection, A login, explicit company logout, old-cookie rejection, fresh B credentials/principal in the same retained browser context, and B local logout. Its provider-specific User Logout flow is required for company sign-out; default ordinary client logout stays local. Server0b53f34 is published and all8hosted checks pass. CorePR1369's exact architecture allow-list correction is being verified; full fresh core CI is not yet green.
+
 ## November 1 diagnostics and location update
 
 Diagnostics now uses a full-screen, scrollable native view with a connection summary, local-time newest-first activity, All/Problems filters, pause/resume, copy/share/clear and Back. Existing footer and menu entry points still block process input while diagnostics is open. Location reporting defaults on for approved signed-in foreground sessions; Android grants remain required, explicit opt-out persists and automatic permission requests are not repeated after denial. Controls remain under Settings → Device permissions.

@@ -33,12 +33,20 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.time.Instant
 
+/*******************************************************************************
+ ** Represent availability separately from a fix so disabled or denied reporting cannot reuse stale coordinates.
+ *******************************************************************************/
 internal data class LocationReport(val status: String = "UNAVAILABLE", val fix: LocationFix? = null)
+
+/*******************************************************************************
+ ** Carry only the foreground provider fix and its accuracy/time for the session heartbeat.
+ *******************************************************************************/
 internal data class LocationFix(val latitude: Double, val longitude: Double, val accuracyMeters: Double, val capturedAt: String)
 
-/** Default-on foreground-only telemetry. Denying permission never prevents scanning. */
-internal class ForegroundLocationState
-{
+/*******************************************************************************
+ ** Default-on foreground-only telemetry. Denying permission never prevents scanning.
+ *******************************************************************************/
+internal class ForegroundLocationState {
    var report by mutableStateOf(LocationReport())
    var permissionRevision by mutableStateOf(0)
    var enabled by mutableStateOf(true)
@@ -49,19 +57,21 @@ internal class ForegroundLocationState
    var setEnabled: (Boolean) -> Unit = {}
 }
 
+/*******************************************************************************
+ ** Attach permission and provider listeners to the foreground host and remove updates on disposal.
+ *******************************************************************************/
 @Composable
-internal fun rememberForegroundLocation(active: Boolean): ForegroundLocationState
-{
+internal fun rememberForegroundLocation(active: Boolean): ForegroundLocationState {
    val context = LocalContext.current
    val lifecycleOwner = LocalLifecycleOwner.current
    val preferences = remember(context) { context.getSharedPreferences("host", Context.MODE_PRIVATE) }
    val state = remember {
       ForegroundLocationState().apply {
-         enabled = LocationPolicy.enabled(if(preferences.contains("locationReportingEnabled")) preferences.getBoolean("locationReportingEnabled", true) else null)
+         enabled = LocationPolicy.enabled(if (preferences.contains("locationReportingEnabled")) preferences.getBoolean("locationReportingEnabled", true) else null)
          setEnabled = { value ->
             preferences.edit().putBoolean("locationReportingEnabled", value).apply()
             enabled = value
-            if(!value) report = LocationReport("DISABLED")
+            if (!value) report = LocationReport("DISABLED")
          }
       }
    }
@@ -70,10 +80,14 @@ internal fun rememberForegroundLocation(active: Boolean): ForegroundLocationStat
    { state.permissionRevision++ }
    DisposableEffect(lifecycleOwner, context)
    {
-      val observer = LifecycleEventObserver { _, event -> if(event == Lifecycle.Event.ON_RESUME) state.permissionRevision++ }
-      val receiver = object : BroadcastReceiver()
-      {
-         override fun onReceive(context: Context?, intent: Intent?) { state.permissionRevision++ }
+      val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) state.permissionRevision++ }
+      val receiver = object : BroadcastReceiver() {
+         /*******************************************************************************
+          ** Reevaluate provider and permission state after Android changes location availability.
+          *******************************************************************************/
+         override fun onReceive(context: Context?, intent: Intent?) {
+            state.permissionRevision++
+         }
       }
       lifecycleOwner.lifecycle.addObserver(observer)
       ContextCompat.registerReceiver(context, receiver, IntentFilter().apply {
@@ -86,8 +100,7 @@ internal fun rememberForegroundLocation(active: Boolean): ForegroundLocationStat
    val permitted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
    LaunchedEffect(active, state.enabled, permitted, permissionRevision)
    {
-      if(LocationPolicy.shouldRequestPermission(active, state.enabled, permitted, preferences.getBoolean("locationPermissionRequested", false)))
-      {
+      if (LocationPolicy.shouldRequestPermission(active, state.enabled, permitted, preferences.getBoolean("locationPermissionRequested", false))) {
          // Record before launching: recreation, resume and denial must not prompt again.
          preferences.edit().putBoolean("locationPermissionRequested", true).apply()
          launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
@@ -101,30 +114,55 @@ internal fun rememberForegroundLocation(active: Boolean): ForegroundLocationStat
       val providers = manager.getProviders(true).filter { it == LocationManager.GPS_PROVIDER || it == LocationManager.NETWORK_PROVIDER }
       state.providersEnabled = providers.isNotEmpty()
       var listening = true
-      val listener = object : LocationListener
-      {
-         override fun onLocationChanged(location: Location)
-         {
-            if(!listening || !active || !state.enabled || !location.hasAccuracy()) return
-            state.report = LocationReport("AVAILABLE", LocationFix(location.latitude, location.longitude,
-               location.accuracy.toDouble(), Instant.ofEpochMilli(location.time).toString()))
+      val listener = object : LocationListener {
+         /*******************************************************************************
+          ** Publish a fix only while the current foreground subscription remains eligible and accurate.
+          *******************************************************************************/
+         override fun onLocationChanged(location: Location) {
+            if (!listening || !active || !state.enabled || !location.hasAccuracy()) return
+            state.report = LocationReport(
+               "AVAILABLE", LocationFix(
+                  location.latitude, location.longitude,
+                  location.accuracy.toDouble(), Instant.ofEpochMilli(location.time).toString()
+               )
+            )
          }
-         override fun onProviderEnabled(provider: String) { state.permissionRevision++ }
-         override fun onProviderDisabled(provider: String) { state.permissionRevision++ }
-         @Deprecated("Legacy callback") override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
+
+         /*******************************************************************************
+          ** Refresh provider eligibility instead of assuming a newly enabled provider already has a fix.
+          *******************************************************************************/
+         override fun onProviderEnabled(provider: String) {
+            state.permissionRevision++
+         }
+
+         /*******************************************************************************
+          ** Refresh availability so a disabled provider cannot leave the previous status displayed.
+          *******************************************************************************/
+         override fun onProviderDisabled(provider: String) {
+            state.permissionRevision++
+         }
+
+         /*******************************************************************************
+          ** Retain the legacy Android callback without treating its obsolete status as a location fix.
+          *******************************************************************************/
+         @Deprecated("Legacy callback")
+         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
       }
-      state.report = LocationReport(when {
-         !state.enabled -> "DISABLED"
-         !permitted -> "PERMISSION_DENIED"
-         !state.providersEnabled -> "DISABLED"
-         else -> "UNAVAILABLE"
-      })
-      if(active && state.enabled && permitted)
-      {
-         for(provider in providers.filter { state.precise || it != LocationManager.GPS_PROVIDER })
-         {
-            try { manager.requestLocationUpdates(provider, 10000L, 10f, listener) }
-            catch(exception: SecurityException) { state.report = LocationReport("PERMISSION_DENIED"); state.permitted = false }
+      state.report = LocationReport(
+         when {
+            !state.enabled -> "DISABLED"
+            !permitted -> "PERMISSION_DENIED"
+            !state.providersEnabled -> "DISABLED"
+            else -> "UNAVAILABLE"
+         }
+      )
+      if (active && state.enabled && permitted) {
+         for (provider in providers.filter { state.precise || it != LocationManager.GPS_PROVIDER }) {
+            try {
+               manager.requestLocationUpdates(provider, 10000L, 10f, listener)
+            } catch (exception: SecurityException) {
+               state.report = LocationReport("PERMISSION_DENIED"); state.permitted = false
+            }
          }
       }
       onDispose { listening = false; manager.removeUpdates(listener); state.report = LocationReport() }
@@ -132,24 +170,23 @@ internal fun rememberForegroundLocation(active: Boolean): ForegroundLocationStat
    return state
 }
 
+/*******************************************************************************
+ ** Expose independent reporting and Android permission controls without blocking barcode scanning.
+ *******************************************************************************/
 @Composable
-internal fun LocationPermissionControl(state: ForegroundLocationState)
-{
+internal fun LocationPermissionControl(state: ForegroundLocationState) {
    val context = LocalContext.current
    Row {
       Text("Report foreground location")
       Switch(checked = state.enabled, onCheckedChange = state.setEnabled)
    }
    Text(LocationPolicy.status(state.enabled, state.permitted, state.providersEnabled, state.active, state.report.status))
-   if(state.permitted) Text(if(state.precise) "Android permission: precise location" else "Android permission: approximate location")
+   if (state.permitted) Text(if (state.precise) "Android permission: precise location" else "Android permission: approximate location")
    Text("Default on. Reporting requires Android permission and an approved signed-in foreground session. Scanning works without location.")
-   if(state.enabled && !state.permitted)
-   {
+   if (state.enabled && !state.permitted) {
       TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) })
       { Text("Open location permission settings") }
-   }
-   else if(state.enabled && !state.providersEnabled)
-   {
+   } else if (state.enabled && !state.providersEnabled) {
       TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) })
       { Text("Open device location settings") }
    }

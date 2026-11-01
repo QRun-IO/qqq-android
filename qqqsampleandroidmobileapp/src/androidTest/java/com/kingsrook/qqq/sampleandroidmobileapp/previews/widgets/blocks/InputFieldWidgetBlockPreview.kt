@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -27,13 +28,12 @@ import com.kingsrook.qqq.frontend.android.core.model.widgets.WidgetBlock
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.InputFieldWidgetBlock
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBlockParameters
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun InputFieldWidgetBlockPreview()
-{
+fun InputFieldWidgetBlockPreview() {
    val values = mutableMapOf<String, Any?>(
       "submitOnEnter" to false,
       "autoFocus" to true,

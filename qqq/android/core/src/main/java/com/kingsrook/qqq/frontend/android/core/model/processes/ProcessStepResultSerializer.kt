@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -27,16 +28,12 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/***************************************************************************
- **
- ***************************************************************************/
-class ProcessStepResultSerializer : JsonContentPolymorphicSerializer<ProcessStepResult>(ProcessStepResult::class)
-{
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   override fun selectDeserializer(element: JsonElement) = when (element.jsonObject["type"]?.jsonPrimitive?.content)
-   {
+/*******************************************************************************
+ *******************************************************************************/
+class ProcessStepResultSerializer : JsonContentPolymorphicSerializer<ProcessStepResult>(ProcessStepResult::class) {
+   /*******************************************************************************
+    *******************************************************************************/
+   override fun selectDeserializer(element: JsonElement) = when (element.jsonObject["type"]?.jsonPrimitive?.content) {
       "COMPLETE" -> QJobComplete.serializer()
       "JOB_STARTED" -> QJobStarted.serializer()
       "RUNNING" -> QJobRunning.serializer()

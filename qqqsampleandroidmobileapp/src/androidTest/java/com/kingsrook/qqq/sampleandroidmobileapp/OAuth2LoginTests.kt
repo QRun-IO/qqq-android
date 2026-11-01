@@ -46,46 +46,73 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-/** Native UI and actual AppAuth request/result handling; no live identity provider or TLS bypass. */
-class OAuth2LoginTests : BaseTest()
-{
-   @get:Rule val ui = createAndroidComposeRule<ComponentActivity>()
+/*******************************************************************************
+ ** Native UI and actual AppAuth request/result handling; no live identity provider or TLS bypass.
+ *******************************************************************************/
+class OAuth2LoginTests : BaseTest() {
+   @get:Rule
+   val ui = createAndroidComposeRule<ComponentActivity>()
    private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
    private val issuer = "https://identity.example.test"
 
-   private class Fixture(val model: QViewModel, val checks: AtomicInteger, val exchanges: AtomicInteger,
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private class Fixture(
+      val model: QViewModel, val checks: AtomicInteger, val exchanges: AtomicInteger,
       val adopted: AtomicReference<String?>, val releaseExchange: CompletableDeferred<Unit>,
-      val discarded: AtomicReference<String?>, val originalNonce: AtomicReference<String?>)
+      val discarded: AtomicReference<String?>, val originalNonce: AtomicReference<String?>
+   )
 
-   private fun start(configured: Boolean = true, discoveryIssuer: String = issuer, holdExchange: Boolean = false,
-      apiVersion: String = "1.10.0", nonceFeature: Boolean = true, noncePolicy: String = "REQUIRED"): Fixture
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun start(
+      configured: Boolean = true, discoveryIssuer: String = issuer, holdExchange: Boolean = false,
+      apiVersion: String = "1.10.0", nonceFeature: Boolean = true, noncePolicy: String = "REQUIRED"
+   ): Fixture {
       QAppContainer.availableEnvironments = listOf(Environment("Organization", "https://qqq.example.test/"))
       val callback = oauth2RedirectUri(instrumentation.targetContext.packageName)
-      val metadata = OAuth2AuthenticationMetaData("organization", values = OAuth2AuthenticationMetaData.Values(
-         clientId = "public-configuration-id", scopes = "openid profile",
-         nativeSessionLogin = if(configured) OAuth2AuthenticationMetaData.NativeSessionLogin(
-            OAuth2AuthenticationMetaData.SESSION_FLOW, "S256", issuer, "$issuer/discovery", listOf(callback),
-            prompt = "login", nonceValidation = noncePolicy) else null))
+      val metadata = OAuth2AuthenticationMetaData(
+         "organization", values = OAuth2AuthenticationMetaData.Values(
+            clientId = "public-configuration-id", scopes = "openid profile",
+            nativeSessionLogin = if (configured) OAuth2AuthenticationMetaData.NativeSessionLogin(
+               OAuth2AuthenticationMetaData.SESSION_FLOW, "S256", issuer, "$issuer/discovery", listOf(callback),
+               prompt = "login", nonceValidation = noncePolicy
+            ) else null
+         )
+      )
       val checks = AtomicInteger()
       val exchanges = AtomicInteger()
       val adopted = AtomicReference<String?>()
       val discarded = AtomicReference<String?>()
       val originalNonce = AtomicReference<String?>()
       val releaseExchange = CompletableDeferred<Unit>()
-      if(!holdExchange) releaseExchange.complete(Unit)
+      if (!holdExchange) releaseExchange.complete(Unit)
       val base = SampleAppMockQQQRepository()
-      val repository = object : QQQRepository by base
-      {
+      val repository = object : QQQRepository by base {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
          override suspend fun getAuthenticationMetaData() = metadata
-         override suspend fun verifyNativeSessionLogin()
-         {
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun verifyNativeSessionLogin() {
             checks.incrementAndGet()
-            UiApiCompatibility.validateNativeSessionLogin(UiApiVersion(apiVersion,
-               listOf("nativeSessionLogin") + if(nonceFeature) listOf("nativeSessionNonceValidation") else emptyList()))
+            UiApiCompatibility.validateNativeSessionLogin(
+               UiApiVersion(
+                  apiVersion,
+                  listOf("nativeSessionLogin") + if (nonceFeature) listOf("nativeSessionNonceValidation") else emptyList()
+               )
+            )
          }
-         override suspend fun exchangeNativeSession(body: ManageSessionRequest): ManageSessionResponse
-         {
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun exchangeNativeSession(body: ManageSessionRequest): ManageSessionResponse {
             assertEquals(OAuth2AuthenticationMetaData.SESSION_FLOW, body.authenticationFlow)
             assertEquals(callback, body.redirectUri)
             assertEquals("synthetic-authorization-code", body.code)
@@ -97,14 +124,27 @@ class OAuth2LoginTests : BaseTest()
             withContext(NonCancellable) { releaseExchange.await() }
             return ManageSessionResponse("synthetic-native-session")
          }
-         override suspend fun discardNativeSession(server: String, session: String)
-         {
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun discardNativeSession(server: String, session: String) {
             assertEquals("https://qqq.example.test/", server)
             discarded.set(session)
          }
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
          override suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse =
             error("Native OAuth must use the deferred semantic exchange")
-         override fun setSessionUUID(sessionUUID: String) { adopted.set(sessionUUID) }
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override fun setSessionUUID(sessionUUID: String) {
+            adopted.set(sessionUUID)
+         }
       }
       val model = QViewModel(repository, MockPreferencesDataStore())
       val discovery = JSONObject().put("issuer", discoveryIssuer)
@@ -123,27 +163,38 @@ class OAuth2LoginTests : BaseTest()
       return Fixture(model, checks, exchanges, adopted, releaseExchange, discarded, originalNonce)
    }
 
-   private fun browser(result: (AuthorizationRequest) -> Instrumentation.ActivityResult,
-      block: (AtomicInteger) -> Unit)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun browser(
+      result: (AuthorizationRequest) -> Instrumentation.ActivityResult,
+      block: (AtomicInteger) -> Unit
+   ) {
       val launches = AtomicInteger()
-      val monitor = object : Instrumentation.ActivityMonitor()
-      {
-         override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult?
-         {
-            if(intent.component?.className != "net.openid.appauth.AuthorizationManagementActivity") return null
+      val monitor = object : Instrumentation.ActivityMonitor() {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+            if (intent.component?.className != "net.openid.appauth.AuthorizationManagementActivity") return null
             launches.incrementAndGet()
             // Pinned AppAuth0.11.1 test adapter; no production code relies on this internal extra.
             return result(AuthorizationRequest.jsonDeserialize(requireNotNull(intent.getStringExtra("authRequest"))))
          }
       }
       instrumentation.addMonitor(monitor)
-      try { block(launches) }
-      finally { instrumentation.removeMonitor(monitor) }
+      try {
+         block(launches)
+      } finally {
+         instrumentation.removeMonitor(monitor)
+      }
    }
 
-   @Test fun advertisedBrowserFlowExchangesOnceAndOpensApps()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun advertisedBrowserFlowExchangesOnceAndOpensApps() {
       val fixture = start()
       browser({ request ->
          fixture.originalNonce.set(requireNotNull(request.nonce))
@@ -151,8 +202,10 @@ class OAuth2LoginTests : BaseTest()
          assertEquals("login", request.prompt)
          assertEquals(listOf("login"), request.toUri().getQueryParameters("prompt"))
          assertEquals("public-configuration-id", request.clientId)
-         Instrumentation.ActivityResult(Activity.RESULT_OK, AuthorizationResponse.Builder(request)
-            .setState(request.state).setAuthorizationCode("synthetic-authorization-code").build().toIntent())
+         Instrumentation.ActivityResult(
+            Activity.RESULT_OK, AuthorizationResponse.Builder(request)
+               .setState(request.state).setAuthorizationCode("synthetic-authorization-code").build().toIntent()
+         )
       }) { launches ->
          ui.onNodeWithTag("oauth2.signIn").performClick()
          ui.waitUntil(10000) { fixture.model.isAuthenticated }
@@ -165,8 +218,11 @@ class OAuth2LoginTests : BaseTest()
       }
    }
 
-   @Test fun browserCancellationDoesNotExchangeOrFallBackToPassword()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun browserCancellationDoesNotExchangeOrFallBackToPassword() {
       val fixture = start()
       browser({ Instrumentation.ActivityResult(Activity.RESULT_CANCELED, Intent()) }) { launches ->
          ui.onNodeWithTag("oauth2.signIn").performClick()
@@ -180,12 +236,17 @@ class OAuth2LoginTests : BaseTest()
       }
    }
 
-   @Test fun mismatchedBrowserStateNeverExchangesTheCode()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun mismatchedBrowserStateNeverExchangesTheCode() {
       val fixture = start()
       browser({ request ->
-         Instrumentation.ActivityResult(Activity.RESULT_OK, AuthorizationResponse.Builder(request)
-            .setState("unrelated-browser-state").setAuthorizationCode("synthetic-authorization-code").build().toIntent())
+         Instrumentation.ActivityResult(
+            Activity.RESULT_OK, AuthorizationResponse.Builder(request)
+               .setState("unrelated-browser-state").setAuthorizationCode("synthetic-authorization-code").build().toIntent()
+         )
       }) { launches ->
          ui.onNodeWithTag("oauth2.signIn").performClick()
          ui.waitUntil(10000) { fixture.model.oauth2LoginMessage != null }
@@ -195,13 +256,18 @@ class OAuth2LoginTests : BaseTest()
       }
    }
 
-   @Test fun cancelledAttemptCannotBeRevivedByALateSuccessfulBrowserResult()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun cancelledAttemptCannotBeRevivedByALateSuccessfulBrowserResult() {
       val fixture = start()
       browser({ request ->
          fixture.model.cancelOAuth2Login()
-         Instrumentation.ActivityResult(Activity.RESULT_OK, AuthorizationResponse.Builder(request)
-            .setState(request.state).setAuthorizationCode("synthetic-authorization-code").build().toIntent())
+         Instrumentation.ActivityResult(
+            Activity.RESULT_OK, AuthorizationResponse.Builder(request)
+               .setState(request.state).setAuthorizationCode("synthetic-authorization-code").build().toIntent()
+         )
       }) { launches ->
          ui.onNodeWithTag("oauth2.signIn").performClick()
          ui.waitUntil(10000) { launches.get() == 1 && fixture.model.oauth2LoginPhase == OAuth2LoginPhase.READY }
@@ -211,14 +277,18 @@ class OAuth2LoginTests : BaseTest()
       }
    }
 
-   @Test fun cancelledExchangeDiscardsLateSessionWithoutAdoptingIt()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun cancelledExchangeDiscardsLateSessionWithoutAdoptingIt() {
       val fixture = start(holdExchange = true)
-      try
-      {
+      try {
          browser({ request ->
-            Instrumentation.ActivityResult(Activity.RESULT_OK, AuthorizationResponse.Builder(request)
-               .setState(request.state).setAuthorizationCode("synthetic-authorization-code").build().toIntent())
+            Instrumentation.ActivityResult(
+               Activity.RESULT_OK, AuthorizationResponse.Builder(request)
+                  .setState(request.state).setAuthorizationCode("synthetic-authorization-code").build().toIntent()
+            )
          }) {
             ui.onNodeWithTag("oauth2.signIn").performClick()
             ui.waitUntil(10000) { fixture.exchanges.get() == 1 }
@@ -229,12 +299,16 @@ class OAuth2LoginTests : BaseTest()
             assertNull(fixture.adopted.get())
             assertFalse(fixture.model.isAuthenticated)
          }
+      } finally {
+         fixture.releaseExchange.complete(Unit)
       }
-      finally { fixture.releaseExchange.complete(Unit) }
    }
 
-   @Test fun missingNativeAdvertisementDoesNotOfferPasswordOrBrowserLogin()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun missingNativeAdvertisementDoesNotOfferPasswordOrBrowserLogin() {
       val fixture = start(configured = false)
       ui.onNodeWithText("This server has not configured compatible native browser sign-in with required nonce validation. Ask your administrator to enable it.").assertIsDisplayed()
       ui.onNodeWithTag("oauth2.signIn").assertDoesNotExist()
@@ -244,8 +318,11 @@ class OAuth2LoginTests : BaseTest()
       assertEquals(0, fixture.exchanges.get())
    }
 
-   @Test fun wrongDiscoveryIssuerIsRejectedBeforeBrowserLaunch()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun wrongDiscoveryIssuerIsRejectedBeforeBrowserLaunch() {
       val fixture = start(discoveryIssuer = "https://different.example.test")
       browser({ error("Invalid discovery must never launch a browser") }) { launches ->
          ui.onNodeWithTag("oauth2.signIn").performClick()
@@ -256,18 +333,26 @@ class OAuth2LoginTests : BaseTest()
       }
    }
 
-   @Test fun oldApiCannotLaunchBrowserEvenWithNewMetadata()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun oldApiCannotLaunchBrowserEvenWithNewMetadata() {
       assertVersionRejected(start(apiVersion = "1.9.0"))
    }
 
-   @Test fun missingNonceFeatureCannotLaunchBrowserEvenWithRequiredDescriptor()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun missingNonceFeatureCannotLaunchBrowserEvenWithRequiredDescriptor() {
       assertVersionRejected(start(nonceFeature = false))
    }
 
-   private fun assertVersionRejected(fixture: Fixture)
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun assertVersionRejected(fixture: Fixture) {
       browser({ error("Unsupported nonce contract must not launch the browser") }) { launches ->
          ui.onNodeWithTag("oauth2.signIn").performClick()
          ui.waitUntil(10000) { fixture.model.oauth2LoginMessage != null }
@@ -279,8 +364,11 @@ class OAuth2LoginTests : BaseTest()
       }
    }
 
-   @Test fun missingNoncePolicyDoesNotOfferBrowserOrPasswordFallback()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun missingNoncePolicyDoesNotOfferBrowserOrPasswordFallback() {
       val fixture = start(noncePolicy = "")
       ui.onNodeWithText("This server has not configured compatible native browser sign-in with required nonce validation. Ask your administrator to enable it.").assertIsDisplayed()
       ui.onNodeWithTag("oauth2.signIn").assertDoesNotExist()
@@ -289,15 +377,20 @@ class OAuth2LoginTests : BaseTest()
       assertEquals(0, fixture.exchanges.get())
    }
 
-   @Test fun callbackRequestCannotReplaceTheRetainedOriginalNonce()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun callbackRequestCannotReplaceTheRetainedOriginalNonce() {
       val fixture = start()
       browser({ request ->
          val changed = AuthorizationRequest.Builder(request.configuration, request.clientId, request.responseType, request.redirectUri)
             .setState(request.state).setNonce("replacement-nonce-must-fail").setCodeVerifier(requireNotNull(request.codeVerifier))
             .setScope(request.scope).setPrompt(request.prompt).build()
-         Instrumentation.ActivityResult(Activity.RESULT_OK, AuthorizationResponse.Builder(changed)
-            .setState(request.state).setAuthorizationCode("synthetic-authorization-code").build().toIntent())
+         Instrumentation.ActivityResult(
+            Activity.RESULT_OK, AuthorizationResponse.Builder(changed)
+               .setState(request.state).setAuthorizationCode("synthetic-authorization-code").build().toIntent()
+         )
       }) { launches ->
          ui.onNodeWithTag("oauth2.signIn").performClick()
          ui.waitUntil(10000) { fixture.model.oauth2LoginMessage != null }

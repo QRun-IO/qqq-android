@@ -22,7 +22,14 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.kingsrook.qqq.frontend.android.mobileapp.QMobileAppMain
 import com.kingsrook.qqq.sampleandroidmobileapp.utils.TestUtils
 import com.kingsrook.qqq.frontend.android.core.controllers.QQQRepository
-import com.kingsrook.qqq.frontend.android.core.model.metadata.*
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QAppMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QComponentType
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFieldMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFieldType
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendComponent
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendStepMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QProcessMetaData
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobComplete
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessAcknowledgment
@@ -34,20 +41,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-class NavigationTests : BaseTest()
-{
-   @get:Rule val ui = createAndroidComposeRule<ComponentActivity>()
+/*******************************************************************************
+ **
+ *******************************************************************************/
+class NavigationTests : BaseTest() {
+   @get:Rule
+   val ui = createAndroidComposeRule<ComponentActivity>()
 
-   private fun hardwareBack()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   private fun hardwareBack() {
       ui.waitForIdle()
       // Dialog dismissal is asynchronous at the Android window layer, even after Compose settles.
-      try
-      {
+      try {
          ui.waitUntil(5000) { ui.activity.hasWindowFocus() }
-      }
-      catch(error: androidx.compose.ui.test.ComposeTimeoutException)
-      {
+      } catch (error: androidx.compose.ui.test.ComposeTimeoutException) {
          var windowState = "unavailable"
          // Collect only state flags on the main thread; never include UI text or device/account identifiers.
          runCatching {
@@ -58,8 +67,7 @@ class NavigationTests : BaseTest()
                   "deviceLocked=${keyguard.isDeviceLocked}, activityFocus=${activity.hasWindowFocus()}, " +
                   "decorFocus=${activity.window.decorView.hasWindowFocus()}, lifecycle=${activity.lifecycle.currentState}, " +
                   "finishing=${activity.isFinishing}, destroyed=${activity.isDestroyed}"
-               if(android.os.Build.VERSION.SDK_INT >= 29)
-               {
+               if (android.os.Build.VERSION.SDK_INT >= 29) {
                   val windows = android.view.inspector.WindowInspector.getGlobalWindowViews()
                   windowState += ", ownWindows=" + windows.take(8).map { view ->
                      val attributes = view.layoutParams as? android.view.WindowManager.LayoutParams
@@ -70,23 +78,28 @@ class NavigationTests : BaseTest()
             }
          }
          val networkDialog = runCatching {
-            if(ui.onAllNodesWithText("No Network Connection").fetchSemanticsNodes().isEmpty()) false
-            else { ui.onNodeWithText("No Network Connection").assertIsDisplayed(); true }
+            if (ui.onAllNodesWithText("No Network Connection").fetchSemanticsNodes().isEmpty()) false
+            else {
+               ui.onNodeWithText("No Network Connection").assertIsDisplayed(); true
+            }
          }.getOrNull()
          val focusedOwner = runCatching {
             val instrumentation = InstrumentationRegistry.getInstrumentation()
             val active = instrumentation.uiAutomation.windows.firstOrNull { it.isFocused }?.root
-            try
-            {
-               when(active?.packageName?.toString())
-               {
+            try {
+               when (active?.packageName?.toString()) {
                   null -> "unknown"
                   instrumentation.targetContext.packageName -> "own-app"
                   "android", "com.android.systemui" -> "system"
                   else -> "other-app"
                }
+            } finally {
+               // Android 26–32 still pool accessibility nodes; recycling is obsolete from 33.
+               if (android.os.Build.VERSION.SDK_INT < 33) {
+                  @Suppress("DEPRECATION")
+                  active?.recycle()
+               }
             }
-            finally { active?.recycle() }
          }.getOrDefault("unavailable")
          windowState += ", focusedWindowOwner=$focusedOwner, networkDialogVisible=$networkDialog"
          throw AssertionError("Back requires a focused Activity: $windowState", error)
@@ -95,8 +108,11 @@ class NavigationTests : BaseTest()
       ui.waitForIdle()
    }
 
-   @Test fun signedOutDrawerExposesSettingsWithoutBusinessNavigation()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun signedOutDrawerExposesSettingsWithoutBusinessNavigation() {
       TestUtils.startStandardTest(ui)
       ui.onNodeWithTag("topBar.menuIcon").performClick()
       ui.onNodeWithTag("drawer.home").assertDoesNotExist()
@@ -111,35 +127,63 @@ class NavigationTests : BaseTest()
       ui.onNodeWithTag("topBar.switchApp").assertDoesNotExist()
    }
 
-   @Test fun leavingSwitchingSettingsAndSignOutPreserveOrCancelExactlyOnce()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun leavingSwitchingSettingsAndSignOutPreserveOrCancelExactlyOnce() {
       val cancellations = AtomicInteger()
       val submissions = AtomicInteger()
       val base = SampleAppMockQQQRepository()
-      val repository = object : QQQRepository by base
-      {
-         override suspend fun getMetaData(frontendName: String, frontendVersion: String, applicationName: String, applicationVersion: String): QInstance
-         {
+      val repository = object : QQQRepository by base {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun getMetaData(frontendName: String, frontendVersion: String, applicationName: String, applicationVersion: String): QInstance {
             val instance = base.getMetaData(frontendName, frontendVersion, applicationName, applicationVersion)
             return instance.copy(apps = instance.apps.orEmpty() + ("app2" to QAppMetaData("app2", "App 2")))
          }
-         override suspend fun getProcessMetaData(processName: String) = QProcessMetaData("process1", "Process 1", frontendSteps = listOf(
-            QFrontendStepMetaData("input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
-               formFields = listOf(QFieldMetaData("reference", "Reference", type = QFieldType.STRING)))))
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun getProcessMetaData(processName: String) = QProcessMetaData(
+            "process1", "Process 1", frontendSteps = listOf(
+               QFrontendStepMetaData(
+                  "input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
+                  formFields = listOf(QFieldMetaData("reference", "Reference", type = QFieldType.STRING))
+               )
+            )
+         )
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
          override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?) = QJobComplete("navigation-process", nextStep = "input")
-         override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): QJobComplete
-         {
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): QJobComplete {
             submissions.incrementAndGet()
             return QJobComplete(processUUID)
          }
-         override suspend fun processCancel(processName: String, processUUID: String) { cancellations.incrementAndGet() }
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun processCancel(processName: String, processUUID: String) {
+            cancellations.incrementAndGet()
+         }
       }
       val model = QViewModel(repository, MockPreferencesDataStore())
       TestUtils.startStandardTest(ui, model)
       TestUtils.login(ui)
-      fun openProcess(fromCatalog: Boolean = true)
-      {
-         if(fromCatalog) ui.onNodeWithTag("appHome.rowForApp:app1").performClick()
+      /*******************************************************************************
+       **
+       *******************************************************************************/
+      fun openProcess(fromCatalog: Boolean = true) {
+         if (fromCatalog) ui.onNodeWithTag("appHome.rowForApp:app1").performClick()
          ui.onNodeWithTag("appHome.rowForProcess:process1").performClick()
          ui.waitUntil(5000) { model.activeProcessViewModel?.activeStepName == "input" }
       }
@@ -208,24 +252,44 @@ class NavigationTests : BaseTest()
       assertNull(model.activeProcessViewModel)
    }
 
-   @Test fun unconfirmedScanCanStayOrExplicitlyLeaveWithoutResubmitting()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun unconfirmedScanCanStayOrExplicitlyLeaveWithoutResubmitting() {
       val cancellations = AtomicInteger()
       val submissions = AtomicInteger()
       val base = SampleAppMockQQQRepository()
-      val repository = object : QQQRepository by base
-      {
-         override suspend fun getProcessMetaData(processName: String) = QProcessMetaData("process1", "Process 1", frontendSteps = listOf(
-            QFrontendStepMetaData("input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
-               formFields = listOf(QFieldMetaData("reference", "Reference", type = QFieldType.STRING)))))
+      val repository = object : QQQRepository by base {
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun getProcessMetaData(processName: String) = QProcessMetaData(
+            "process1", "Process 1", frontendSteps = listOf(
+               QFrontendStepMetaData(
+                  "input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
+                  formFields = listOf(QFieldMetaData("reference", "Reference", type = QFieldType.STRING))
+               )
+            )
+         )
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
          override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?) = QJobComplete("scan-leave-process", nextStep = "input")
-         override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): QJobComplete
-         {
-            if(submissions.incrementAndGet() == 1) throw java.io.IOException("Synthetic response loss")
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): QJobComplete {
+            if (submissions.incrementAndGet() == 1) throw java.io.IOException("Synthetic response loss")
             return QJobComplete(processUUID, values = mapOf("acknowledgedEventId" to "wrong-event"), nextStep = "input")
          }
-         override suspend fun processCancel(processName: String, processUUID: String)
-         {
+
+         /*******************************************************************************
+          **
+          *******************************************************************************/
+         override suspend fun processCancel(processName: String, processUUID: String) {
             cancellations.incrementAndGet()
             throw java.io.IOException("Synthetic cancellation unavailable")
          }
@@ -274,8 +338,11 @@ class NavigationTests : BaseTest()
       assertNull(process.pendingStepValues)
    }
 
-   @Test fun systemBackAndToolbarBackUseTheActualDestination()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun systemBackAndToolbarBackUseTheActualDestination() {
       TestUtils.startStandardTest(ui)
       TestUtils.login(ui)
       val navigator = TestUtils.qViewModel.qNavigator
@@ -293,8 +360,11 @@ class NavigationTests : BaseTest()
       assertTrue(navigator.atHome)
    }
 
-   @Test fun replacingControllerDropsStaleAppAndProcessState()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun replacingControllerDropsStaleAppAndProcessState() {
       val model = TestUtils.createQViewModel()
       TestUtils.qViewModel = model
       val generation = mutableIntStateOf(0)

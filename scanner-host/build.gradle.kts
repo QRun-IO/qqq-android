@@ -1,3 +1,4 @@
+/* Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 */
 import java.security.MessageDigest
 
 plugins {

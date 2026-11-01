@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -41,11 +42,10 @@ import androidx.compose.ui.unit.sp
 import com.kingsrook.qqq.frontend.android.mobileapp.R
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun NoNetworkDialog(qViewModel: QViewModel)
+fun NoNetworkDialog(@Suppress("UNUSED_PARAMETER") qViewModel: QViewModel) // The caller observes connectivity; retain this published dialog signature for existing hosts.
 {
    AlertDialog(
       title = { },

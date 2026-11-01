@@ -1,3 +1,4 @@
+/* Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 */
 plugins {
    alias(libs.plugins.android.application)
 }

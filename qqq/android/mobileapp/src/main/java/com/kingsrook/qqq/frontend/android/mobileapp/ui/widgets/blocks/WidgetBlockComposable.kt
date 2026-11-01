@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -26,15 +27,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalCustomWidgetRenderer
 
-/***************************************************************************
+/*******************************************************************************
  ** Composable that takes a widget-block, switches based on the type, and
  ** then hands off to the block's composable.
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun WidgetBlockComposable(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false)
-{
-   when (params.widgetBlock.blockType)
-   {
+fun WidgetBlockComposable(params: WidgetBlockParameters, modifier: Modifier = Modifier, disableControls: Boolean = false) {
+   when (params.widgetBlock.blockType) {
       "AUDIO" -> AudioWidgetBlock(params, modifier)
       "BUTTON" -> ButtonWidgetBlock(params, modifier, disableControls)
       "COMPOSITE" -> CompositeWidgetBlock(params, modifier, disableControls)
@@ -42,8 +41,7 @@ fun WidgetBlockComposable(params: WidgetBlockParameters, modifier: Modifier = Mo
       "IMAGE" -> ImageWidgetBlock(params, modifier)
       "INPUT_FIELD" -> InputFieldWidgetBlock(params, modifier, disableControls)
       "TEXT" -> TextWidgetBlock(params, modifier)
-      else -> if(!LocalCustomWidgetRenderer.current(params, modifier, disableControls))
-      {
+      else -> if (!LocalCustomWidgetRenderer.current(params, modifier, disableControls)) {
          Text("Unsupported block type: ${params.widgetBlock.blockType}")
       }
    }

@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -65,13 +66,12 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.QNavigator
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.DynamicIcon
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 
-/***************************************************************************
+/*******************************************************************************
  ** Standard screen for an app - shows icons in a grid.
- ***************************************************************************/
+ *******************************************************************************/
 @OptIn(ExperimentalLayoutApi::class) // for FlowRow
 @Composable
-fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app: QAppMetaData? = null, qNavigator: QNavigator? = null)
-{
+fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app: QAppMetaData? = null, qNavigator: QNavigator? = null) {
    val childList = app?.let { app.children } ?: qInstance.appTree
    val widgetList = app?.let { app.widgets } ?: emptyList()
 
@@ -85,7 +85,7 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
 
    val generalSize = 100
 
-   LazyColumn(Modifier.fillMaxWidth().padding(top = 8.dp))
+   LazyColumn(modifier.fillMaxWidth().padding(top = 8.dp))
    {
       ///////////////////////////////////////////////////////////////////////////////////////////////////
       // at this point in time, we're doing the title in the topBar, so, redundant to be on-screen too //
@@ -104,23 +104,21 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
       }
       */
 
-      if(widgetList.isNotEmpty())
-      {
+      if (widgetList.isNotEmpty()) {
          item { Text("This app includes home widgets unavailable in this client.", Modifier.padding(8.dp)) }
       }
-      if(childList.isEmpty() && app?.sections?.isEmpty() != false && widgetList.isEmpty())
-      {
+      if (childList.isEmpty() && app?.sections?.isEmpty() != false && widgetList.isEmpty()) {
          item()
          {
             Text(
-               if(app == null) "No apps are available for this account." else "You do not have access to anything in this app.",
+               if (app == null) "No apps are available for this account." else "You do not have access to anything in this app.",
                fontSize = 16.sp,
                fontStyle = FontStyle.Italic,
                modifier = Modifier
                   .padding(8.dp)
                   .testTag("appHome.noAccess")
             )
-            if(app == null) TextButton(onClick = { qNavigator?.qViewModel?.loadQInstance() }) { Text("Retry loading apps") }
+            if (app == null) TextButton(onClick = { qNavigator?.qViewModel?.loadQInstance() }) { Text("Retry loading apps") }
          }
       }
 
@@ -131,21 +129,18 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
             ///////////////////////////
             // first show child-apps //
             ///////////////////////////
-            for(childApp in childApps)
-            {
+            for (childApp in childApps) {
                Tile(childApp.label, childApp.icon, generalSize, "appHome.rowForApp:" + childApp.name)
                {
                   qNavigator?.navigateToApp(childApp.name, childApp.label)
                }
             }
-            for(child in otherChildren)
-            {
+            for (child in otherChildren) {
                val processViewModel: ProcessViewModel = viewModel(factory = ProcessViewModel.factory)
                Tile(child.label, child.icon, generalSize, "appHome.rowFor${child.type}:" + child.name)
                {
-                  if(child.type == QAppNodeType.PROCESS) qNavigator?.navigateToProcess(child.name, child.label, processViewModel)
-                  else
-                  {
+                  if (child.type == QAppNodeType.PROCESS) qNavigator?.navigateToProcess(child.name, child.label, processViewModel)
+                  else {
                      notYetImplementedDialogTitle.value = child.label
                      notYetImplementedDialogBody.value = "This type of screen is unavailable in this client."
                      isNotYetImplementedDialogOpen.value = true
@@ -160,8 +155,7 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
       ////////////////////////////////////////////////////
       app?.sections?.forEach()
       { section ->
-         if(section.hasContent())
-         {
+         if (section.hasContent()) {
             item()
             {
                FlowRow(Modifier.fillMaxWidth())
@@ -233,19 +227,16 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
       }
    }
 
-   if(isNotYetImplementedDialogOpen.value)
-   {
+   if (isNotYetImplementedDialogOpen.value) {
       NotYetImplementedDialog(notYetImplementedDialogTitle.value, notYetImplementedDialogBody.value, isNotYetImplementedDialogOpen)
    }
 
 }
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-private fun Tile(label: String, icon: QIcon?, generalSize: Int, testTag: String, onClick: () -> Unit)
-{
+private fun Tile(label: String, icon: QIcon?, generalSize: Int, testTag: String, onClick: () -> Unit) {
    Column(
       modifier = Modifier
          .padding(8.dp)
@@ -262,10 +253,12 @@ private fun Tile(label: String, icon: QIcon?, generalSize: Int, testTag: String,
             .align(Alignment.CenterHorizontally)
       )
       {
-         Box(Modifier
-            .background(Color(0xFe, 0xFe, 0xFe), RoundedCornerShape(16.dp))
-            .border(2.dp, Color(0xf0, 0xf0, 0xf0), RoundedCornerShape(16.dp))
-            .padding(12.dp))
+         Box(
+            Modifier
+               .background(Color(0xFe, 0xFe, 0xFe), RoundedCornerShape(16.dp))
+               .border(2.dp, Color(0xf0, 0xf0, 0xf0), RoundedCornerShape(16.dp))
+               .padding(12.dp)
+         )
          {
             DynamicIcon(icon, R.drawable.apps, Modifier.fillMaxSize())
          }
@@ -284,13 +277,10 @@ private fun Tile(label: String, icon: QIcon?, generalSize: Int, testTag: String,
 }
 
 
-
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun NotYetImplementedDialog(title: String, body: String, isOpen: MutableState<Boolean>)
-{
+fun NotYetImplementedDialog(title: String, body: String, isOpen: MutableState<Boolean>) {
    AlertDialog(
       icon = { Icon(imageVector = Icons.Default.Info, contentDescription = "Info") },
       title = { Text(title) },

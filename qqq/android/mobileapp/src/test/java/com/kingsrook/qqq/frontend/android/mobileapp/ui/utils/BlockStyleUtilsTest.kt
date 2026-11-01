@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -30,18 +31,19 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-class BlockStyleUtilsTest
-{
+ *******************************************************************************/
+class BlockStyleUtilsTest {
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testGetPaddingValuesFromStyleMap()
-   {
+   fun testGetPaddingValuesFromStyleMap() {
+      /*******************************************************************************
+       **
+       *******************************************************************************/
       fun doGetPaddingValues(map: Map<*, *>) = BlockStyleUtils.getPaddingValuesFromStyleMap(mapOf("padding" to map))
 
       assertEquals(PaddingValues(1.dp, 2.dp, 3.dp, 4.dp), doGetPaddingValues(mapOf("left" to 1, "top" to 2, "right" to 3, "bottom" to 4)))
@@ -51,13 +53,14 @@ class BlockStyleUtilsTest
    }
 
 
-
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testGetSizeValuesFromStyleMap()
-   {
+   fun testGetSizeValuesFromStyleMap() {
+      /*******************************************************************************
+       **
+       *******************************************************************************/
       fun doGetSizeValues(map: Map<*, *>) = BlockStyleUtils.getSizeFromStyleMap(map)
 
       assertEquals(DpSize(1.dp, 2.dp), doGetSizeValues(mapOf("width" to 1, "height" to 2)))
@@ -68,12 +71,11 @@ class BlockStyleUtilsTest
    }
 
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testGetColorFromString()
-   {
+   fun testGetColorFromString() {
       assertEquals(Color(1, 2, 3), BlockStyleUtils.getColorFromString("010203"))
       assertEquals(Color(10, 11, 12), BlockStyleUtils.getColorFromString("#0A0B0C"))
       assertEquals(Color(0xFF, 0xFE, 0xFD, 0xFC), BlockStyleUtils.getColorFromString("#FFFEFDFC"))

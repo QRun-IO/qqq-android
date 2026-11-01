@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -38,12 +39,11 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBloc
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.SemanticProcess
 
-/***************************************************************************
+/*******************************************************************************
  ** process-component to render a widget
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun ProcessComponentWidget(processViewModel: ProcessViewModel, qInstance: QInstance, component: QFrontendComponent, disableControls: Boolean = false)
-{
+fun ProcessComponentWidget(processViewModel: ProcessViewModel, qInstance: QInstance, component: QFrontendComponent, disableControls: Boolean = false) {
    val state = remember(processViewModel.stepInstanceCounter, component) { determineState(processViewModel, qInstance, component) }
 
    // The process owns vertical scrolling so widgets and forms share one viewport.
@@ -64,9 +64,9 @@ fun ProcessComponentWidget(processViewModel: ProcessViewModel, qInstance: QInsta
    }
 }
 
-/***************************************************************************
+/*******************************************************************************
  ** container for the state within this widget
- ***************************************************************************/
+ *******************************************************************************/
 data class ProcessComponentWidgetState(
    val warningStrings: List<String> = mutableListOf(),
    val headerBlockList: List<WidgetBlock> = mutableListOf(),
@@ -75,12 +75,11 @@ data class ProcessComponentWidgetState(
    val needFullHeight: Boolean = false,
 )
 
-/***************************************************************************
+/*******************************************************************************
  ** function to figure out the (initial, and probably only) state of this
  ** widget
- ***************************************************************************/
-private fun determineState(processViewModel: ProcessViewModel, qInstance: QInstance, component: QFrontendComponent): ProcessComponentWidgetState
-{
+ *******************************************************************************/
+private fun determineState(processViewModel: ProcessViewModel, qInstance: QInstance, component: QFrontendComponent): ProcessComponentWidgetState {
    val warningStrings = mutableListOf<String>()
    val headerBlockList = mutableListOf<WidgetBlock>()
    val bodyBlockList = mutableListOf<WidgetBlock>()
@@ -92,50 +91,36 @@ private fun determineState(processViewModel: ProcessViewModel, qInstance: QInsta
    //////////////////////////////////////////////////////////////////////////////////////////////
    val widgetBlockList = mutableListOf<WidgetBlock>()
 
-   if(component.values["isAdHocWidget"] == true)
-   {
+   if (component.values["isAdHocWidget"] == true) {
       val blocks = component.values["blocks"]
-      if(blocks is List<*>)
-      {
+      if (blocks is List<*>) {
          blocks.forEach()
          { block ->
             val widgetBlock = WidgetBlock.fromMap(block)
-            if(widgetBlock != null)
-            {
+            if (widgetBlock != null) {
                widgetBlockList.add(widgetBlock)
             }
          }
-      }
-      else
-      {
+      } else {
          warningStrings.add("Widget blocks was not an expected type.")
       }
 
-   }
-   else if(component.values["widgetName"] != null)
-   {
+   } else if (component.values["widgetName"] != null) {
       val widgetName = "${component.values["widgetName"]}"
       val widgetMetaData = qInstance.widgets?.get(widgetName)
-      if(widgetMetaData == null)
-      {
+      if (widgetMetaData == null) {
          warningStrings.add("Undefined widget: ${widgetName}")
-      }
-      else
-      {
-         if(widgetMetaData.type == "composite")
-         {
+      } else {
+         if (widgetMetaData.type == "composite") {
             val widgetData = processViewModel.processValues[widgetName]
             var foundBlocks = false
-            if(widgetData is Map<*, *>)
-            {
+            if (widgetData is Map<*, *>) {
                val blocks = widgetData["subBlocks"]
-               if(blocks is List<*>)
-               {
+               if (blocks is List<*>) {
                   blocks.forEach()
                   { block ->
                      val widgetBlock = WidgetBlock.fromMap(block)
-                     if(widgetBlock != null)
-                     {
+                     if (widgetBlock != null) {
                         widgetBlockList.add(widgetBlock)
                         foundBlocks = true
                      }
@@ -143,91 +128,57 @@ private fun determineState(processViewModel: ProcessViewModel, qInstance: QInsta
                }
             }
 
-            if(!foundBlocks)
-            {
+            if (!foundBlocks) {
                warningStrings.add("Could not find widget block data in process.")
             }
-         }
-         else
-         {
+         } else {
             warningStrings.add("Not-yet implemented widget type: ${widgetMetaData.type}")
          }
       }
-   }
-   else
-   {
+   } else {
       warningStrings.add("Missing required values in a wiget component")
    }
 
    /////////////////////////////////////////////////////////////////////////////////////////
    // split into body & footer lists                                                      //
-   // todo no no, this should be done based on some attribute in the widget/blocks/etc... //
    /////////////////////////////////////////////////////////////////////////////////////////
    evaluateWidgetBlocks(widgetBlockList, processViewModel.processValues)
    bodyBlockList.addAll(widgetBlockList)
-   /*
-   if(bodyBlockList.size > 2)
-   {
-      headerBlockList.add(bodyBlockList.removeAt(0))
-      footerBlockList.add(bodyBlockList.removeAt(bodyBlockList.size - 1))
-      needFullHeight = true
-   }
-   */
 
    return ProcessComponentWidgetState(warningStrings, headerBlockList, bodyBlockList, footerBlockList, needFullHeight)
 }
 
-/***************************************************************************
+/*******************************************************************************
  ** applies "conditional" logic to blocks; interpolate values too.
- ***************************************************************************/
-fun evaluateWidgetBlocks(widgetBlockList: MutableList<WidgetBlock>, processValues: MutableMap<String, Any?>)
-{
+ *******************************************************************************/
+fun evaluateWidgetBlocks(widgetBlockList: MutableList<WidgetBlock>, processValues: MutableMap<String, Any?>) {
    val iterator = widgetBlockList.iterator()
-   while(iterator.hasNext())
-   {
+   while (iterator.hasNext()) {
       val widgetBlock = iterator.next()
 
       ////////////////////////////////////////////////////////////////////
       // if the block has a conditional, evaluate, and remove if untrue //
       ////////////////////////////////////////////////////////////////////
-      if(!SemanticProcess.widgetVisible(widgetBlock.conditional, processValues))
-      {
+      if (!SemanticProcess.widgetVisible(widgetBlock.conditional, processValues)) {
          iterator.remove()
          continue
       }
 
-      if(widgetBlock.blockType == "COMPOSITE")
-      {
+      if (widgetBlock.blockType == "COMPOSITE") {
          /////////////////////////////////////////
          // make recursive calls for composites //
          /////////////////////////////////////////
          val mutableSubBlocks = widgetBlock.subBlocks.toMutableList()
          evaluateWidgetBlocks(mutableSubBlocks, processValues)
          widgetBlock.subBlocks = mutableSubBlocks
-      }
-      else if(widgetBlock.blockType == "INPUT_FIELD")
-      {
+      } else if (widgetBlock.blockType == "INPUT_FIELD") {
          /////////////////////////////////////////////////////////////////////////////////////////////////////////////
          // for input fields, put the process's value for the field-name into the block's values object as '.value' //
-         // todo QFMD was doing something here, but we didn't do it in qqq-android yet...                           //
          /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-         // val fieldMetaData = widgetBlock.values["fieldMetaData"]
-         // if(fieldMetaData != null && fieldMetaData is Map<*, *>)
-         // {
-         //    val fieldName = fieldMetaData["name"]
-         //    if(processValues.containsKey(fieldName))
-         //    {
-         //       widgetBlock.values["value"] = processValues[fieldName]
-         //    }
-         // }
-      }
-      else if(widgetBlock.blockType == "TEXT")
-      {
+      } else if (widgetBlock.blockType == "TEXT") {
          var text = widgetBlock.values["text"]
-         if(text != null && text is String)
-         {
-            for(entry in processValues.entries)
-            {
+         if (text != null && text is String) {
+            for (entry in processValues.entries) {
                text = (text as String).replace('$' + "{" + entry.key + "}", "${processValues[entry.key]}")
             }
          }

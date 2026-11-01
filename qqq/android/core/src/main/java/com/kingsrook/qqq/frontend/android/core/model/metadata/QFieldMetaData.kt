@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -24,9 +25,8 @@ import com.kingsrook.qqq.frontend.android.core.model.AnyValueSerializer
 import com.kingsrook.qqq.frontend.android.core.model.QPossibleValue
 import kotlinx.serialization.Serializable
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Serializable
 data class QFieldMetaData(
    val name: String,
@@ -44,12 +44,13 @@ data class QFieldMetaData(
    val helpContents: List<QHelpContent>? = null,
    val isHidden: Boolean = false,
    val validation: FieldValidation? = null,
-   // todo - not Any... val behaviors: List<Any>?,
-)
-{
+) {
 
 }
 
+/*******************************************************************************
+ ** Carry semantic field constraints so native validation follows the server contract.
+ *******************************************************************************/
 @Serializable
 data class FieldValidation(
    val required: Boolean? = null,

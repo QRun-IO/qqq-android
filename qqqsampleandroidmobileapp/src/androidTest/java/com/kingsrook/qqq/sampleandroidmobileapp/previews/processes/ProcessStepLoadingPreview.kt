@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -27,51 +28,47 @@ import com.kingsrook.qqq.sampleandroidmobileapp.SampleAppMockQQQRepository
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.processes.ProcessStepLoading
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ProcessStepLoadingPreview()
-{
+fun ProcessStepLoadingPreview() {
    val processViewModel = ProcessViewModel()
    processViewModel.qqqRepository = SampleAppMockQQQRepository()
    ProcessStepLoading(processViewModel)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ProcessStepLoadingPreviewWithMessageWithoutCurrentAndTotal()
-{
+fun ProcessStepLoadingPreviewWithMessageWithoutCurrentAndTotal() {
    val processViewModel = ProcessViewModel()
    processViewModel.qqqRepository = SampleAppMockQQQRepository()
    processViewModel.jobRunningMessage = "Working..."
    ProcessStepLoading(processViewModel)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ProcessStepLoadingPreviewSuperLongMessage()
-{
+fun ProcessStepLoadingPreviewSuperLongMessage() {
    val processViewModel = ProcessViewModel()
    processViewModel.qqqRepository = SampleAppMockQQQRepository()
    processViewModel.jobRunningMessage = "Doing a thing and stuff and words and more and and on and on."
    ProcessStepLoading(processViewModel)
 }
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview
 @Composable
-fun ProcessStepLoadingPreviewWithMessageWithCurrentAndTotal()
-{
+fun ProcessStepLoadingPreviewWithMessageWithCurrentAndTotal() {
    val processViewModel = ProcessViewModel()
    processViewModel.qqqRepository = SampleAppMockQQQRepository()
    processViewModel.jobRunningMessage = "Processing Orders"

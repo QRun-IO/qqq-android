@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -37,9 +38,11 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.common.FullSizedAllCenter
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import kotlinx.coroutines.launch
 
+/*******************************************************************************
+ ** Complete local QQQ invalidation before the explicitly selected provider browser sign-out.
+ *******************************************************************************/
 @Composable
-fun QAuth0Logout(qViewModel: QViewModel, modifier: Modifier = Modifier)
-{
+fun QAuth0Logout(qViewModel: QViewModel, modifier: Modifier = Modifier) {
    val context = LocalContext.current
    val launcher = LocalAuth0Browser.current
    val scope = rememberCoroutineScope()
@@ -48,18 +51,29 @@ fun QAuth0Logout(qViewModel: QViewModel, modifier: Modifier = Modifier)
    {
       // Local QQQ sign-out must not depend on a browser callback (including cancellation or failure).
       qViewModel.logOut()
-      if(!qViewModel.claimAuth0ProviderLogout()) return@LaunchedEffect
-      val callback = object : Callback<Void?, AuthenticationException>
-      {
-         override fun onFailure(error: AuthenticationException)
-         { scope.launch { providerMessage = "Provider sign-out could not be confirmed. Your provider may still be signed in." } }
-         override fun onSuccess(result: Void?)
-         { scope.launch { providerMessage = "Provider sign-out confirmed." } }
+      if (!qViewModel.claimAuth0ProviderLogout()) return@LaunchedEffect
+      val callback = object : Callback<Void?, AuthenticationException> {
+         /*******************************************************************************
+          ** Report provider sign-out failure without restoring the already invalidated QQQ identity.
+          *******************************************************************************/
+         override fun onFailure(error: AuthenticationException) {
+            scope.launch { providerMessage = "Provider sign-out could not be confirmed. Your provider may still be signed in." }
+         }
+
+         /*******************************************************************************
+          ** Record provider completion without adopting credentials or reopening private navigation.
+          *******************************************************************************/
+         override fun onSuccess(result: Void?) {
+            scope.launch { providerMessage = "Provider sign-out confirmed." }
+         }
       }
-      try { launcher.logout(context, QAuth0Service.makeAuth0Instance(qViewModel), QAuth0Service.scheme, callback) }
-      catch(exception: Exception) { providerMessage = "Provider sign-out could not be started." }
+      try {
+         launcher.logout(context, QAuth0Service.makeAuth0Instance(qViewModel), QAuth0Service.scheme, callback)
+      } catch (exception: Exception) {
+         providerMessage = "Provider sign-out could not be started."
+      }
    }
-   FullSizedAllCenteredColumn {
+   FullSizedAllCenteredColumn(modifier) {
       Text(qViewModel.logoutMessage.ifBlank { "Signing out…" })
       Text(providerMessage)
       Button(onClick = { qViewModel.requestLogin() }, enabled = !qViewModel.logoutInProgress) { Text("Log back in") }

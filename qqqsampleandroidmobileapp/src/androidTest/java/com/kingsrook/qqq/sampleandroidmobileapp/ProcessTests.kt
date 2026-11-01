@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -32,28 +33,25 @@ import com.kingsrook.qqq.sampleandroidmobileapp.utils.clickAppScreenOption
 import org.junit.Rule
 import org.junit.Test
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-class ProcessTests : BaseTest()
-{
+ *******************************************************************************/
+class ProcessTests : BaseTest() {
    @get:Rule
    val composeTestRule = createComposeRule()
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   private fun atEndLocalDebugSleep()
-   {
+    *******************************************************************************/
+   private fun atEndLocalDebugSleep() {
       TestUtils.localDebugSleep(composeTestRule, 5)
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testLaunchProcess()
-   {
+   fun testLaunchProcess() {
       TestUtils.startStandardTest(composeTestRule)
       TestUtils.login(composeTestRule)
 

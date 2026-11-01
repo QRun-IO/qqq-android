@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -47,11 +48,10 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Rule
 import org.junit.Test
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-class SessionTests : BaseTest()
-{
+ *******************************************************************************/
+class SessionTests : BaseTest() {
    @get:Rule
    val composeTestRule = createComposeRule()
 
@@ -59,12 +59,11 @@ class SessionTests : BaseTest()
    private val fullName = "John Doe Test"
    private val envLabel = "Some Stored Env"
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testLogin()
-   {
+   fun testLogin() {
       TestUtils.startStandardTest(composeTestRule)
       TestUtils.login(composeTestRule)
 
@@ -73,12 +72,11 @@ class SessionTests : BaseTest()
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testValuesFromDataStore()
-   {
+   fun testValuesFromDataStore() {
       val dataStore = makeMockPreferencesDataStoreWithValues()
       val qViewModel = QViewModel(SampleAppMockQQQRepository(), dataStore)
       qViewModel.setNavController(null)
@@ -110,12 +108,11 @@ class SessionTests : BaseTest()
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testExpiredSessionFromDataStore()
-   {
+   fun testExpiredSessionFromDataStore() {
       val failureUUID = "please-fail"
       val dataStore = makeMockPreferencesDataStoreWithValues()
       (dataStore.preferences as MutablePreferences)[SESSION_UUID_KEY] = failureUUID
@@ -139,21 +136,15 @@ class SessionTests : BaseTest()
       assertNotEquals(failureUUID, qViewModel.sessionUUID)
 
       assertNotEquals(failureUUID, dataStore.preferences[SESSION_UUID_KEY])
-      // in case the above ever fails, it probably means race condition, so this instead
-      // composeTestRule.waitUntil(condition =
-      // {
-      //    failureUUID != dataStore.preferences[SESSION_UUID_KEY]
-      // })
 
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testUserInfoDialogAndLogout()
-   {
+   fun testUserInfoDialogAndLogout() {
       TestUtils.startStandardTest(composeTestRule)
 
       openUserDialog()
@@ -207,12 +198,11 @@ class SessionTests : BaseTest()
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testEnvironmentDialogAndSwitch()
-   {
+   fun testEnvironmentDialogAndSwitch() {
       TestUtils.startStandardTest(composeTestRule)
       TestUtils.login(composeTestRule)
 
@@ -246,11 +236,10 @@ class SessionTests : BaseTest()
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   private fun makeMockPreferencesDataStoreWithValues(): MockPreferencesDataStore
-   {
+    *******************************************************************************/
+   private fun makeMockPreferencesDataStoreWithValues(): MockPreferencesDataStore {
       val dataStore = MockPreferencesDataStore()
       dataStore.preferences = preferencesOf(
          SESSION_UUID_KEY to knownUUID,
@@ -262,11 +251,10 @@ class SessionTests : BaseTest()
       return dataStore
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   private fun openUserDialog()
-   {
+    *******************************************************************************/
+   private fun openUserDialog() {
       composeTestRule
          .onNodeWithTag("topBar.accountIcon", true)
          .assertIsDisplayed()
@@ -278,26 +266,24 @@ class SessionTests : BaseTest()
          .assertIsDisplayed()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   private fun assertHomePageIsDisplayed(pageTitle: String = "Apps", anAppLabelOnPage: String = "App 1")
-   {
+    *******************************************************************************/
+   private fun assertHomePageIsDisplayed(pageTitle: String = "Apps", anAppLabelOnPage: String = "App 1") {
       composeTestRule
          .onNodeWithTag("topAppBar.title")
          .assertTextContains(pageTitle)
          .assertIsDisplayed()
 
       composeTestRule
-         .onNodeWithTag("appHome.rowForApp:" + if(anAppLabelOnPage == "App 3") "app3" else "app1")
+         .onNodeWithTag("appHome.rowForApp:" + if (anAppLabelOnPage == "App 3") "app3" else "app1")
          .assertIsDisplayed()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   private fun atEndLocalDebugSleep()
-   {
+    *******************************************************************************/
+   private fun atEndLocalDebugSleep() {
       TestUtils.localDebugSleep(composeTestRule, 0)
    }
 

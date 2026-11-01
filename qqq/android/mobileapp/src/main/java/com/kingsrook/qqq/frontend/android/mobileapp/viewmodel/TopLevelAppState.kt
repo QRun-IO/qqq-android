@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -28,37 +29,34 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 class TopLevelAppState(
    private val coroutineScope: CoroutineScope,
    private val qViewModel: QViewModel
-)
-{
+) {
    var navDrawerState: DrawerState by mutableStateOf(DrawerState(DrawerValue.Closed))
       private set
    var drawerRequested: Boolean by mutableStateOf(false)
       private set
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun openNavDrawer()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun openNavDrawer() {
       drawerRequested = true
       coroutineScope.launch()
       {
-         try { navDrawerState.open() }
-         finally { drawerRequested = false }
+         try {
+            navDrawerState.open()
+         } finally {
+            drawerRequested = false
+         }
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun closeNavDrawer()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun closeNavDrawer() {
       drawerRequested = false
       coroutineScope.launch()
       {
@@ -66,19 +64,15 @@ class TopLevelAppState(
       }
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun logOut()
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun logOut() {
       this.qViewModel.requestLogout()
    }
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   fun isLoggedIn(): Boolean
-   {
+   /*******************************************************************************
+    *******************************************************************************/
+   fun isLoggedIn(): Boolean {
       return this.qViewModel.isAuthenticated
    }
 

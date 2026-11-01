@@ -2,19 +2,33 @@
 package com.kingsrook.qqq.frontend.android.core.controllers
 
 import com.kingsrook.qqq.frontend.android.core.model.Environment
-import com.kingsrook.qqq.frontend.android.core.model.metadata.*
+import com.kingsrook.qqq.frontend.android.core.model.metadata.AdornmentType
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QAppNodeType
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QComponentType
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFieldMetaData
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFieldType
+import com.kingsrook.qqq.frontend.android.core.model.metadata.QFrontendComponent
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 internal const val VERSION_FIXTURE = """{"apiVersion":"1.8.0","features":["version","metaData","processes","processCancel","extensions","widgets"],"clientChannels":["web","api","android"],"extensions":[{"name":"mobile-scanners","version":"1.1.0","pathPrefix":"/qbit/mobile-scanners"}]}"""
 
-class UiApiCompatibilityTest
-{
-   @Test fun incompatibleDiscoveryNeverSendsCredentialsOrMetadata() = runBlocking()
+/*******************************************************************************
+ **
+ *******************************************************************************/
+class UiApiCompatibilityTest {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun incompatibleDiscoveryNeverSendsCredentialsOrMetadata() = runBlocking()
    {
       val incompatible = listOf(
          VERSION_FIXTURE.replace("1.8.0", "2.0.0"),
@@ -27,7 +41,7 @@ class UiApiCompatibilityTest
          VERSION_FIXTURE.replace("/qbit/mobile-scanners", "/evil"),
          VERSION_FIXTURE.replace("\"android\"", "\"future-client\""),
       )
-      for(payload in incompatible) MockWebServer().use { server ->
+      for (payload in incompatible) MockWebServer().use { server ->
          server.enqueue(MockResponse().setBody(payload))
          val origin = server.url("/").toString()
          val gate = UiApiCompatibility(origin, true)
@@ -45,8 +59,11 @@ class UiApiCompatibilityTest
       }
    }
 
-   @Test fun acceptsAdditiveVersionFeaturesAndUnknownMetadataEnums()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun acceptsAdditiveVersionFeaturesAndUnknownMetadataEnums() {
       val json = Json { ignoreUnknownKeys = true }
       val version = json.decodeFromString<UiApiVersion>(VERSION_FIXTURE.replace("1.8.0", "1.99.9").replace("1.1.0", "1.12.1"))
       UiApiCompatibility.validate(version.copy(features = version.features + "futureFeature"), true)
@@ -58,21 +75,29 @@ class UiApiCompatibilityTest
       assertEquals(AdornmentType.UNKNOWN, json.decodeFromString<AdornmentType>("\"FUTURE_ADORNMENT\""))
    }
 
-   @Test fun discoveryIsCachedOnlyForItsOriginAndCarriesNoCookies()
-   {
-      MockWebServer().use { first -> MockWebServer().use { second ->
-         first.enqueue(MockResponse().setBody(VERSION_FIXTURE).addHeader("Set-Cookie", "sessionUUID=untrusted; Path=/"))
-         second.enqueue(MockResponse().setBody(VERSION_FIXTURE))
-         val gate = UiApiCompatibility(first.url("/").toString(), true)
-         gate.verify(); gate.verify()
-         UiApiCompatibility(second.url("/").toString(), true).verify()
-         assertEquals(1, first.requestCount)
-         assertNull(second.takeRequest().getHeader("Cookie"))
-      } }
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun discoveryIsCachedOnlyForItsOriginAndCarriesNoCookies() {
+      MockWebServer().use { first ->
+         MockWebServer().use { second ->
+            first.enqueue(MockResponse().setBody(VERSION_FIXTURE).addHeader("Set-Cookie", "sessionUUID=untrusted; Path=/"))
+            second.enqueue(MockResponse().setBody(VERSION_FIXTURE))
+            val gate = UiApiCompatibility(first.url("/").toString(), true)
+            gate.verify(); gate.verify()
+            UiApiCompatibility(second.url("/").toString(), true).verify()
+            assertEquals(1, first.requestCount)
+            assertNull(second.takeRequest().getHeader("Cookie"))
+         }
+      }
    }
 
-   @Test fun nullExtensionsAreAnEmptyAdvertisementRatherThanMalformedDiscovery()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun nullExtensionsAreAnEmptyAdvertisementRatherThanMalformedDiscovery() {
       val payload = VERSION_FIXTURE.replace("\"extensions\":[{\"name\":\"mobile-scanners\",\"version\":\"1.1.0\",\"pathPrefix\":\"/qbit/mobile-scanners\"}]", "\"extensions\":null")
       MockWebServer().use { server ->
          server.enqueue(MockResponse().setBody(payload))
@@ -88,7 +113,11 @@ class UiApiCompatibilityTest
       }
    }
 
-   @Test fun cancellationUsesPublishedOperationAndSemanticErrorsRemainStructured() = runBlocking()
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun cancellationUsesPublishedOperationAndSemanticErrorsRemainStructured() = runBlocking()
    {
       MockWebServer().use { server ->
          server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
@@ -116,8 +145,11 @@ class UiApiCompatibilityTest
       }
    }
 
-   @Test fun metadataMediaReferencesResolveWithoutInventingApiRoutes()
-   {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   fun metadataMediaReferencesResolveWithoutInventingApiRoutes() {
       val repository = NetworkQQQRepository("https://server.example/")
       assertEquals("https://cdn.example/logo.png", repository.getURI("https://cdn.example/logo.png"))
       assertEquals("https://server.example/qqq/v1/avatars/test", repository.getURI("/qqq/v1/avatars/test"))

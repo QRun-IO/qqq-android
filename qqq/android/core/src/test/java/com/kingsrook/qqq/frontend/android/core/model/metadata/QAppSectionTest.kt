@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -22,20 +23,19 @@
 package com.kingsrook.qqq.frontend.android.core.model.metadata
 
 
-import org.junit.Assert.*
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-class QAppSectionTest
-{
-   /***************************************************************************
+ *******************************************************************************/
+class QAppSectionTest {
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testHasContent()
-   {
+   fun testHasContent() {
       assertFalse(QAppSection("test", "Test").hasContent())
       assertFalse(QAppSection("test", "Test", tables = null, processes = null, reports = null).hasContent())
 

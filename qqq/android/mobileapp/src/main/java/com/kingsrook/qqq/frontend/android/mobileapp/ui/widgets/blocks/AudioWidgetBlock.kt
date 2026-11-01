@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -35,27 +36,25 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun AudioWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier)
-{
+fun AudioWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifier) {
    val widgetBlock = params.widgetBlock
 
    val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
    var mediaPlayer: MediaPlayer? = null
 
    val path = widgetBlock.values["path"]
-   if(path is String)
-   {
+   if (path is String) {
       val uri = runCatching { params.qViewModel?.getURI(path) }.getOrNull()
       val context = LocalContext.current
 
-      if(uri != null)
-      {
-         fun doPlay()
-         {
+      if (uri != null) {
+         /*******************************************************************************
+          ** Start the current widget audio resource only through its existing playback control.
+          *******************************************************************************/
+         fun doPlay() {
             mediaPlayer = createMediaPlayer(context, uri)
             mediaPlayer?.start()
          }
@@ -71,24 +70,26 @@ fun AudioWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifie
             ///////////////////////////////////////////////////////////////
             val observer = LifecycleEventObserver()
             { _, event ->
-               if(event == Lifecycle.Event.ON_START)
-               {
+               if (event == Lifecycle.Event.ON_START) {
                   //////////////////////////////////////////////////////////////////////////////////////////////
                   // go through the actionCallback - to try to manage making sure we only play the audio once //
                   // (since we'll assume that the callback runs in an object which doesn't get re-created if  //
                   // the device orientation changes -- without this (e.g., if we just played the audio here), //
                   // then we re-played it upon screen rotation - which wasn't good.                           //
                   //////////////////////////////////////////////////////////////////////////////////////////////
-                  params.actionCallback?.invoke(mapOf(
-                     "registerControlCallbackName" to "AudioWidgetBlock",
-                     "registerControlCallbackFunction" to ::doPlay))
+                  params.actionCallback?.invoke(
+                     mapOf(
+                        "registerControlCallbackName" to "AudioWidgetBlock",
+                        "registerControlCallbackFunction" to ::doPlay
+                     )
+                  )
 
-                  params.actionCallback?.invoke(mapOf(
-                     "controlCode" to "invokeControlCallbackOnlyOnce:AudioWidgetBlock"
-                  ))
-               }
-               else if(event == Lifecycle.Event.ON_STOP)
-               {
+                  params.actionCallback?.invoke(
+                     mapOf(
+                        "controlCode" to "invokeControlCallbackOnlyOnce:AudioWidgetBlock"
+                     )
+                  )
+               } else if (event == Lifecycle.Event.ON_STOP) {
                   mediaPlayer?.release()
                   mediaPlayer = null
                }
@@ -109,24 +110,19 @@ fun AudioWidgetBlock(params: WidgetBlockParameters, modifier: Modifier = Modifie
                mediaPlayer = null
             }
          }
+      } else {
+         Text("No uri for audio...", modifier = modifier)
       }
-      else
-      {
-         Text("No uri for audio...")
-      }
-   }
-   else
-   {
-      Text("No path for audio...")
+   } else {
+      Text("No path for audio...", modifier = modifier)
    }
 }
 
 
-/***************************************************************************
+/*******************************************************************************
  ** Create a media play for a specific URI
- ***************************************************************************/
-fun createMediaPlayer(context: Context, uri: String): MediaPlayer?
-{
+ *******************************************************************************/
+fun createMediaPlayer(context: Context, uri: String): MediaPlayer? {
    val player: MediaPlayer? = MediaPlayer.create(context, Uri.parse(uri))
    player?.setVolume(1f, 1f)
    return player

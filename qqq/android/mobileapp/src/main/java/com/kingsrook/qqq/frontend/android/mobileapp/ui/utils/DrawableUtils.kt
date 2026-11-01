@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -24,35 +25,29 @@ package com.kingsrook.qqq.frontend.android.mobileapp.ui.utils
 import android.annotation.SuppressLint
 import android.content.Context
 
-/***************************************************************************
+/*******************************************************************************
  ** utilities for working with drawable resources
- ***************************************************************************/
-object DrawableUtils
-{
+ *******************************************************************************/
+object DrawableUtils {
 
-   /***************************************************************************
+   /*******************************************************************************
     ** given a name (e.g., a material icon name), get the corresponding
     ** resource identifier.  Null (instead of 0...) if it's not found.
-    ***************************************************************************/
+    *******************************************************************************/
    @SuppressLint("DiscouragedApi") // for getIdentifier...
-   fun loadDrawableId(context: Context, name: String?): Int?
-   {
-      if(name == null)
-      {
+   fun loadDrawableId(context: Context, name: String?): Int? {
+      if (name == null) {
          return (null)
       }
 
-      try
-      {
+      try {
          val rs = context.resources.getIdentifier(
             name,
             "drawable",
             context.packageName
          )
-         return if(rs == 0) null else rs
-      }
-      catch(e: Exception)
-      {
+         return if (rs == 0) null else rs
+      } catch (e: Exception) {
          return null
       }
    }

@@ -1,15 +1,19 @@
+/* Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 */
 package io.qrun.mobile.scanner
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
-/** Retrying a submission must not turn it into a second captured scan. */
-class ScanEventTest
-{
+/*******************************************************************************
+ ** Retrying a submission must not turn it into a second captured scan.
+ *******************************************************************************/
+class ScanEventTest {
+   /*******************************************************************************
+    **
+    *******************************************************************************/
    @Test
-   fun retryKeepsIdentityAndOriginalCaptureTime()
-   {
+   fun retryKeepsIdentityAndOriginalCaptureTime() {
       val event = ScanEvent("001234", "LABEL-TYPE-CODE128", "scanner")
       assertEquals(event.values(), event.values())
       assertEquals("001234", event.values()["barcode"])

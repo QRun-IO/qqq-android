@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -28,13 +29,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.QTopAppBar
 import com.kingsrook.qqq.sampleandroidmobileapp.previews.utils.PreviewUtils
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
+ *******************************************************************************/
 @Preview(widthDp = 400)
 @Composable
-fun QTopAppBarPreview()
-{
+fun QTopAppBarPreview() {
    val qViewModel = PreviewUtils.createQViewModel().also()
    {
       it.logInSuccessful()

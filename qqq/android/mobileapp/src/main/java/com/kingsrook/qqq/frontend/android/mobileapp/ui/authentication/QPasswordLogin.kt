@@ -28,10 +28,11 @@ import androidx.compose.ui.unit.dp
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 
-/** Native credential form for QQQ TABLE_BASED authentication. */
+/*******************************************************************************
+ ** Native credential form for QQQ TABLE_BASED authentication.
+ *******************************************************************************/
 @Composable
-fun QPasswordLogin(viewModel: QViewModel, modifier: Modifier = Modifier)
-{
+fun QPasswordLogin(viewModel: QViewModel, modifier: Modifier = Modifier) {
    var username by remember { mutableStateOf("") }
    var password by remember { mutableStateOf("") }
    var submitted by remember { mutableStateOf(false) }
@@ -41,22 +42,25 @@ fun QPasswordLogin(viewModel: QViewModel, modifier: Modifier = Modifier)
    Column(modifier.imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp))
    {
       Text("Sign in")
-      OutlinedTextField(username, { username = it }, label = { Text("Username") }, singleLine = true, enabled = !busy,
+      OutlinedTextField(
+         username, { username = it }, label = { Text("Username") }, singleLine = true, enabled = !busy,
          keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }))
-      OutlinedTextField(password, { password = it }, label = { Text("Password") }, singleLine = true,
+         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) })
+      )
+      OutlinedTextField(
+         password, { password = it }, label = { Text("Password") }, singleLine = true,
          visualTransformation = PasswordVisualTransformation(), enabled = !busy,
          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() }))
+         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() })
+      )
       Button(enabled = !busy && username.isNotBlank() && password.isNotEmpty(), onClick = {
          focusManager.clearFocus()
          keyboard?.hide()
          submitted = true
          viewModel.loginWithPassword(username.trim(), password)
          password = ""
-      }) { Text(if(busy) "Signing in…" else "Sign in") }
-      if(submitted && viewModel.manageSessionLoadState is LoadState.Error)
-      {
+      }) { Text(if (busy) "Signing in…" else "Sign in") }
+      if (submitted && viewModel.manageSessionLoadState is LoadState.Error) {
          Text("Sign-in failed. Check your credentials and connection.")
       }
    }

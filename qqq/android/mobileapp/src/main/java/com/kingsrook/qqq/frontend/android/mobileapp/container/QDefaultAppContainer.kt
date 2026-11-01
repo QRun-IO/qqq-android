@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2024-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -24,11 +25,9 @@ import com.kingsrook.qqq.frontend.android.core.controllers.NetworkQQQRepository
 import com.kingsrook.qqq.frontend.android.core.controllers.QQQRepository
 import com.kingsrook.qqq.frontend.android.mobileapp.container.QAppContainer.Companion.availableEnvironments
 
-/***************************************************************************
- **
- ***************************************************************************/
-class QDefaultAppContainer : QAppContainer
-{
+/*******************************************************************************
+ *******************************************************************************/
+class QDefaultAppContainer : QAppContainer {
    override val qqqRepository: QQQRepository by lazy()
    {
       NetworkQQQRepository(availableEnvironments[0].baseUrl)

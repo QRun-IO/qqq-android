@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
@@ -68,22 +69,19 @@ import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
 import kotlinx.coroutines.delay
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifier = Modifier)
-{
+fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifier = Modifier) {
    val processViewModel = qViewModel.activeProcessViewModel
-   if(processViewModel == null)
-   {
+   if (processViewModel == null) {
       Text("Error: ProcessViewModel was not available.", color = Colors.ERROR)
       return
    }
 
    val processMetaDataLoadState = processViewModel.processMetaDataLoadState
    val hostBackAction = LocalNavigationBackAction.current
-   BackHandler { if(hostBackAction != null) hostBackAction() else qViewModel.qNavigator.popStack() }
+   BackHandler { if (hostBackAction != null) hostBackAction() else qViewModel.qNavigator.popStack() }
    val initLoadState = processViewModel.initLoadState
    val topLevelErrorState = processViewModel.topLevelErrorState
    val loadStates = listOf(processMetaDataLoadState, initLoadState, topLevelErrorState)
@@ -92,9 +90,8 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
    processViewModel.onSubmitCallback =
       {
          val format = FrontendStepFormat.of(processViewModel.activeStep?.format)
-         if(format.playOnSubmitSound())
-         {
-             playSubmitSound()
+         if (format.playOnSubmitSound()) {
+            playSubmitSound()
          }
       }
 
@@ -107,8 +104,7 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
    ///////////////////////////////////////////////////////////////////////////////////////////
    LaunchedEffect(key1 = processViewModel.jobRunningLastUpdated)
    {
-      if(processViewModel.initLoadState is LoadState.Loading && processViewModel.processUUID != null && processViewModel.waitingOnBackend && !processViewModel.cancelling)
-      {
+      if (processViewModel.initLoadState is LoadState.Loading && processViewModel.processUUID != null && processViewModel.waitingOnBackend && !processViewModel.cancelling) {
          delay(1000)
          processViewModel.checkIn()
       }
@@ -118,9 +114,10 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
    {
       LoadStateView(
          loadStates,
-          modifier = Modifier.weight(1f),
-          reloader = processViewModel.retryLabel()?.let { label ->
-             com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Reloader(label, { processViewModel.retryPendingStep() }) },
+         modifier = Modifier.weight(1f),
+         reloader = processViewModel.retryLabel()?.let { label ->
+            com.kingsrook.qqq.frontend.android.mobileapp.ui.utils.Reloader(label, { processViewModel.retryPendingStep() })
+         },
          loadingText = "Loading Process"
       )
       {
@@ -133,21 +130,17 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////
             key(processViewModel.stepInstanceCounter)
             {
-               when (lastStepResult)
-               {
+               when (lastStepResult) {
                   is QJobRunning,
-                  is QJobStarted ->
-                  {
+                  is QJobStarted -> {
                      ProcessStepLoading(processViewModel)
                   }
 
-                  is QJobComplete ->
-                  {
+                  is QJobComplete -> {
                      ProcessFrontendStepView(processViewModel, qInstance)
                   }
 
-                  is QJobError ->
-                  {
+                  is QJobError -> {
                      Text("Error: ${lastStepResult.userFacingError ?: lastStepResult.error}")
                   }
                }
@@ -155,38 +148,34 @@ fun QProcessHome(qViewModel: QViewModel, qInstance: QInstance, modifier: Modifie
          }
 
       }
-      if(LoadState.areAnyErrors(loadStates) || LoadState.areAnyLoading(loadStates))
-      {
+      if (LoadState.areAnyErrors(loadStates) || LoadState.areAnyLoading(loadStates)) {
          Button(onClick = processViewModel::requestClose, enabled = !processViewModel.cancelling) { Text("Cancel") }
       }
    }
 }
 
-/***************************************************************************
+/*******************************************************************************
  ** composable that outputs a frontend process step - its components basically
- ***************************************************************************/
+ *******************************************************************************/
 @Composable
-fun ProcessFrontendStepView(processViewModel: ProcessViewModel, qInstance: QInstance, modifier: Modifier = Modifier)
-{
+fun ProcessFrontendStepView(processViewModel: ProcessViewModel, qInstance: QInstance, modifier: Modifier = Modifier) {
    val format = FrontendStepFormat.of(processViewModel.activeStep?.format)
 
    Column(modifier.fillMaxSize().imePadding())
    {
       Column(
          modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-            .padding(if(format.doesScreenGetPadding()) 8.dp else 0.dp)
+            .padding(if (format.doesScreenGetPadding()) 8.dp else 0.dp)
             .zIndex(1f)
       )
       {
-         if(format.isStepLabelDisplayed())
-         {
-            Text(processViewModel.activeStep?.label ?: if(processViewModel.getNoMoreSteps()) "Complete" else "", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+         if (format.isStepLabelDisplayed()) {
+            Text(processViewModel.activeStep?.label ?: if (processViewModel.getNoMoreSteps()) "Complete" else "", fontWeight = FontWeight.Bold, fontSize = 20.sp)
          }
 
          processViewModel.activeStep?.components?.forEach()
          { component ->
-            when (component.type)
-            {
+            when (component.type) {
                QComponentType.EDIT_FORM -> ProcessComponentEditForm(processViewModel, component)
                QComponentType.VIEW_FORM -> ProcessComponentViewForm(processViewModel, component)
                QComponentType.HELP_TEXT -> ProcessComponentHelpText(processViewModel, component)
@@ -200,37 +189,40 @@ fun ProcessFrontendStepView(processViewModel: ProcessViewModel, qInstance: QInst
          processViewModel.unsupportedReason()?.takeUnless { processViewModel.getNoMoreSteps() }?.let { Text(it, color = Colors.ERROR) }
          processViewModel.submissionError?.let { Text(it, color = Colors.ERROR) }
       }
-      if(format.areStandardFooterButtonsDisplayed() || processViewModel.unsupportedReason() != null || processViewModel.getNoMoreSteps())
-      {
+      if (format.areStandardFooterButtonsDisplayed() || processViewModel.unsupportedReason() != null || processViewModel.getNoMoreSteps()) {
          ProcessBottomButtons(processViewModel)
       }
    }
 }
 
-/***************************************************************************
- **
- ***************************************************************************/
-fun createMediaPlayer(context: Context, resourceId: Int): MediaPlayer?
-{
+/*******************************************************************************
+ *******************************************************************************/
+fun createMediaPlayer(context: Context, resourceId: Int): MediaPlayer? {
    val player: MediaPlayer? = MediaPlayer.create(context, resourceId)
    player?.setVolume(1f, 1f)
    return player
 }
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-internal fun rememberProcessSound(tone: ProcessTone): () -> Unit
-{
+internal fun rememberProcessSound(tone: ProcessTone): () -> Unit {
    val lifecycleOwner = LocalLifecycleOwner.current
    val sound = remember(tone)
    {
       ProcessSound {
          val generator = ToneGenerator(AudioManager.STREAM_MUSIC, 50)
-         object : ProcessSound.Playback
-         {
-            override fun start() { generator.startTone(tone.platformType, tone.durationMs) }
+         object : ProcessSound.Playback {
+            /*******************************************************************************
+             ** Delegate optional process audio to the current Android media player without changing process state.
+             *******************************************************************************/
+            override fun start() {
+               generator.startTone(tone.platformType, tone.durationMs)
+            }
+
+            /*******************************************************************************
+             ** Release the current media player when the process sound owner is disposed.
+             *******************************************************************************/
             override fun release() = generator.release()
          }
       }
@@ -239,8 +231,7 @@ internal fun rememberProcessSound(tone: ProcessTone): () -> Unit
    {
       val observer = LifecycleEventObserver()
       { _, event ->
-         if(event == Lifecycle.Event.ON_STOP)
-         {
+         if (event == Lifecycle.Event.ON_STOP) {
             sound.release()
          }
       }
@@ -254,16 +245,16 @@ internal fun rememberProcessSound(tone: ProcessTone): () -> Unit
       }
    }
    return {
-      if(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
-      {
+      if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
          sound.play()
       }
    }
 }
 
-/** Platform-generated feedback avoids redistributing recordings of unknown origin. */
-internal enum class ProcessTone(val platformType: Int, val durationMs: Int)
-{
+/*******************************************************************************
+ ** Platform-generated feedback avoids redistributing recordings of unknown origin.
+ *******************************************************************************/
+internal enum class ProcessTone(val platformType: Int, val durationMs: Int) {
    SUBMIT(ToneGenerator.TONE_PROP_ACK, 80),
    LOADING(ToneGenerator.TONE_PROP_BEEP, 25)
 }
