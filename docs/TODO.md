@@ -4,10 +4,12 @@
 
 - [x] Verify generic INTEGER Document choice/dependency clearing on actual TC22:7 stages,112 semantic requests,99 focused/host tests and8 Node guards; simulated printing, normal data preserved.
 - [x] Connect the installed print client to the single local server and publish the actual Echo4x1 document through native QQQ processes.
-- [ ] Resolve the printing agent's reported4x6 media versus loaded4x1 stock and complete physical scan/print/rescan; qualify public artifacts/current CI, signing last.
+- [x] Resolve the printing agent's earlier 4x6 media report versus loaded 4x1 stock: the Printing owner aligned 101600 x 25400 micron/300 dpi media and the TC22 selected the real printer, fresh 4x1 media and published document; Next succeeded.
+- [ ] Complete one physical Code128 (QQQ-TEST-123456) scan, print and rescan on the TC22, then leading-zero QR. No physical Echo print is proven yet (print jobs 0, latest read 0).
+- [ ] Qualify public coherent artifacts and primary Gitea CI; signing and distribution stay last by user decision. Core PR 1337 normal CI and publication are not established; do not repin default dependencies.
 
 - [x] Add metadata-driven Echo acknowledgment/manual-entry hints with old defaults; 167 JVM tests, strict compilation, lint zero errors/warnings and debug build pass.
-- [ ] Qualify native Echo setup/scan/print-acceptance/leave with the actual owner adapters and independently decoded physical output; source tests are not physical printing evidence.
+- [ ] Qualify native Echo scan/print-acceptance with independently decoded physical output (setup and Leave against the real owner adapters are verified; source tests are not physical printing evidence).
 - [x] Verify Query artwork, Dogfooding/Query links and licenses on the normal TC22 About screen using filtered accessibility data.
 
 - [x] Apply scoped copyright/import/header/formatter corrections, mechanical CI gate and Kotlin warnings-as-errors;163JVM plus46TC22 sample native cases pass. See [review](CODING-STANDARDS-REVIEW-2026-11-01.md) for the remaining formatter CI limitation.
@@ -99,4 +101,5 @@ Offline queue/background synchronization is deliberately outside version one.
 - [ ] Complete the final operator walkthrough on TC22 after updating the preserved demo/runtime, including outage/reconnect and real camera capture.
 
 - [x] Implement named semantic process choices and qualify Echo native setup/two scans/rotation/Apps Leave onTC22 (169JVM,8guards,86documentedrequests; printing simulated).
-- [ ] Finish real Echo host/owner adapters, print a physical label and rescan exact value/type; then preserved-data demo upgrade.
+- [x] Real Echo host and owner adapters are composed and running in the single local server (see the Origin item above).
+- [ ] Print a physical label and rescan the exact value and type (tracked above).

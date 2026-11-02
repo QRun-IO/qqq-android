@@ -1,10 +1,29 @@
+## November 2 — current checkpoint
+
+Completed and verified:
+
+- Android source `fb3cc5d` is signed and published as Gitea PR 10. It passes 174 JVM tests (44 core, 55 mobileapp, 75 host), lint with zero errors and zero warnings, and the debug APK build.
+- The native `SameOriginInterceptor` fixes the cookie-bearing heartbeat that returned 403. The server's same-origin guard is not weakened.
+- The normal TC22 installation was updated without clearing data. Existing login and device approval, heartbeat, the real print client's printer, fresh 4x1 media and published document selection, and Cancel then Leave all work against the one local server.
+- That server is one QQQ demo on host port 57832. It runs Mobile Scanners/Echo, Collaboration/Record Files, Document Generation and Printing (API 1.10.0, mobile 1.4.0, printing 2.3.0). On this workstation, device port 8080 forwards to host port 57832. The original accounts, enrollment and approval are retained.
+- The Printing owner has aligned the loaded 4x1 stock (101600 x 25400 microns at 300 dpi) and updated the real media revision. A real Echo 4x1 barcode document is published. The TC22 selected the actual printer, the fresh 4x1 media and that document, and Next succeeded and shows Scanner ready and Connected.
+- The emulator is off because it stalls this workstation. Do not restart it automatically.
+
+Not yet done:
+
+- No physical Echo print or rescan has been proven. Baseline print jobs were 0 and the latest read was 0. One physical scan of QQQ-TEST-123456 has been requested from the user.
+- Still open for 1.0: physical Code128 and leading-zero QR scan, print and rescan; full provider, camera, GPS, projection and device qualification; public coherent artifacts; primary Gitea CI; and final signing and distribution. Signing is deliberately last, by the user's decision. The first demo working does not collapse these requirements, and nothing here claims release readiness.
+- Core native API merge continuation PR 1337 (a42f9e5) was reviewed with no actionable conflict regression and its 57 focused tests were verified. Normal CI and publication are not established, and default dependencies are not repinned.
+
+The entries below are historical. Where they describe the printer media report, the 4x1 document or the same-origin fix as pending, this checkpoint supersedes them.
+
 ## November 2 — native cookie Origin compatibility verified on TC22
 
 The combined Echo Demo on57832 (reached through device port8080) returned200 for login, then403 for the cookie-bearing session heartbeat POST, because Android's native QQQ requests omitted `Origin`. The server's same-origin guard remains enforced. Core now has a small `SameOriginInterceptor`: it sets `Origin` from the actual request URL's canonical scheme/host/port only (default ports omitted, IPv6 bracketed, never credentials/input/headers) and is installed last so additional headers cannot override it. It is used by `NetworkQQQRepository` and the `DeviceApi`, `MobileSessionApi` and `RecordFilesApi` clients. Version discovery, presentation/logo fetches, OIDC/browser/token requests and redirect refusal are unchanged.
 
 All174 JVM tests passed (44core/55mobileapp/75host), with zero failures/errors/skips. Lint has zero errors/warnings and two existing informational hints; debug APK build passed. MockWebServer tests cover exact Origin plus cookie on real POSTs, canonicalization, override resistance and redirect non-forwarding. Session and record-file host tests assert the header on their actual requests.
 
-The verified APK (SHA256 `0B872005B2FA84F693E73CC49133F5C1C02F732A034AA0635A2B50682A61A98E`) was installed on the normal TC22 without clearing its data. Existing scanner login and device approval work against the actual combined server; heartbeat remains connected. Echo opens its three required choices, the approved printer and its reported media load, and Cancel -> Leave returns to the app normally. This directly qualifies setup/session/cancel against the strict host, not a physical print. The earlier112-request/two-synthetic-scan acceptance remains separate. Physical printing awaits the printing owner's4x1 media report; the corresponding4x1 document is already published locally. Emulator stays off.
+The verified APK (SHA256 `0B872005B2FA84F693E73CC49133F5C1C02F732A034AA0635A2B50682A61A98E`) was installed on the normal TC22 without clearing its data. Existing scanner login and device approval work against the actual combined server; heartbeat remains connected. Echo opens its three required choices, the approved printer and its reported media load, and Cancel -> Leave returns to the app normally. This directly qualifies setup/session/cancel against the strict host, not a physical print. The earlier112-request/two-synthetic-scan acceptance remains separate. (Superseded: the printing owner has since reported the 4x1 media and the 4x1 document is published; see the current checkpoint above. Physical printing is still unproven.) Emulator stays off.
 
 ## November 1 — required Document choice verified on the real TC22
 
