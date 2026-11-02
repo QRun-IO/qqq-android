@@ -1,5 +1,8 @@
 # TODO
 
+- [x] Verify generic INTEGER Document choice/dependency clearing on actual TC22:7 stages,112 semantic requests,99 focused/host tests and8 Node guards; simulated printing, normal data preserved.
+- [ ] Complete actual owner printer pairing/current-media document publication and physical scan/print/rescan; publish qualified public artifacts after current CI, signing last.
+
 - [x] Add metadata-driven Echo acknowledgment/manual-entry hints with old defaults; 167 JVM tests, strict compilation, lint zero errors/warnings and debug build pass.
 - [ ] Qualify native Echo setup/scan/print-acceptance/leave with the actual owner adapters and independently decoded physical output; source tests are not physical printing evidence.
 - [x] Verify Query artwork, Dogfooding/Query links and licenses on the normal TC22 About screen using filtered accessibility data.

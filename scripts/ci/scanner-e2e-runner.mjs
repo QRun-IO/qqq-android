@@ -360,7 +360,7 @@ export async function runScannerE2e(options = {}) {
          }
          reports.push({ scenario: phase.name ?? phase.mode, ...proxy.verify(!phase.expectedError, Boolean(phase.requireCancel), Boolean(phase.requireSession), Boolean(phase.requirePhotos)) });
          if (echo) {
-            const expectedStages = ['echo-setup-selected', 'echo-first-queued', 'echo-second-queued', 'echo-recreation-stable', 'echo-run-closed'];
+            const expectedStages = ['echo-document-selected', 'echo-stale-document-cleared', 'echo-setup-selected', 'echo-first-queued', 'echo-second-queued', 'echo-recreation-stable', 'echo-run-closed'];
             if (expectedStages.some(stage => !stages.has(stage))) throw new Error('Echo did not complete every setup/queue/recreation/cancellation stage.');
             await writeFile(join(echoEvidence, 'echo-proof.json'), JSON.stringify({ status: 'PASSED', fixtureType: 'echo-ui-e2e', simulatedPrinting: true,
                artifacts: echoArtifacts, completedStages: expectedStages, acceptedScans: 2, ...reports.at(-1), physicalScannerQualified: false, physicalPrintingQualified: false }, null, 2));

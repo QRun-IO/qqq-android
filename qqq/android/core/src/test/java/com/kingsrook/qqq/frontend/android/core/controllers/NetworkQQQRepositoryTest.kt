@@ -65,6 +65,7 @@ class NetworkQQQRepositoryTest {
          assertEquals("run", body.getJSONObject("processValues").getString("echoRunId"))
          assertEquals("form", body.getString("useCase"))
          assertEquals(listOf("4x6", "7"), options.map { it.id.toString() })
+         assertTrue("A JSON integer id must stay an integer for INTEGER fields", options[1].id is Int)
          assertEquals(listOf("4 x 6 in", "Seven"), options.map { it.label })
          assertTrue(repository.processPossibleValues("echoPrint", "mediaId", emptyMap(), emptyMap()).isEmpty())
       }

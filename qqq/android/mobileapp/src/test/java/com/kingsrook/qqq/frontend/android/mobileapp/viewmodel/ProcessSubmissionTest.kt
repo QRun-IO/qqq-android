@@ -598,6 +598,120 @@ class ProcessSubmissionTest {
    }
 
    /*******************************************************************************
+    ** Setup chain printer -> media -> document, where the document is an INTEGER-keyed choice depending on both parents.
+    ** Ancestor changes must clear the whole stale suffix, block Next until reselection, keep the integer id typed on
+    ** submission, and never let a late reply for the old parents restore the old document.
+    *******************************************************************************/
+   @Test
+   fun integerDocumentChoiceDependsOnPrinterAndMediaAndNeverSurvivesAParentChange() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try {
+         fun choice(id: Int, label: String) = com.kingsrook.qqq.frontend.android.core.model.QPossibleValue(id, label)
+         val printer = QFieldMetaData("printerId", "Printer", type = QFieldType.STRING, isRequired = true, possibleValueSourceName = "printers")
+         val media = QFieldMetaData(
+            "mediaId", "Paper or label size", type = QFieldType.STRING, isRequired = true, possibleValueSourceName = "media",
+            possibleValueSourceDependsOn = listOf("printerId"), possibleValueSourceDependencyBehavior = "DISABLE_UNTIL_SET"
+         )
+         val document = QFieldMetaData(
+            "templateId", "Document", type = QFieldType.INTEGER, isRequired = true, possibleValueSourceName = "documents",
+            possibleValueSourceDependsOn = listOf("printerId", "mediaId"), possibleValueSourceDependencyBehavior = "DISABLE_UNTIL_SET"
+         )
+         val repository = SubmissionRepository().apply {
+            inputOverride = QFrontendStepMetaData("input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)), formFields = listOf(printer, media, document))
+            possibleValueResolver = { field, values ->
+               when (field) {
+                  "printerId" -> listOf(choice(1, "P1"))
+                  "mediaId" -> if (values["printerId"] == "p1") listOf(choice(2, "M1")) else if (values["printerId"] == "p2") listOf(choice(3, "M2")) else emptyList()
+                  else -> when (values["printerId"] to values["mediaId"]) {
+                     "p1" to "m1" -> listOf(choice(7, "Seven"), choice(9, "Nine"))
+                     "p1" to "m1b" -> listOf(choice(11, "Eleven"))
+                     "p2" to "m2" -> listOf(choice(13, "Thirteen"))
+                     else -> emptyList()
+                  }
+               }
+            }
+         }
+         val model = model(repository)
+         model.doInit()
+         advanceUntilIdle()
+         listOf(printer, media, document).forEach { model.loadRemoteOptions(it) }
+         advanceUntilIdle()
+         assertEquals("Choose Printer and Paper or label size first.", model.remoteOptionsBlockedReason(document))
+
+         fun choose(name: String, value: Any?) { model.processValues[name] = value; model.fieldChanged(name); }
+         choose("printerId", "p1")
+         advanceUntilIdle()
+         assertEquals("Choose Paper or label size first.", model.remoteOptionsBlockedReason(document))
+         choose("mediaId", "m1")
+         advanceUntilIdle()
+         assertNull(model.remoteOptionsBlockedReason(document))
+         val requested = repository.possibleValueRequests.last()
+         assertEquals("documents is searched with both parent values", mapOf("printerId" to "p1", "mediaId" to "m1"), requested.second.filterKeys { it != "templateId" }.filterValues { it != null })
+         assertEquals(listOf(7, 9), model.remoteOptions["templateId"]?.map { it.id })
+         assertTrue("Choice ids stay true integers", model.remoteOptions["templateId"]!!.all { it.id is Int })
+
+         // Required: nothing selected means Next must not submit.
+         model.runStep()
+         advanceUntilIdle()
+         assertEquals("Document is required.", model.fieldErrors["templateId"])
+         assertTrue(repository.submissions.isEmpty())
+
+         // Changing media clears the document and Next stays blocked until it is chosen again.
+         choose("templateId", 7)
+         choose("mediaId", "m1b")
+         assertNull("Document chosen for the old media is cleared", model.processValues["templateId"])
+         assertEquals(1, model.fieldResets["templateId"])
+         advanceUntilIdle()
+         assertEquals(listOf(11), model.remoteOptions["templateId"]?.map { it.id })
+         model.runStep()
+         advanceUntilIdle()
+         assertEquals("Document is required.", model.fieldErrors["templateId"])
+         assertTrue(repository.submissions.isEmpty())
+
+         // Changing the printer clears media and the document; the old document id is not an offered choice.
+         choose("mediaId", "m1")
+         advanceUntilIdle()
+         choose("templateId", 9)
+         val gate = CompletableDeferred<Unit>()
+         repository.possibleValueGate = gate
+         model.loadRemoteOptions(document)
+         runCurrent()
+         choose("printerId", "p2")
+         assertNull(model.processValues["mediaId"])
+         assertNull(model.processValues["templateId"])
+         assertEquals(2, model.fieldResets["templateId"])
+         assertEquals("Choose Paper or label size first.", model.remoteOptionsBlockedReason(document))
+         // A reply for the old printer/media that was already in flight is discarded, not republished.
+         repository.possibleValueGate = null
+         gate.complete(Unit)
+         advanceUntilIdle()
+         assertNull("Late old-parent reply cannot restore choices", model.remoteOptions["templateId"])
+         assertNull("Late old-parent reply cannot restore the old document", model.processValues["templateId"])
+         model.runStep()
+         advanceUntilIdle()
+         assertTrue(model.fieldErrors.containsKey("mediaId") && model.fieldErrors.containsKey("templateId"))
+         assertTrue(repository.submissions.isEmpty())
+
+         // After reselection the typed integer id is what is submitted.
+         choose("mediaId", "m2")
+         advanceUntilIdle()
+         assertEquals(listOf(13), model.remoteOptions["templateId"]?.map { it.id })
+         choose("templateId", model.remoteOptions["templateId"]!!.single().id)
+         model.runStep()
+         advanceUntilIdle()
+         val submitted = repository.submissions.single()
+         assertEquals("p2", submitted["printerId"])
+         assertEquals("m2", submitted["mediaId"])
+         assertEquals(13, submitted["templateId"])
+         assertTrue("Document is submitted as an integer, not text or a decimal", submitted["templateId"] is Int)
+         assertEquals("result", model.activeStepName)
+      } finally {
+         Dispatchers.resetMain()
+      }
+   }
+
+   /*******************************************************************************
     **
     *******************************************************************************/
    private fun model(repository: SubmissionRepository) = ProcessViewModel().apply()
@@ -629,6 +743,7 @@ class ProcessSubmissionTest {
       val possibleValueRequests = mutableListOf<Pair<String, Map<String, Any?>>>()
       var possibleValueFailure = false
       var possibleValueGate: CompletableDeferred<Unit>? = null
+      var possibleValueResolver: ((String, Map<String, Any?>) -> List<com.kingsrook.qqq.frontend.android.core.model.QPossibleValue>)? = null
       private val input = QFrontendStepMetaData(
          "input", "Input", components = listOf(QFrontendComponent(QComponentType.EDIT_FORM)),
          formFields = listOf(QFieldMetaData("eventId", "Event", type = QFieldType.STRING, isRequired = true, isHidden = hiddenEventId))
@@ -669,6 +784,7 @@ class ProcessSubmissionTest {
          possibleValueRequests.add(fieldName to values.toMap())
          possibleValueGate?.await()
          if (possibleValueFailure) throw java.io.IOException("Choices unavailable")
+         possibleValueResolver?.let { return it(fieldName, values.toMap()) }
          return when {
             fieldName == "printerId" -> listOf(com.kingsrook.qqq.frontend.android.core.model.QPossibleValue("printer", "Simulated printer"))
             values["printerId"] == "printer" -> listOf(com.kingsrook.qqq.frontend.android.core.model.QPossibleValue("4x6", "4 x 6 in"))

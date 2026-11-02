@@ -17,8 +17,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
+import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -109,12 +111,53 @@ class ScannerEndToEndTest {
          return (0 until records.length()).map { records.getJSONObject(it).getJSONObject("values") }
       }
 
+      /*******************************************************************************
+       ** Discover choices through the same versioned `searchProcessPossibleValues` POST the renderer uses
+       ** ({values, processValues, useCase:form}), so no document id or label is assumed by this harness.
+       *******************************************************************************/
+      fun choices(field: String, values: JSONObject): List<Pair<Any, String>> {
+         val request = Request.Builder().url("$origin/qqq/v1/processes/echoPrint/possibleValues/$field").header("Cookie", scannerCookie)
+            .post(JSONObject().put("values", values).put("processValues", JSONObject()).put("useCase", "form").toString().toRequestBody("application/json".toMediaType()))
+         device.headers().forEach { (name, value) -> request.header(name, value) }
+         val options = executeJson(request.build()).optJSONArray("options") ?: return emptyList()
+         return (0 until options.length()).map { options.getJSONObject(it) }.map { it.get("id") to it.getString("label") }
+      }
+      val printerChoice = choices("printerId", JSONObject().put("mediaId", JSONObject.NULL).put("templateId", JSONObject.NULL)).single { it.second == "Simulated printer" }
+      val mediaChoice = choices("mediaId", JSONObject().put("printerId", printerChoice.first).put("templateId", JSONObject.NULL)).single { it.second == "Simulated 4 x 6 in — 300 dpi" }
+      val documents = choices("templateId", JSONObject().put("printerId", printerChoice.first).put("mediaId", mediaChoice.first))
+      assertTrue("Document choices must be offered for the selected printer/media with unique labels and true JSON integer ids",
+         documents.isNotEmpty() && documents.map { it.second }.toSet().size == documents.size && documents.all { it.first is Int || it.first is Long })
+      // Choose a different document after the stale-selection check when more than one is offered, so restoring the old one is detectable.
+      val firstDocument = documents.first()
+      val finalDocument = documents.last()
+      // Persisted setup column holding the chosen document id; confirm against the server fixture schema.
+      val documentColumn = "templateId"
+      fun assertSetupPinned(row: JSONObject) {
+         assertTrue("Setup must pin the selected printer and media once", row.getString("state") == "OPEN" &&
+            row.getString("printerRecordId") == "fixture-printer" && row.getString("mediaId") == "fixture-4x6")
+         val persisted = row.opt(documentColumn)
+         assertTrue("Setup must persist the chosen document as the same integer id the choices returned",
+            persisted is Number && persisted.toLong() == (finalDocument.first as Number).toLong())
+      }
+
+      /*******************************************************************************
+       ** The only enabled, unselected choice control (earlier fields already hold labels).
+       *******************************************************************************/
+      fun openOnlyRemainingChoice() {
+         ui.waitUntil(timeoutMillis = 60_000) {
+            ui.onAllNodesWithText("Choose a value").fetchSemanticsNodes().size == 1 &&
+               ui.onAllNodes(hasText("Choose a value") and isEnabled()).fetchSemanticsNodes().size == 1
+         }
+         ui.onNodeWithText("Choose a value").performScrollTo().performClick()
+      }
+
       val priorRuns = rows("echoFixtureRun").map { it.getString("id") }.toSet()
       ui.onNodeWithTag("appHome.rowForApp:echo").performClick()
       waitForTag("appHome.rowForProcess:echoPrint")
       ui.onNodeWithTag("appHome.rowForProcess:echoPrint").performClick()
       waitFor("Printer")
       waitFor("Paper or label size")
+      waitFor("Document")
       ui.onAllNodesWithText("Choose a value").onFirst().performScrollTo().performClick()
       waitFor("Simulated printer")
       ui.onNodeWithText("Simulated printer").performClick()
@@ -123,14 +166,40 @@ class ScannerEndToEndTest {
       ui.onAllNodesWithText("Choose a value").onFirst().performScrollTo().performClick()
       waitFor("Simulated 4 x 6 in — 300 dpi")
       ui.onNodeWithText("Simulated 4 x 6 in — 300 dpi").performClick()
+      // Document depends on both printer and media; it is the only unselected control left once media holds its label.
+      openOnlyRemainingChoice()
+      waitFor(firstDocument.second)
+      ui.onNodeWithText(firstDocument.second).performClick()
+      waitFor(firstDocument.second)
+      stage("echo-document-selected")
+
+      // Choosing a controlling field again drops every dependent selection and blocks Next until they are reselected.
+      ui.onNodeWithText("Simulated printer").performScrollTo().performClick()
+      ui.onNode(hasText("Simulated printer") and hasAnyAncestor(isPopup())).performClick()
+      ui.waitUntil(timeoutMillis = 60_000) { ui.onAllNodesWithText("Choose a value").fetchSemanticsNodes().size == 2 }
+      assertTrue("The stale document must not stay selected", ui.onAllNodesWithText(firstDocument.second).fetchSemanticsNodes().isEmpty())
+      waitFor("Choose Paper or label size first.")
+      ui.onNodeWithText("Next", substring = false).performClick()
+      waitFor("Paper or label size is required.")
+      waitFor("Document is required.")
+      assertTrue("Next must not start setup without a reselected document", ui.onAllNodesWithText("Scanner ready. Press the handheld trigger.").fetchSemanticsNodes().isEmpty() &&
+         rows("echoFixtureRun").none { it.getString("id") !in priorRuns && it.optString("printerRecordId").isNotBlank() })
+      ui.onAllNodesWithText("Choose a value").onFirst().performScrollTo().performClick()
+      waitFor("Simulated 4 x 6 in — 300 dpi")
+      ui.onNodeWithText("Simulated 4 x 6 in — 300 dpi").performClick()
+      openOnlyRemainingChoice()
+      waitFor(finalDocument.second)
+      ui.onNodeWithText(finalDocument.second).performClick()
+      waitFor(finalDocument.second)
+      assertTrue("Only the reselected document may remain chosen", firstDocument == finalDocument || ui.onAllNodesWithText(firstDocument.second).fetchSemanticsNodes().isEmpty())
+      stage("echo-stale-document-cleared")
       ui.onNodeWithText("Next", substring = false).performClick()
       waitFor("Scanner ready. Press the handheld trigger.")
       assertTrue("Echo must not offer manual barcode input", ui.onAllNodesWithText("Manual barcode").fetchSemanticsNodes().isEmpty())
       assertTrue("Echo must not offer manual submission", ui.onAllNodesWithText("Submit barcode").fetchSemanticsNodes().isEmpty())
       val run = rows("echoFixtureRun").single { it.getString("id") !in priorRuns }
       val runId = run.getString("id")
-      assertTrue("Setup must pin the selected printer and media once", run.getString("state") == "OPEN" &&
-         run.getString("printerRecordId") == "fixture-printer" && run.getString("mediaId") == "fixture-4x6")
+      assertSetupPinned(run)
       stage("echo-setup-selected")
 
       var receipt = ""
@@ -153,6 +222,7 @@ class ScannerEndToEndTest {
          assertTrue("Only a synthetic accepted job may acknowledge this fixture scan",
             row.getString("id") == receipt && row.getString("printJobId") == "fixture-job-$receipt" && row.getString("eventId").isNotBlank())
          assertTrue("Each event must create exactly one accepted Echo scan", rows("echoScan").count { it.optString("runId") == runId } == index + 1)
+         assertSetupPinned(rows("echoFixtureRun").single { it.getString("id") == runId })
          stage(if (index == 0) "echo-first-queued" else "echo-second-queued")
       }
 
