@@ -1,0 +1,22 @@
+# STATIC QUALIFICATION TEMPLATE, NOT A PRODUCTION CALLER. Do not copy, commit or dispatch until every UNRESOLVED_* value is
+# replaced by an actual value and the result is frozen-reviewed. Final production stays the central policy / organisation
+# workflow: no per-repository bespoke Android workflow survives qualification.
+#
+# Owner branch rules for the one qualification run:
+#   - derive the branch from the recorded current Android source head (never from the peer PR10 branch);
+#   - the branch changes only this one workflow file (.gitea/workflows/android-qualification.yaml) and nothing else;
+#   - the branch is created and the workflow dispatched by the owner after the runtime gates in rollout.md pass.
+# Manual only: no push or pull_request trigger, so nothing runs by accident and no fork event can reach the runner.
+name: android-qualification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-qualification-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  ci:
+    uses: self:KofTwentyTwo/platform-ci/.gitea/workflows/android.yaml@4a7f159b82727e93689799d93ee03288a36208ba
+    with:
+      runner: android-build
