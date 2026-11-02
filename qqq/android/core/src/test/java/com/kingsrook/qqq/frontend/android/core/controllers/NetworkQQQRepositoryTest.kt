@@ -141,6 +141,38 @@ class NetworkQQQRepositoryTest {
    }
 
    /*******************************************************************************
+    ** Cookie-bearing native mutations (session/process POSTs) carry the exact request origin, and a caller-supplied
+    ** additional header can neither add a different Origin nor remove the real one. Login (no cookie yet) carries it too.
+    *******************************************************************************/
+   @Test
+   fun cookieBearingPostsCarryTheExactRequestOriginEvenIfAdditionalHeadersTryToSetOne() = runBlocking()
+   {
+      MockWebServer().use { server ->
+         server.start()
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
+         server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("""{"type":"COMPLETE","processUUID":"process","nextStep":"result","values":{}}"""))
+         server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("{}"))
+         val origin = server.url("/").toString()
+         val repository = NetworkQQQRepository(origin, additionalHeaders = { mapOf("Origin" to "https://evil.example", "X-QQQ-Device-Id" to "test-device") })
+         repository.setEnvironment(Environment("test", origin))
+         repository.setSessionUUID("synthetic-session")
+         repository.processStep("edit", "process", "input", mapOf("a" to "b"), 1000)
+         repository.logout()
+         server.takeRequest()
+         // Forwarded debug servers may listen elsewhere (for example 8080): only the URL the client used matters.
+         val expected = "http://${server.hostName}:${server.port}"
+         listOf(server.takeRequest(), server.takeRequest()).forEach { request ->
+            assertEquals("POST", request.method)
+            assertEquals("sessionUUID=synthetic-session", request.getHeader("Cookie"))
+            assertEquals(expected, request.getHeader("Origin"))
+            assertEquals(1, request.headers.values("Origin").size)
+            assertEquals("http://" + request.getHeader("Host"), request.getHeader("Origin"))
+            assertEquals("test-device", request.getHeader("X-QQQ-Device-Id"))
+         }
+      }
+   }
+
+   /*******************************************************************************
     **
     *******************************************************************************/
    @Test

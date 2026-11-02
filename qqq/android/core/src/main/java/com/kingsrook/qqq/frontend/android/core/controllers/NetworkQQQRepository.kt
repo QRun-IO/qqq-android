@@ -106,6 +106,8 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
                   }
                   response
                }
+               // Last, so a caller-supplied additional header can never override the request's own origin.
+               .addInterceptor(SameOriginInterceptor())
                .build()
          )
          .baseUrl(baseUrl)

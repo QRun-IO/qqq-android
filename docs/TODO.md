@@ -1,7 +1,10 @@
 # TODO
 
+- [x] Verify native `Origin` compatibility:174 JVM tests, lint0errors0warnings and APK build pass; normal TC22 login/approval/heartbeat/Echo setup/printer-media choices/Cancel-Leave pass against the strict local Echo host through8080->57832, preserving data.
+
 - [x] Verify generic INTEGER Document choice/dependency clearing on actual TC22:7 stages,112 semantic requests,99 focused/host tests and8 Node guards; simulated printing, normal data preserved.
-- [ ] Complete actual owner printer pairing/current-media document publication and physical scan/print/rescan; publish qualified public artifacts after current CI, signing last.
+- [x] Connect the installed print client to the single local server and publish the actual Echo4x1 document through native QQQ processes.
+- [ ] Resolve the printing agent's reported4x6 media versus loaded4x1 stock and complete physical scan/print/rescan; qualify public artifacts/current CI, signing last.
 
 - [x] Add metadata-driven Echo acknowledgment/manual-entry hints with old defaults; 167 JVM tests, strict compilation, lint zero errors/warnings and debug build pass.
 - [ ] Qualify native Echo setup/scan/print-acceptance/leave with the actual owner adapters and independently decoded physical output; source tests are not physical printing evidence.

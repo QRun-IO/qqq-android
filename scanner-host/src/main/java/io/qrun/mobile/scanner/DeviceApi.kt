@@ -8,6 +8,7 @@ import com.kingsrook.qqq.frontend.android.core.controllers.ANDROID_CLIENT
 import android.os.Build
 import com.kingsrook.qqq.frontend.android.core.controllers.RequestOutcome
 import com.kingsrook.qqq.frontend.android.core.controllers.RequestOutcomeInterceptor
+import com.kingsrook.qqq.frontend.android.core.controllers.SameOriginInterceptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -33,7 +34,7 @@ class DeviceApi(
    var displayName: String = ""
       private set
    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
-      .addInterceptor(RequestOutcomeInterceptor(onRequestOutcome)).build()
+      .addInterceptor(RequestOutcomeInterceptor(onRequestOutcome)).addInterceptor(SameOriginInterceptor()).build()
 
    /*******************************************************************************
     ** Check enrollment on demand; approval remains a server-side decision.
