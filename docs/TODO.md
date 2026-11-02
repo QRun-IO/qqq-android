@@ -1,11 +1,13 @@
 # TODO
 
+- [x] Implement negotiated mobile1.5 raw-byte transport with immutable capture, same-server capability gating and byte-identical failed-request retry;185 JVM tests, lint0errors/0warnings, debug/E2E builds and QA test compilation pass.
+- [ ] Qualify new raw-byte delivery on TC22 and complete actual AIM extraction/decoder-profile checks. Current source leaves AIM absent and does not change hardware configuration; full Echo fidelity is still open.
 - [x] Verify native `Origin` compatibility:174 JVM tests, lint0errors0warnings and APK build pass; normal TC22 login/approval/heartbeat/Echo setup/printer-media choices/Cancel-Leave pass against the strict local Echo host through8080->57832, preserving data.
 
 - [x] Verify generic INTEGER Document choice/dependency clearing on actual TC22:7 stages,112 semantic requests,99 focused/host tests and8 Node guards; simulated printing, normal data preserved.
 - [x] Connect the installed print client to the single local server and publish the actual Echo4x1 document through native QQQ processes.
 - [x] Resolve the printing agent's earlier 4x6 media report versus loaded 4x1 stock: the Printing owner aligned 101600 x 25400 micron/300 dpi media and the TC22 selected the real printer, fresh 4x1 media and published document; Next succeeded.
-- [ ] Complete one physical Code128 (QQQ-TEST-123456) scan, print and rescan on the TC22, then leading-zero QR. No physical Echo print is proven yet (print jobs 0, latest read 0).
+- [ ] Complete one physical Code128 (QQQ-TEST-123456) scan, print and rescan on the TC22, then leading-zero QR. One separate synthetic HTTP Echo event reached the actual Windows spooler; physical paper and handheld print/rescan remain unconfirmed.
 - [ ] Qualify public coherent artifacts and primary Gitea CI; signing and distribution stay last by user decision. Core PR 1337 normal CI and publication are not established; do not repin default dependencies.
 
 - [x] Add metadata-driven Echo acknowledgment/manual-entry hints with old defaults; 167 JVM tests, strict compilation, lint zero errors/warnings and debug build pass.

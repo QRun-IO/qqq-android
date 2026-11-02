@@ -45,6 +45,11 @@ class UiApiCompatibility(
    private var verified: UiApiVersion? = null
 
    /*******************************************************************************
+    ** Non-blocking view of an already verified result; never performs discovery, so it is safe on the UI thread.
+    *******************************************************************************/
+   fun verifiedVersion(): UiApiVersion? = verified
+
+   /*******************************************************************************
     ** Call on an IO thread. Synchronization prevents competing startup requests bypassing discovery.
     *******************************************************************************/
    @Synchronized

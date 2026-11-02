@@ -41,7 +41,8 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalProcessInputAllowed
 @Composable
 internal fun ScannerWidget(
    parameters: WidgetBlockParameters, modifier: Modifier, disabled: Boolean,
-   driverFactory: (Context) -> ScannerDriver? = ::createScannerDriver
+   driverFactory: (Context) -> ScannerDriver? = ::createScannerDriver,
+   fidelityAvailable: () -> Boolean = { false }
 ) {
    val context = LocalContext.current
    val view = LocalView.current
@@ -82,7 +83,8 @@ internal fun ScannerWidget(
    /*******************************************************************************
     ** Each new physical scan has an identity; retries are handled by ProcessViewModel.
     *******************************************************************************/
-   fun submit(barcode: String, symbology: String, source: String): Boolean {
+   fun submit(capture: ScannerCapture, source: String): Boolean {
+      val barcode = capture.barcode
       if (process == null) {
          notice = "This scanner control requires an active process."
          return false
@@ -96,9 +98,10 @@ internal fun ScannerWidget(
          return false
       }
       notice = "Sending scan…"
-      val event = ScanEvent(barcode, symbology, source)
+      val event = ScanEvent(capture, source)
+      // Capability is read from cached verified discovery on the UI thread; it never triggers HTTP.
       process.runStep(
-         event.values(), ProcessAcknowledgment(
+         event.values(includeFidelity = fidelityAvailable()), ProcessAcknowledgment(
             "acknowledgedEventId", event.eventId,
             requiredValues = mapOf("scanSaved" to true), nonEmptyStringFields = setOf("scanId")
          )
@@ -111,12 +114,12 @@ internal fun ScannerWidget(
       return accepted
    }
 
-   val currentSubmit by rememberUpdatedState<(String, String, String) -> Boolean>(::submit)
+   val currentSubmit by rememberUpdatedState<(ScannerCapture, String) -> Boolean>(::submit)
    val input = remember(context, process, driverFactory)
    {
       ScannerInputSession(
          { driverFactory(context) },
-         { barcode, symbology -> currentSubmit(barcode, symbology, HARDWARE_SCAN_SOURCE) },
+         { capture -> currentSubmit(capture, HARDWARE_SCAN_SOURCE) },
          { message, reconnect -> scannerStatus = message; canReconnect = reconnect },
          canAcceptInput = { currentInputReady() })
    }
@@ -156,7 +159,7 @@ internal fun ScannerWidget(
          )
          Button(enabled = ready && manual.isNotEmpty(), onClick = {
             focusManager.clearFocus(); keyboard?.hide()
-            if (submit(manual, "MANUAL", "manual")) manual = ""
+            if (submit(ScannerCapture.manual(manual), "manual")) manual = ""
          }) { Text(scannerMetaData.submitLabel) }
       }
    }

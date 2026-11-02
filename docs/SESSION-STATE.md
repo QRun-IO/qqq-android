@@ -1,5 +1,7 @@
 ## November 2 — current checkpoint
 
+Source candidate: immutable `ScannerCapture` retains SDK raw bytes as canonical Base64 before the callback returns and routes them through the ordinary semantic process payload. New optional fields are sent only after same-server discovery advertises mobile-scanners >=1.5,<2; older servers still receive the five legacy keys. Barcode text and symbology remain unchanged, scan/capture string representations are redacted, and a failed-submit regression proves the entire event is resent unchanged. Verification passes 185 JVM tests (44 core, 56 mobileapp, 85 host), lint with zero errors/warnings (two existing informational hints), debug/E2E APK builds and QA Android-test compilation. New native tests and operator installation have not run. The SDK configuration is unchanged and AIM extraction is not implemented by this transport slice.
+
 Completed and verified:
 
 - Android source `fb3cc5d` is signed and published as Gitea PR 10. It passes 174 JVM tests (44 core, 55 mobileapp, 75 host), lint with zero errors and zero warnings, and the debug APK build.
@@ -11,7 +13,7 @@ Completed and verified:
 
 Not yet done:
 
-- No physical Echo print or rescan has been proven. Baseline print jobs were 0 and the latest read was 0. One physical scan of QQQ-TEST-123456 has been requested from the user.
+- No physical Echo print or rescan has been proven. One separate synthetic HTTP Echo event reached the actual Windows spooler; physical paper and handheld print/rescan remain unconfirmed. One physical scan of QQQ-TEST-123456 has been requested from the user.
 - Still open for 1.0: physical Code128 and leading-zero QR scan, print and rescan; full provider, camera, GPS, projection and device qualification; public coherent artifacts; primary Gitea CI; and final signing and distribution. Signing is deliberately last, by the user's decision. The first demo working does not collapse these requirements, and nothing here claims release readiness.
 - Core native API merge continuation PR 1337 (a42f9e5) was reviewed with no actionable conflict regression and its 57 focused tests were verified. Normal CI and publication are not established, and default dependencies are not repinned.
 

@@ -139,7 +139,7 @@ class ScannerOverlayTest {
        **
        *******************************************************************************/
       fun emit(value: String) {
-         pending = false; listener.scanned(value, "QRCODE"); listener.idle()
+         pending = false; listener.scanned(ScannerCapture.of(value, "QRCODE")); listener.idle()
       }
    }
 

@@ -419,6 +419,37 @@ class ProcessSubmissionTest {
    }
 
    /*******************************************************************************
+    ** The optional fidelity keys are ordinary undeclared event values; a lost response must resend all of them.
+    *******************************************************************************/
+   @Test
+   fun failedScanSubmissionResendsTheSameEntireEventMapIncludingFidelityValues() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try {
+         val repository = SubmissionRepository().apply { stepFailures = 1 }
+         val model = model(repository)
+         model.doInit()
+         advanceUntilIdle()
+         val event = mapOf(
+            "barcode" to "000123", "symbology" to "LABEL-TYPE-QRCODE", "scanSource" to "zebra-emdk",
+            "eventId" to "scan-1", "capturedAt" to "2026-01-01T00:00:00Z",
+            "aimIdentifier" to "]Q1", "rawDataBase64" to "AAECAw=="
+         )
+         model.runStep(event, ProcessAcknowledgment("acknowledgedEventId", "scan-1"))
+         advanceUntilIdle()
+         assertTrue(model.unconfirmedSubmission)
+         assertEquals(event, model.pendingStepValues)
+         repository.responseValues = mapOf("acknowledgedEventId" to "scan-1")
+         model.retryPendingStep()
+         advanceUntilIdle()
+         assertEquals(listOf(event, event), repository.submissions)
+         assertNull(model.pendingStepValues)
+      } finally {
+         Dispatchers.resetMain()
+      }
+   }
+
+   /*******************************************************************************
     **
     *******************************************************************************/
    @Test

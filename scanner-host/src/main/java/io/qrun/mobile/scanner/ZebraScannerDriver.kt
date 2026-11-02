@@ -30,18 +30,24 @@ internal class ZebraScannerDriver(private val context: Context) : ScannerDriver 
    private var opening = false
    private var ownsClaim = false
    private val dataListener = Scanner.DataListener { collection ->
+      // Copy SDK-owned data now; the collection must not be read after this callback returns. AIM is never
+      // inferred here: it stays absent until a qualified driver obtains it from an explicit source.
+      val scans = collection?.scanData
+      var capture: ScannerCapture? = null
+      var multiple = false
+      if (collection?.result == com.symbol.emdk.barcode.ScannerResults.SUCCESS && !scans.isNullOrEmpty()) {
+         if (scans.size != 1) multiple = true
+         else {
+            val scan = scans.single()
+            val barcode = scan?.data
+            if (!barcode.isNullOrEmpty())
+               capture = ScannerCapture.of(barcode, scan.labelType?.toString() ?: "UNKNOWN", scan.rawData)
+         }
+      }
+      val delivered = capture
       main.post {
          if (!closed) {
-            val scans = collection?.scanData
-            if (collection?.result != com.symbol.emdk.barcode.ScannerResults.SUCCESS || scans.isNullOrEmpty())
-               listener?.noData(false)
-            else if (scans.size != 1) listener?.noData(true)
-            else {
-               val scan = scans.single()
-               val barcode = scan?.data
-               if (barcode.isNullOrEmpty()) listener?.noData(false)
-               else listener?.scanned(barcode, scan.labelType?.toString() ?: "UNKNOWN")
-            }
+            if (delivered != null) listener?.scanned(delivered) else listener?.noData(multiple)
          }
       }
    }

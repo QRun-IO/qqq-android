@@ -281,7 +281,10 @@ class ScannerActivity : ComponentActivity() {
          },
          LocalCustomWidgetRenderer provides { parameters, modifier, disabled ->
             if (parameters.widgetBlock.blockType == "SCANNER") {
-               ScannerWidget(parameters, modifier, disabled)
+               ScannerWidget(
+                  parameters, modifier, disabled,
+                  fidelityAvailable = { ScanFidelityCapability.available(server, compatibility.server, compatibility.verifiedVersion()) }
+               )
                true
             } else if (parameters.widgetBlock.blockType == "RECORD_FILES_CAPTURE") {
                RecordPhotoWidget(parameters, recordFiles, modifier, disabled)

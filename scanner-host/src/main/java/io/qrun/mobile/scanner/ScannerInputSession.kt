@@ -17,7 +17,7 @@ internal interface ScannerDriver {
       /*******************************************************************************
        ** Preserve raw barcode data and reject callbacks after ownership, readiness or generation changes.
        *******************************************************************************/
-      fun scanned(barcode: String, symbology: String)
+      fun scanned(capture: ScannerCapture)
 
       /*******************************************************************************
        ** Distinguish ordinary empty reads from rejected multi-barcode reads without fabricating a scan.
@@ -61,7 +61,7 @@ internal interface ScannerDriver {
  *******************************************************************************/
 internal class ScannerInputSession(
    private val createDriver: () -> ScannerDriver?,
-   private val onScan: (String, String) -> Unit,
+   private val onScan: (ScannerCapture) -> Unit,
    private val onStatus: (String, Boolean) -> Unit,
    private val canAcceptInput: () -> Boolean = { true },
 ) {
@@ -122,13 +122,13 @@ internal class ScannerInputSession(
             /*******************************************************************************
              ** Preserve raw barcode data and reject callbacks after ownership, readiness or generation changes.
              *******************************************************************************/
-            override fun scanned(barcode: String, symbology: String) {
+            override fun scanned(capture: ScannerCapture) {
                if (!isCurrent() || !accepting || !armed || !canAcceptInput()) return
                armed = false
                accepting = false
                readNotice = null
                onStatus("Waiting for scan confirmation…", false)
-               onScan(barcode, symbology)
+               onScan(capture)
                // IDLE may precede data. Stop any read armed in that interval before accepting more input.
                try {
                   if (driver === current && current.isReadPending()) current.cancelRead()

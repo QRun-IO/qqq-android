@@ -25,7 +25,7 @@ internal fun createScannerDriver(context: Context): ScannerDriver = object : Sca
          val data = intent.getStringExtra("com.symbol.datawedge.data_string") ?: return
          if (intent.getStringExtra("com.symbol.datawedge.decode_mode") == "multiple" || intent.hasExtra("com.symbol.datawedge.barcodes")) return
          pending = false
-         listener?.scanned(data, intent.getStringExtra("com.symbol.datawedge.label_type") ?: "UNKNOWN")
+         listener?.scanned(ScannerCapture.of(data, intent.getStringExtra("com.symbol.datawedge.label_type") ?: "UNKNOWN"))
          listener?.idle()
       }
    }
