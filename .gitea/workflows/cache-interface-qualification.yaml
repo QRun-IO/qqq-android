@@ -1,0 +1,103 @@
+name: Cache roundtrip fixture
+# Manual proof of the builtin runner cache plus the HTTPS artifact path.
+# Synthetic public data only. Requires the exact upstream actions/cache v4.2.3
+# (5a3ec84eff668545956fd18022155c47e93e2684), using the reviewed public upstream refs.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  HOME: /tmp
+  MARKER_DIR: /tmp/.m2/repository/kof-cache-roundtrip
+  MARKER_FILE: /tmp/.m2/repository/kof-cache-roundtrip/marker.txt
+  ARTIFACT_DIR: /tmp/cache-roundtrip/artifact
+  DOWNLOAD_DIR: /tmp/cache-roundtrip/downloaded
+  CACHE_KEY: kof-cache-roundtrip-${{ github.run_id }}-${{ github.run_attempt }}
+jobs:
+  save:
+    runs-on: android-build
+    timeout-minutes: 15
+    container:
+      image: git.kof22.com/koftwentytwo/ci-android-runtime@sha256:838a1a494794a7c0705930e9a13d744498c6e01dc481a29bdda5ecae85f1a466
+      options: --init --shm-size=256m --volume /var/lib/gitea-job-workspace:${{ github.workspace }}
+    outputs:
+      marker-sha256: ${{ steps.marker.outputs.sha256 }}
+    steps:
+      - name: Install the pinned action runtime without root
+        run: |
+          set -eu
+          mkdir -p /tmp/java-actions-node
+          curl -fsSL https://nodejs.org/dist/v22.20.0/node-v22.20.0-linux-x64.tar.gz -o /tmp/java-actions-node/node.tar.gz
+          printf '%s\n' 'eeaccb0378b79406f2208e8b37a62479c70595e20be6b659125eb77dd1ab2a29  /tmp/java-actions-node/node.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/java-actions-node/node.tar.gz -C /tmp/java-actions-node --strip-components=1
+          echo /tmp/java-actions-node/bin >> "$GITHUB_PATH"
+      - name: Create the synthetic public marker and artifact
+        id: marker
+        run: |
+          set -eu
+          rm -rf "$MARKER_DIR" /tmp/cache-roundtrip
+          mkdir -p "$MARKER_DIR" "$ARTIFACT_DIR"
+          printf 'synthetic public cache marker %s\n' "$CACHE_KEY" > "$MARKER_FILE"
+          printf 'synthetic public artifact marker %s\n' "$CACHE_KEY" > "$ARTIFACT_DIR/artifact.txt"
+          echo "sha256=$(sha256sum "$MARKER_FILE" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          sha256sum "$MARKER_FILE" "$ARTIFACT_DIR/artifact.txt"
+      - name: Save the cache entry
+        uses: https://github.com/actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: /tmp/.m2/repository/kof-cache-roundtrip
+          key: ${{ env.CACHE_KEY }}
+      - name: Upload the artifact
+        uses: self:KofTwentyTwo/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cache-roundtrip-artifact
+          path: /tmp/cache-roundtrip/artifact/artifact.txt
+          if-no-files-found: error
+          retention-days: 1
+  restore:
+    needs: save
+    runs-on: android-build
+    timeout-minutes: 15
+    container:
+      image: git.kof22.com/koftwentytwo/ci-android-runtime@sha256:838a1a494794a7c0705930e9a13d744498c6e01dc481a29bdda5ecae85f1a466
+      options: --init --shm-size=256m --volume /var/lib/gitea-job-workspace:${{ github.workspace }}
+    steps:
+      - name: Install the pinned action runtime without root
+        run: |
+          set -eu
+          mkdir -p /tmp/java-actions-node
+          curl -fsSL https://nodejs.org/dist/v22.20.0/node-v22.20.0-linux-x64.tar.gz -o /tmp/java-actions-node/node.tar.gz
+          printf '%s\n' 'eeaccb0378b79406f2208e8b37a62479c70595e20be6b659125eb77dd1ab2a29  /tmp/java-actions-node/node.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/java-actions-node/node.tar.gz -C /tmp/java-actions-node --strip-components=1
+          echo /tmp/java-actions-node/bin >> "$GITHUB_PATH"
+      - name: Start from a clean path
+        run: |
+          set -eu
+          rm -rf "$MARKER_DIR" /tmp/cache-roundtrip
+          mkdir -p "$DOWNLOAD_DIR"
+      - name: Restore the cache entry
+        id: restore
+        uses: https://github.com/actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: /tmp/.m2/repository/kof-cache-roundtrip
+          key: ${{ env.CACHE_KEY }}
+          fail-on-cache-miss: true
+      - name: Assert exact cache hit and marker checksum
+        env:
+          CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+          EXPECTED_SHA256: ${{ needs.save.outputs.marker-sha256 }}
+        run: |
+          set -eu
+          [ "$CACHE_HIT" = 'true' ] || { echo "cache-hit was '$CACHE_HIT', expected true"; exit 1; }
+          [ -n "$EXPECTED_SHA256" ] || { echo 'missing expected checksum'; exit 1; }
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$MARKER_FILE" | sha256sum -c -
+      - name: Download the artifact
+        uses: self:KofTwentyTwo/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: cache-roundtrip-artifact
+          path: /tmp/cache-roundtrip/downloaded
+      - name: Assert artifact content
+        run: |
+          set -eu
+          expected="synthetic public artifact marker $CACHE_KEY"
+          [ "$(cat "$DOWNLOAD_DIR/artifact.txt")" = "$expected" ] || { echo 'artifact content mismatch'; exit 1; }
+          sha256sum "$DOWNLOAD_DIR/artifact.txt"
