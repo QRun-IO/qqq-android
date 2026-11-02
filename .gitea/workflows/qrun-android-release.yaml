@@ -1,0 +1,13 @@
+name: QRun Android lifecycle
+'on':
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  release:
+    uses: self:KofTwentyTwo/platform-ci/.gitea/workflows/android.yaml@qrun-release-v1
+    with:
+      runner: android-build
