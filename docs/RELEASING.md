@@ -1,12 +1,12 @@
 # Scanner APK releases
 
-Status: release automation is prepared, but the signing identity, complete native acceptance, final security review and first release are not yet qualified. Current installed demo APKs use a development certificate. Do not label them production releases.
+Status: **no distribution channel is selected.** Everything below describes a candidate GitHub-based APK workflow that is prepared but not chosen; the primary forge is Gitea (`git.kof22.com/QRun-IO`) and GitHub is a shadow/archive, so treat the GitHub environment, tag and release steps as design notes to be re-decided, not instructions to follow now. The signing identity, complete native acceptance, final security review and first release are not yet qualified. Current installed demo APKs use a development certificate. Do not label them production releases.
 
 The [November 1 independent automation review](RELEASE-AUTOMATION-REVIEW.md) found no actionable finding in the exact reviewed workflow/build files. External GitHub protections, the production identity and actual signed-device acceptance remain unverified.
 
 Owner decision, October 31: leave signing and distribution until the final step because the distribution channel has not been chosen. Do not generate signing keys, populate production signing secrets, create release tags or treat the candidate GitHub APK workflow as a selected distribution channel. Complete implementation, audits, tests, documentation and ordinary CI first; then return to the owner for the distribution decision.
 
-The shared library keeps its existing main-only CircleCI publication. The scanner application uses a separate `scanner-v<semantic-version>` tag and GitHub release. One APK serves customers through the selected server's runtime branding. The application ID and launcher identity remain `io.qrun.mobile.scanner` / QQQ Mobile.
+The shared library keeps its existing main-only CircleCI publication. The candidate scanner workflow uses a separate `scanner-v<semantic-version>` tag and GitHub release (not selected). One APK serves customers through the selected server's runtime branding. The application ID and launcher identity remain `io.qrun.mobile.scanner` / QQQ Mobile.
 
 ## Release prerequisites
 
@@ -40,4 +40,4 @@ Android accepts an in-place application update only with a compatible signing id
 
 For Zebra devices, qualify the device-provided EMDK scanner path described in [Zebra scanning](ZEBRA-SCANNING.md). Production must exclude the synthetic scan receiver and compile-only SDK implementation. Verify actual trigger capture, repeated and empty reads, rotation/reacquisition, background/leave/logout release, and restoration of scanner ownership to other applications. The production path requires no DataWedge profile changes; do not persistently disable DataWedge or treat its recipient signature check as sender authentication. Complete the separately signed ordinary-UID broadcast rejection test against the isolated production-path QA build, then qualify Back/Apps navigation, session termination, reconnect behavior and photo capture using the actual signed release APK. Subsequent customer updates should preserve server selection and device enrollment and keep the same signing identity. Customer branding comes from server metadata and does not require rebuilding the APK.
 
-GitHub APK delivery supports manual or MDM distribution. Play distribution, managed enterprise rollout, signing-key rotation and a production backend deployment need their own qualified configuration; this workflow does not claim to establish them.
+If a delivery path is later chosen, an APK from it could support manual or MDM distribution. Play distribution, managed enterprise rollout, signing-key rotation and a production backend deployment need their own qualified configuration; this workflow does not claim to establish them.
