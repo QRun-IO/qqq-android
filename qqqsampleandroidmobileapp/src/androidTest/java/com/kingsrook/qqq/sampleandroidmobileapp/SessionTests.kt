@@ -1,22 +1,22 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -48,11 +48,10 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Rule
 import org.junit.Test
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-class SessionTests : BaseTest()
-{
+ *******************************************************************************/
+class SessionTests : BaseTest() {
    @get:Rule
    val composeTestRule = createComposeRule()
 
@@ -60,12 +59,11 @@ class SessionTests : BaseTest()
    private val fullName = "John Doe Test"
    private val envLabel = "Some Stored Env"
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testLogin()
-   {
+   fun testLogin() {
       TestUtils.startStandardTest(composeTestRule)
       TestUtils.login(composeTestRule)
 
@@ -74,12 +72,11 @@ class SessionTests : BaseTest()
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testValuesFromDataStore()
-   {
+   fun testValuesFromDataStore() {
       val dataStore = makeMockPreferencesDataStoreWithValues()
       val qViewModel = QViewModel(SampleAppMockQQQRepository(), dataStore)
       qViewModel.setNavController(null)
@@ -99,22 +96,23 @@ class SessionTests : BaseTest()
          .onNodeWithText("Current User:  ${fullName}")
          .assertIsDisplayed()
 
+      assertEquals(envLabel, qViewModel.environment.label)
       composeTestRule
-         .onNodeWithText(envLabel)
-         .assertIsDisplayed()
-      composeTestRule
-         .onNodeWithText("Dismiss")
+         .onNodeWithText("Close")
          .performClick()
+      composeTestRule.onNodeWithTag("topBar.menuIcon").performClick()
+      composeTestRule.onNodeWithTag("drawer.settings").performClick()
+      composeTestRule.onNodeWithText("Server: ${qViewModel.environment.baseUrl}").assertIsDisplayed()
+      composeTestRule.onNodeWithText("Close").performClick()
 
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testExpiredSessionFromDataStore()
-   {
+   fun testExpiredSessionFromDataStore() {
       val failureUUID = "please-fail"
       val dataStore = makeMockPreferencesDataStoreWithValues()
       (dataStore.preferences as MutablePreferences)[SESSION_UUID_KEY] = failureUUID
@@ -138,21 +136,15 @@ class SessionTests : BaseTest()
       assertNotEquals(failureUUID, qViewModel.sessionUUID)
 
       assertNotEquals(failureUUID, dataStore.preferences[SESSION_UUID_KEY])
-      // in case the above ever fails, it probably means race condition, so this instead
-      // composeTestRule.waitUntil(condition =
-      // {
-      //    failureUUID != dataStore.preferences[SESSION_UUID_KEY]
-      // })
 
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testUserInfoDialogAndLogout()
-   {
+   fun testUserInfoDialogAndLogout() {
       TestUtils.startStandardTest(composeTestRule)
 
       openUserDialog()
@@ -162,13 +154,13 @@ class SessionTests : BaseTest()
          .assertIsDisplayed()
 
       composeTestRule
-         .onNode(hasAnyAncestor(isDialog()) and hasText("Log Out"))
+         .onNode(hasAnyAncestor(isDialog()) and hasText("Sign out"))
          .assertIsDisplayed()
          .performClick()
          .assertIsNotEnabled()
 
       composeTestRule
-         .onNode(hasAnyAncestor(isDialog()) and hasText("Dismiss"))
+         .onNode(hasAnyAncestor(isDialog()) and hasText("Close"))
          .assertIsDisplayed()
          .performClick()
 
@@ -181,12 +173,18 @@ class SessionTests : BaseTest()
          .assertIsDisplayed()
 
       composeTestRule
-         .onNode(hasAnyAncestor(isDialog()) and hasText("Log Out"))
+         .onNode(hasAnyAncestor(isDialog()) and hasText("Sign out"))
          .assertIsEnabled()
          .performClick()
 
+      composeTestRule.onNodeWithText("Stay").performClick()
+      assertEquals(true, TestUtils.qViewModel.isAuthenticated)
+      openUserDialog()
+      composeTestRule.onNode(hasAnyAncestor(isDialog()) and hasText("Sign out")).performClick()
+      composeTestRule.onNode(hasAnyAncestor(isDialog()) and hasText("Sign out")).performClick()
+
       composeTestRule
-         .onNodeWithText("Logout Successful.")
+         .onNodeWithText("Signed out.")
          .assertIsDisplayed()
 
       composeTestRule
@@ -200,16 +198,16 @@ class SessionTests : BaseTest()
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Test
-   fun testEnvironmentDialogAndSwitch()
-   {
+   fun testEnvironmentDialogAndSwitch() {
       TestUtils.startStandardTest(composeTestRule)
       TestUtils.login(composeTestRule)
 
-      openUserDialog()
+      composeTestRule.onNodeWithTag("topBar.menuIcon").performClick()
+      composeTestRule.onNodeWithTag("drawer.settings").performClick()
 
       composeTestRule
          .onNodeWithText("Test Env 1")
@@ -226,6 +224,8 @@ class SessionTests : BaseTest()
          .assertIsDisplayed()
          .performClick()
 
+      composeTestRule.onNodeWithText("Change server", substring = false).performClick()
+
       TestUtils.login(composeTestRule)
 
       ////////////////////////////////////////////////////////
@@ -236,11 +236,10 @@ class SessionTests : BaseTest()
       atEndLocalDebugSleep()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   private fun makeMockPreferencesDataStoreWithValues(): MockPreferencesDataStore
-   {
+    *******************************************************************************/
+   private fun makeMockPreferencesDataStoreWithValues(): MockPreferencesDataStore {
       val dataStore = MockPreferencesDataStore()
       dataStore.preferences = preferencesOf(
          SESSION_UUID_KEY to knownUUID,
@@ -252,42 +251,39 @@ class SessionTests : BaseTest()
       return dataStore
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   private fun openUserDialog()
-   {
+    *******************************************************************************/
+   private fun openUserDialog() {
       composeTestRule
-         .onNodeWithTag("topBar.menuIcon", true)
+         .onNodeWithTag("topBar.accountIcon", true)
          .assertIsDisplayed()
          .assertHasClickAction()
          .performClick()
 
       composeTestRule
-         .onNodeWithTag("menuDialog.title")
+         .onNodeWithTag("accountDialog.title")
          .assertIsDisplayed()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   private fun assertHomePageIsDisplayed(pageTitle: String = "Test App", anAppLabelOnPage: String = "App 1")
-   {
+    *******************************************************************************/
+   private fun assertHomePageIsDisplayed(pageTitle: String = "Apps", anAppLabelOnPage: String = "App 1") {
       composeTestRule
          .onNodeWithTag("topAppBar.title")
          .assertTextContains(pageTitle)
          .assertIsDisplayed()
 
       composeTestRule
-         .onNodeWithText(anAppLabelOnPage)
+         .onNodeWithTag("appHome.rowForApp:" + if (anAppLabelOnPage == "App 3") "app3" else "app1")
          .assertIsDisplayed()
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   private fun atEndLocalDebugSleep()
-   {
+    *******************************************************************************/
+   private fun atEndLocalDebugSleep() {
       TestUtils.localDebugSleep(composeTestRule, 0)
    }
 

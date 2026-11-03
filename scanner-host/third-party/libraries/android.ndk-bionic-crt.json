@@ -1,0 +1,11 @@
+{
+  "name": "Android NDK Bionic startup support",
+  "artifactVersion": "25.2.9519653",
+  "licenses": [
+    "Android-NDK-Bionic-CRT"
+  ],
+  "website": "https://android.googlesource.com/toolchain/prebuilts/ndk/r25/+/1622e087e1b881a0c7c744091d314662d12f0997/",
+  "description": "Embedded startup/termination and Android identification objects in the bundled AndroidX native libraries.",
+  "developers": [],
+  "uniqueId": "android.ndk:bionic-crt"
+}

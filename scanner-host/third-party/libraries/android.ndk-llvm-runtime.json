@@ -1,0 +1,11 @@
+{
+  "name": "Android NDK LLVM runtime and C++ headers",
+  "artifactVersion": "25.2.9519653",
+  "licenses": [
+    "Android-NDK-LLVM-Runtime"
+  ],
+  "website": "https://android.googlesource.com/toolchain/llvm-project/+/4c603efb0cca074e9238af8b4106c30add4418f6/",
+  "description": "Compiler runtime and C++ header notices for the bundled AndroidX native objects, including full upstream retained terms.",
+  "developers": [],
+  "uniqueId": "android.ndk:llvm-runtime"
+}

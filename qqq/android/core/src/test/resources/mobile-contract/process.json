@@ -1,0 +1,1 @@
+{"frontendSteps":[{"name":"scan","format":"scanner","label":"Scan a barcode","components":[{"type":"WIDGET","values":{"widgetName":"mobileScanner"}}]}],"name":"mobileScanCapture","label":"Scan Capture","stepFlow":"LINEAR","durableJobEligible":false,"durableJobAlways":false,"isHidden":false,"hasPermission":true}

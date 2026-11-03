@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+/.e2e-server/
+/.e2e-core/
+*.jks
+*.keystore

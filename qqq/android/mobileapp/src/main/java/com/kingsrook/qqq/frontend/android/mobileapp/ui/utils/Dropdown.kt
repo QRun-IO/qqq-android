@@ -1,22 +1,22 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -49,19 +49,17 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 
 
-/***************************************************************************
- **
- ***************************************************************************/
+/*******************************************************************************
+ *******************************************************************************/
 @Composable
-fun <T> Dropdown(value: T, options: List<T>, labelExtractor: (t: T) -> String, onClick: (t: T) -> Unit, modifier: Modifier = Modifier)
-{
+fun <T> Dropdown(value: T, options: List<T>, labelExtractor: (t: T) -> String, onClick: (t: T) -> Unit, modifier: Modifier = Modifier) {
    val dropdownExpanded = remember { mutableStateOf(false) }
    val textFieldSize = remember { mutableStateOf(IntSize.Zero) }
    val selectedValue = remember { mutableStateOf(value) }
-   val icon = if(dropdownExpanded.value) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
+   val icon = if (dropdownExpanded.value) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
 
    Box(
-      Modifier
+      modifier
          .fillMaxWidth()
          .clickable { dropdownExpanded.value = !dropdownExpanded.value }
    ) {
@@ -75,7 +73,7 @@ fun <T> Dropdown(value: T, options: List<T>, labelExtractor: (t: T) -> String, o
       )
       {
          Text(text = labelExtractor.invoke(selectedValue.value))
-         Icon(icon, if(dropdownExpanded.value) "close" else "open")
+         Icon(icon, if (dropdownExpanded.value) "close" else "open")
       }
 
       DropdownMenu(
@@ -88,11 +86,11 @@ fun <T> Dropdown(value: T, options: List<T>, labelExtractor: (t: T) -> String, o
          { option ->
             DropdownMenuItem(
                onClick =
-               {
-                  selectedValue.value = option
-                  dropdownExpanded.value = false
-                  onClick.invoke(option)
-               },
+                  {
+                     selectedValue.value = option
+                     dropdownExpanded.value = false
+                     onClick.invoke(option)
+                  },
                text = { Text(text = labelExtractor.invoke(option)) }
             )
          }

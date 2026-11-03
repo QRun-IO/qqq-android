@@ -1,22 +1,22 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * QQQ - Low-code Application Framework for Engineers.
  * Copyright (C) 2004-2024.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -40,11 +40,10 @@ import com.kingsrook.qqq.frontend.android.core.model.processes.QJobComplete
 import com.kingsrook.qqq.frontend.android.core.model.processes.QJobStarted
 import java.util.UUID
 
-/***************************************************************************
+/*******************************************************************************
  **
- ***************************************************************************/
-class SampleAppMockQQQRepository : QQQRepository
-{
+ *******************************************************************************/
+class SampleAppMockQQQRepository : QQQRepository {
    private var sessionUUID: String? = null
    private var environment: Environment = Environment("Mock Env", "https://mock/")
 
@@ -60,51 +59,44 @@ class SampleAppMockQQQRepository : QQQRepository
       "process1" to QProcessMetaData(name = "process1", label = "Process 1")
    )
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override fun setEnvironment(environment: Environment)
-   {
+    *******************************************************************************/
+   override fun setEnvironment(environment: Environment) {
       this.environment = environment
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override fun setSessionUUID(sessionUUID: String)
-   {
+    *******************************************************************************/
+   override fun setSessionUUID(sessionUUID: String) {
       this.sessionUUID = sessionUUID
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override suspend fun getAuthenticationMetaData(): BaseAuthenticationMetaData
-   {
+    *******************************************************************************/
+   override suspend fun getAuthenticationMetaData(): BaseAuthenticationMetaData {
       return (FullyAnonymousAuthenticationMetaData("FULLY_ANONYMOUS"))
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse
-   {
+    *******************************************************************************/
+   override suspend fun manageSession(body: ManageSessionRequest): ManageSessionResponse {
       return ManageSessionResponse(UUID.randomUUID().toString())
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override suspend fun getMetaData(frontendName: String, frontendVersion: String, applicationName: String, applicationVersion: String): QInstance
-   {
-      if((sessionUUID ?: "").lowercase().contains("fail"))
-      {
+    *******************************************************************************/
+   override suspend fun getMetaData(frontendName: String, frontendVersion: String, applicationName: String, applicationVersion: String): QInstance {
+      if ((sessionUUID ?: "").lowercase().contains("fail")) {
          throw RuntimeException("sessionUUID indicates that we should fail")
       }
 
       var appName = "Mock Application"
-      if(environment.label == "Test Env 2")
-      {
+      if (environment.label == "Test Env 2") {
          appName += " 2"
       }
 
@@ -120,64 +112,57 @@ class SampleAppMockQQQRepository : QQQRepository
 
       return QInstance(
          branding = QBrandingMetaData(appName = appName),
-         appTree = if(environment.label == "Test Env 2") env2AppTree else env1AppTree,
+         appTree = if (environment.label == "Test Env 2") env2AppTree else env1AppTree,
          apps = appMap,
          processes = processMap
       )
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override suspend fun getProcessMetaData(processName: String): QProcessMetaData
-   {
+    *******************************************************************************/
+   override suspend fun getProcessMetaData(processName: String): QProcessMetaData {
       val processMetaData = processMap[processName]
-      if(processMetaData != null)
-      {
+      if (processMetaData != null) {
          return processMetaData
       }
 
       return QProcessMetaData(name = processName, label = processName)
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?): ProcessStepResult
-   {
+    *******************************************************************************/
+   override suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String?, recordIds: String?, filterJSON: String?, stepTimeoutMillis: Int?): ProcessStepResult {
       return QJobComplete(UUID.randomUUID().toString(), emptyMap(), "step2")
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): ProcessStepResult
-   {
-      // return QJobComplete(UUID.randomUUID().toString(), emptyMap(), "step2")
+    *******************************************************************************/
+   override suspend fun processStep(processName: String, processUUID: String, stepName: String, values: Map<String, Any?>, stepTimeoutMillis: Int?): ProcessStepResult {
       return QJobStarted(UUID.randomUUID().toString(), UUID.randomUUID().toString())
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult
-   {
+    *******************************************************************************/
+   override suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult {
       return QJobComplete(UUID.randomUUID().toString(), emptyMap(), "step2")
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override suspend fun resource(path: String): ByteArray?
-   {
-      return (null)
+    *******************************************************************************/
+   override suspend fun processCancel(processName: String, processUUID: String) {
    }
 
-   /***************************************************************************
+   /*******************************************************************************
     **
-    ***************************************************************************/
-   override fun getURI(path: String): String
-   {
-      TODO("Not yet implemented")
+    *******************************************************************************/
+   override fun getURI(path: String): String {
+      val uri = java.net.URI(environment.baseUrl).resolve(path)
+      require(uri.scheme in setOf("https", "http") && uri.userInfo == null && uri.host != null) { "Unsupported media URL" }
+      return uri.toASCIIString()
    }
 }

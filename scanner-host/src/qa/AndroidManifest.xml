@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+   <!-- Isolated production-path acceptance, never the operator's normal package. -->
+   <queries><package android:name="io.qrun.mobile.scanner.probe" /></queries>
+   <application android:usesCleartextTraffic="true" android:label="QQQ Mobile QA"
+      tools:replace="android:usesCleartextTraffic,android:label">
+      <!-- Empty host for isolated production-widget instrumentation; not externally launchable. -->
+      <activity android:name="androidx.activity.ComponentActivity" android:exported="false" />
+   </application>
+</manifest>

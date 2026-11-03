@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 -->
+<!-- E2E package only. Keeps the existing cleartext 127.0.0.1 fixture traffic and system trust everywhere, and lets
+     ONLY the literal host "localhost" additionally trust a user-installed (temporary, user-approved) test CA.
+     localhost is HTTPS-only. Debug, qa and release builds never see this file. No certificate is pinned or bypassed. -->
+<network-security-config>
+   <base-config cleartextTrafficPermitted="true">
+      <trust-anchors>
+         <certificates src="system" />
+      </trust-anchors>
+   </base-config>
+   <domain-config cleartextTrafficPermitted="false">
+      <domain includeSubdomains="false">localhost</domain>
+      <trust-anchors>
+         <certificates src="system" />
+         <certificates src="user" />
+      </trust-anchors>
+   </domain-config>
+</network-security-config>

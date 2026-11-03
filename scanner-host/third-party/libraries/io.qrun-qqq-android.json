@@ -1,0 +1,12 @@
+{
+  "uniqueId": "io.qrun:qqq-android",
+  "tag": "bundled",
+  "website": "https://github.com/QRun-IO/qqq-android",
+  "artifactVersion": "source distribution",
+  "licenses": [
+    "QQQ-Android"
+  ],
+  "description": "Project notices, trademarks, and Apache License 2.0.",
+  "developers": [],
+  "name": "QQQ Android project notices"
+}

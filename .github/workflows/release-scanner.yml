@@ -1,0 +1,138 @@
+name: Release scanner APK
+
+on:
+  push:
+    tags: ['scanner-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scanner-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    uses: ./.github/workflows/scanner.yml
+
+  package:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: scanner-release
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require main ancestry and a strictly newer Android version
+        id: release-version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SCANNER_VERSION_CODE: ${{ vars.SCANNER_VERSION_CODE }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main
+          [[ "$SCANNER_VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ ]] || exit 1
+          (( SCANNER_VERSION_CODE <= 2100000000 )) || exit 1
+          gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+            --jq '.[] | select(.draft == false) | select(.tag_name | startswith("scanner-v")) | .tag_name' > "$RUNNER_TEMP/scanner-prior-tags.txt"
+          while IFS= read -r tag; do
+            [[ "$tag" =~ ^scanner-v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || exit 1
+            prior_directory=$(mktemp -d "$RUNNER_TEMP/scanner-prior.XXXXXX")
+            gh release download "$tag" --pattern BUILD.txt --dir "$prior_directory"
+            previous=$(sed -n 's/^Version code: //p' "$prior_directory/BUILD.txt")
+            [[ "$previous" =~ ^[1-9][0-9]{0,9}$ ]] || exit 1
+            (( SCANNER_VERSION_CODE > previous )) || { echo 'Version code must exceed every published scanner release'; exit 1; }
+          done < "$RUNNER_TEMP/scanner-prior-tags.txt"
+          printf 'code=%s\n' "$SCANNER_VERSION_CODE" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: Install Android SDK packages
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;34.0.0" "build-tools;35.0.0" "platform-tools"
+      - name: Build and verify signed release
+        env:
+          SCANNER_KEYSTORE_BASE64: ${{ secrets.SCANNER_KEYSTORE_BASE64 }}
+          SCANNER_STORE_PASSWORD: ${{ secrets.SCANNER_STORE_PASSWORD }}
+          SCANNER_KEY_ALIAS: ${{ secrets.SCANNER_KEY_ALIAS }}
+          SCANNER_KEY_PASSWORD: ${{ secrets.SCANNER_KEY_PASSWORD }}
+          SCANNER_CERTIFICATE_SHA256: ${{ vars.SCANNER_CERTIFICATE_SHA256 }}
+          SCANNER_VERSION_CODE: ${{ steps.release-version.outputs.code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          version="${GITHUB_REF_NAME#scanner-v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || exit 1
+          [[ "$SCANNER_VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ ]] || exit 1
+          (( SCANNER_VERSION_CODE <= 2100000000 )) || exit 1
+          [[ "$SCANNER_CERTIFICATE_SHA256" =~ ^[A-Fa-f0-9]{64}$ ]] || exit 1
+          for name in SCANNER_KEYSTORE_BASE64 SCANNER_STORE_PASSWORD SCANNER_KEY_ALIAS SCANNER_KEY_PASSWORD; do
+            [[ -n "${!name}" ]] || { echo "Missing release signing configuration: $name"; exit 1; }
+          done
+          export SCANNER_KEYSTORE="$RUNNER_TEMP/scanner-release.jks"
+          trap 'rm -f -- "$SCANNER_KEYSTORE"' EXIT
+          printf '%s' "$SCANNER_KEYSTORE_BASE64" | base64 --decode > "$SCANNER_KEYSTORE"
+          unset SCANNER_KEYSTORE_BASE64
+          ./gradlew --no-daemon --console=plain :scanner-host:lintRelease :scanner-host:assembleRelease \
+            "-PscannerVersionName=$version" "-PscannerVersionCode=$SCANNER_VERSION_CODE"
+          mkdir -p release
+          cp scanner-host/build/outputs/apk/release/scanner-host-release.apk "release/qqq-mobile-$version.apk"
+          cp scanner-host/build/reports/third-party/release/{aboutlibraries.json,LICENSE,NOTICE} release/
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "release/qqq-mobile-$version.apk" > release/signature.txt
+          certificate=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' release/signature.txt)
+          [[ "${certificate,,}" == "${SCANNER_CERTIFICATE_SHA256,,}" ]] || { echo 'Unexpected signing certificate'; exit 1; }
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "release/qqq-mobile-$version.apk" > "$RUNNER_TEMP/scanner-manifest.txt"
+          grep -F "package: name='io.qrun.mobile.scanner' versionCode='$SCANNER_VERSION_CODE' versionName='$version'" "$RUNNER_TEMP/scanner-manifest.txt"
+          if grep -q 'application-debuggable' "$RUNNER_TEMP/scanner-manifest.txt"; then
+            echo 'Refusing a debuggable release'; exit 1
+          fi
+          printf 'Source: %s\nVersion: %s\nVersion code: %s\n' "$GITHUB_SHA" "$version" "$SCANNER_VERSION_CODE" > release/BUILD.txt
+          (cd release && sha256sum -- *.apk signature.txt BUILD.txt aboutlibraries.json LICENSE NOTICE > SHA256SUMS)
+      - name: Retain signed deliverable
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scanner-release-${{ github.sha }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: scanner-release-${{ github.sha }}
+          path: release
+      - name: Publish immutable-tag APK assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum --check SHA256SUMS)
+          prerelease=()
+          version="${GITHUB_REF_NAME#scanner-v}"
+          tag_object=$(gh api "repos/$GH_REPO/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.sha')
+          tag_type=$(gh api "repos/$GH_REPO/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.type')
+          for ((attempt=0; attempt<5; attempt++)); do
+            if [[ "$tag_type" == commit ]]; then break; fi
+            [[ "$tag_type" == tag ]] || exit 1
+            tag_json=$(gh api "repos/$GH_REPO/git/tags/$tag_object")
+            tag_object=$(jq -r '.object.sha' <<< "$tag_json")
+            tag_type=$(jq -r '.object.type' <<< "$tag_json")
+          done
+          [[ "$tag_type" == commit && "$tag_object" == "$GITHUB_SHA" ]] || { echo 'Release tag no longer identifies the verified source'; exit 1; }
+          if [[ "$version" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "QQQ Mobile $version" \
+            --generate-notes "${prerelease[@]}" release/*
