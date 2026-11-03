@@ -124,6 +124,8 @@ Offline queue/background synchronization is deliberately outside version one.
 - [x] Real Echo host and owner adapters are composed and running in the single local server (see the Origin item above).
 - [ ] Print a physical label and rescan the exact value and type (tracked above).
 
+- [x] Clear scanner feedback on process reset; 57 mobileapp JVM tests, zero-warning scanner lint, debug build and 255-file standards pass. Hosted checks and PR10 → PR8 → main integration remain pending.
+
 # Scoped administrator viewing update — November 2
 
 - [x] Remove app-authored viewing stop controls, verify the existing native session-monitor flow and install on TC22 with app data preserved. Retain the visible indicator, Android consent/system stop controls, server leases and authorization.

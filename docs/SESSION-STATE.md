@@ -1,3 +1,7 @@
+## November 3 — verified widget-state reset fix
+
+`ProcessViewModel.reset()` now clears `widgetState` so last scanner feedback no longer carries into a new run. The regression proves ordinary step updates retain feedback and reset clears it. Root verified all 57 mobileapp JVM tests (zero failures/errors/skips), scanner lint (zero errors/warnings), debug APK assembly and the 255-file standards gate. Prior head `9cf789c` passed hosted CI3553 in 16m22s; this fix still needs its own hosted checks and normal PR10 → PR8 → main integration. The installed APK and manual acceptance are separate gates; signing/distribution remains deferred.
+
 ## November 3 — current checkpoint (verified; supersedes all older entries below)
 
 - **Source:** `f72b90d08cf29d2785cef1d5c5e7eeaf75f9afd2` is the signed application-code commit published in PR 10, independently read back over SSH before this documentation update. Gitea CI 3480 **succeeded** on it (unit-test, device-test, package, secrets and gate; root read the UI). Root also verified a clean git merge-tree of `f72b90d` with actual `main` b75fdac and merged nothing. Pull requests #8 and #10 remain open; no 1.0 is released. This documentation update leaves runtime code unchanged from CI-passing `f72b90d`.

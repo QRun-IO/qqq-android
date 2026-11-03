@@ -743,6 +743,31 @@ class ProcessSubmissionTest {
    }
 
    /*******************************************************************************
+    ** Last scanner feedback is per run: ordinary step updates keep it, a reset (new run) drops it.
+    *******************************************************************************/
+   @Test
+   fun widgetStateSurvivesStepUpdatesButIsClearedOnReset() = runTest()
+   {
+      Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+      try {
+         val repository = SubmissionRepository()
+         val model = model(repository)
+         model.doInit()
+         advanceUntilIdle()
+         model.widgetState["scanner.lastScan"] = "000123"
+         model.processValues["eventId"] = "ordinary-business-id"
+         model.runStep()
+         advanceUntilIdle()
+         assertEquals("result", model.activeStepName)
+         assertEquals("000123", model.widgetState["scanner.lastScan"])
+         model.reset()
+         assertTrue(model.widgetState.isEmpty())
+      } finally {
+         Dispatchers.resetMain()
+      }
+   }
+
+   /*******************************************************************************
     **
     *******************************************************************************/
    private fun model(repository: SubmissionRepository) = ProcessViewModel().apply()

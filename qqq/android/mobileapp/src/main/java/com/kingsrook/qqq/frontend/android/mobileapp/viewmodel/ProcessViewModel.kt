@@ -340,6 +340,7 @@ open class ProcessViewModel : ViewModel() {
       fieldResets.clear()
       remoteOptions.clear()
       remoteOptionErrors.clear()
+      widgetState.clear()
       initializing = false
       unconfirmedSubmission = false
       clientWork.clear()
