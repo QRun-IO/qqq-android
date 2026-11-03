@@ -4,6 +4,7 @@ package io.qrun.mobile.scanner
 import com.kingsrook.qqq.frontend.android.core.controllers.ANDROID_CLIENT
 import com.kingsrook.qqq.frontend.android.core.controllers.RequestOutcome
 import com.kingsrook.qqq.frontend.android.core.controllers.RequestOutcomeInterceptor
+import com.kingsrook.qqq.frontend.android.core.controllers.SameOriginInterceptor
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiException
 import java.io.File
@@ -156,7 +157,7 @@ internal class RecordFilesApi(
    private val compatibility: UiApiCompatibility, onOutcome: (RequestOutcome) -> Unit = {}
 ) : RecordFilesTransport {
    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
-      .callTimeout(30, TimeUnit.SECONDS).addInterceptor(RequestOutcomeInterceptor(onOutcome)).build()
+      .callTimeout(30, TimeUnit.SECONDS).addInterceptor(RequestOutcomeInterceptor(onOutcome)).addInterceptor(SameOriginInterceptor()).build()
 
    @Volatile
    private var captureContractVerified = false

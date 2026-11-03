@@ -1,7 +1,5 @@
 # QQQ Android
 
-[![Scanner Android](https://github.com/QRun-IO/qqq-android/actions/workflows/scanner.yml/badge.svg)](https://github.com/QRun-IO/qqq-android/actions/workflows/scanner.yml)
-
 Native Kotlin/Compose clients for QQQ. The new `scanner-host` application runs server-defined QQQ apps and processes on Android handhelds, initially Zebra TC22.
 
 ## Modules
@@ -17,7 +15,7 @@ The scanner host uses the versioned semantic UI API for app discovery, native pr
 
 ## First scanner application
 
-Use the companion `qbit-mobile-scanners` server/demo with QQQ `4.1.0-RC.20`. The demo uses QQQ TABLE_BASED username/password authentication. Credentials are exchanged through the native QQQ session endpoint; the password is not stored.
+Use the companion `qbit-mobile-scanners` server/demo with its current QQQ source default (`4.1.0-RC.21`; see that repository's POM). A local server may run an older qualified core; the host checks the advertised UI API and extension versions before login. The demo uses QQQ TABLE_BASED username/password authentication. Credentials are exchanged through the native QQQ session endpoint; the password is not stored.
 
 1. Start the companion demo and install the debug APK.
 2. Run `adb reverse tcp:8080 tcp:8080` for a USB-connected TC22.
@@ -38,11 +36,11 @@ The same APK runs on other Android devices with explicit manual entry. When the 
 
 The shared launcher name/icon remain QQQ Mobile. On connecting to a server, the host reads public `GET /qqq/v1/qbit/mobile-scanners/branding` (`displayName`, `primaryColor`, optional `logoUrl`). The name and Material theme apply to login, device approval, and native app screens. Names are limited to 80 printable characters and colors to `#RRGGBB`; malformed values fall back to QQQ defaults. Button foregrounds choose readable black/white contrast. Optional logos must use HTTPS, are fetched without session/device headers or cookies, and cannot prevent login if unavailable. Responses are size-limited, redirects are disabled, and branding is reset when changing servers. Reconnect to pick up server branding changes; no APK rebuild is needed.
 
-The persistent footer shows **Checking**, **Connected**, or **Disconnected** with the last check time. It checks `GET /qqq/v1/qbit/mobile-scanners/status` every five seconds while foregrounded and on network changes; `Connected` means a valid `{ "status": "ok" }` response, not sign-in or device approval. Tap the footer for **Copy**, **Clear**, and **Close** diagnostics. The in-memory log holds the latest 100 fixed event codes with timestamps, HTTP status, and latency for branding, connection checks, native QQQ calls (including login/process requests), and device enrollment/status requests. A transport failure has no HTTP status; an HTTP response retains its status, including 401/403/500 errors. The log contains no credentials, scan values, request paths, queries, raw response text, or exception messages. Changing servers clears the displayed diagnostics. Monitoring never queues or retries a scan.
+The persistent footer shows **Checking**, **Connected**, or **Disconnected** with the last check time. It checks `GET /qqq/v1/qbit/mobile-scanners/status` every five seconds while foregrounded and on network changes; `Connected` means a valid `{ "status": "ok" }` response, not sign-in or device approval. Tap the footer, or use the Diagnostics entry in the menu, to open a full-screen diagnostics view with a server connection summary (reachability only), the recent activity newest first in local time, **All** and **Problems** filters, **Pause updates** and **Resume live updates**, **Copy**, **Share** and **Clear**, and **Back**. While it is open, process input stays blocked. The in-memory log holds the latest 100 fixed event codes with timestamps, HTTP status, and latency for branding, connection checks, native QQQ calls (including login/process requests), and device enrollment/status requests. A transport failure has no HTTP status; an HTTP response retains its status, including 401/403/500 errors. The log contains no credentials, scan values, request paths, queries, raw response text, or exception messages. Changing servers clears the displayed diagnostics. Monitoring never queues or retries a scan.
 
 ## Online-only behavior
 
-QQQ administrators can inspect session activity, end sessions, and request live viewing of the QQQ app from a session record. Viewing displays an indicator with **Stop viewing** on the handheld. Password/login screens and background apps cannot be mirrored. Foreground location reporting defaults on and can be disabled in Settings. It requires Android permission and enabled device location providers; scanning works without it. See [session behavior and limits](docs/UI-API.md#session-activity-and-screen-viewing).
+QQQ administrators can inspect session activity, end sessions, and request live viewing of the QQQ app from a session record. Viewing displays an informational indicator on the handheld; the app has no operator pause or stop control. Password/login screens and background apps cannot be mirrored. Optional whole-device sharing still requires Android consent and honors Android's system stop controls. Foreground location reporting defaults on and can be disabled in Settings. It requires Android permission and enabled device location providers; scanning works without it. See [session behavior and limits](docs/UI-API.md#session-activity-and-screen-viewing).
 
 Open **Settings → About QQQ Mobile** for the app version, Query mascot, [Dogfooding](https://www.qrun.io/dogfooding), [Query](https://www.qrun.io/query) and bundled open-source licenses. Public website links open in the external browser without adding session or device information.
 
@@ -52,7 +50,7 @@ Enrollment credentials are encrypted with Android Keystore and stored under `noB
 
 ## Build
 
-Requirements: Java 17 or compatible newer runtime, Android SDK platform35, build tools34/35, and the included Gradle8.7 wrapper. Configure `ANDROID_HOME` or ignored `local.properties`.
+Requirements: Java 21, Android SDK platform35, build tools34/35, and the included Gradle8.7 wrapper. Configure `ANDROID_HOME` or ignored `local.properties`.
 
 ```powershell
 .\gradlew.bat :scanner-host:testDebugUnitTest :scanner-host:assembleDebug :scanner-host:lintDebug
@@ -66,9 +64,9 @@ See [emulator testing](docs/EMULATOR.md) for a local interactive demo, synthetic
 
 ## CI and delivery
 
-The managed CircleCI Android profile owns shared-library verification and its existing main-only Maven publication. The GitHub **Scanner Android** workflow adds shared/scanner JVM tests, scanner lint, debug APK assembly, SHA256, and downloadable artifacts for pull requests and supported branches. The API35 emulator lane runs the shared native UI tests and real-server scanner E2E on pushes and pull requests. See [emulator testing](docs/EMULATOR.md) for the isolated test package and contract checks.
+The primary forge for source, reviews and checks is Gitea (`git.kof22.com/QRun-IO`); GitHub is a shadow/archive with no ordinary writes. The protected `main` branch on Gitea contains `.gitea/workflows/qrun-android-release.yaml`, which calls the shared `KofTwentyTwo/platform-ci` Android workflow (`android.yaml@qrun-release-v1`); that file is not in this feature working tree. Pull-request checks come from central Gitea policy, not from that release workflow. Legacy CircleCI and `.github` workflow files remain in the tree and are not all retired; the managed CircleCI profile still describes shared-library verification and its main-only Maven publication. Run the build commands above locally. See [emulator testing](docs/EMULATOR.md) for the isolated test package and contract checks, and [FINISH-1.0](docs/FINISH-1.0.md) for current progress.
 
-The GitHub workflow does not publish libraries or production releases. Signed APK distribution remains a separate release task. See [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md).
+Scanner APK signing and distribution are deliberately deferred and no distribution channel is selected; the retained CircleCI lane keeps its existing library publication; the `.github` scanner release automation is a candidate only (see [releasing](docs/RELEASING.md)). See [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md).
 
 ## Extension points
 

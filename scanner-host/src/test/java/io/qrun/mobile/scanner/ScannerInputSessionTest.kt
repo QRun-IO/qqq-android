@@ -65,8 +65,8 @@ class ScannerInputSessionTest {
       /*******************************************************************************
        **
        *******************************************************************************/
-      fun scan(value: String = "001234567890") {
-         pending = false; listener.scanned(value, "QRCODE")
+      fun scan(value: String = "001234567890", raw: ByteArray? = null) {
+         pending = false; listener.scanned(ScannerCapture.of(value, "QRCODE", raw))
       }
    }
 
@@ -76,10 +76,11 @@ class ScannerInputSessionTest {
    private class Fixture {
       val devices = mutableListOf<Device>()
       val scans = mutableListOf<Pair<String, String>>()
+      val captures = mutableListOf<ScannerCapture>()
       val statuses = mutableListOf<String>()
       val session = ScannerInputSession(
          { Device().also { devices.add(it) } },
-         { value, type -> scans.add(value to type) }, { message, _ -> statuses.add(message) })
+         { capture -> captures.add(capture); scans.add(capture.barcode to capture.symbology) }, { message, _ -> statuses.add(message) })
 
       /*******************************************************************************
        **
@@ -97,7 +98,7 @@ class ScannerInputSessionTest {
    @Test
    fun missingHardwareKeepsManualFallback() {
       val statuses = mutableListOf<String>()
-      val session = ScannerInputSession({ null }, { _, _ -> error("Unexpected scan") }, { message, _ -> statuses.add(message) })
+      val session = ScannerInputSession({ null }, { error("Unexpected scan") },{ message, _ -> statuses.add(message) })
       session.setAccepting(true)
       session.setActive(true)
       assertTrue(statuses.single().contains("manually"))
@@ -111,7 +112,7 @@ class ScannerInputSessionTest {
       val device = Device()
       var allowed = true
       val scans = mutableListOf<String>()
-      val session = ScannerInputSession({ device }, { value, _ -> scans.add(value) }, { _, _ -> }, { allowed })
+      val session = ScannerInputSession({ device }, { capture -> scans.add(capture.barcode) }, { _, _ -> }, { allowed })
       session.setAccepting(true)
       session.setActive(true)
       device.idle()
@@ -135,7 +136,7 @@ class ScannerInputSessionTest {
    fun hiddenSurfaceNeverArmsEvenWhenOldReadinessFlagIsTrue() {
       val device = Device()
       var allowed = false
-      val session = ScannerInputSession({ device }, { _, _ -> error("Unexpected scan") }, { _, _ -> }, { allowed })
+      val session = ScannerInputSession({ device }, { error("Unexpected scan") }, { _, _ -> }, { allowed })
       session.setAccepting(true)
       session.setActive(true)
       device.idle()
@@ -180,6 +181,27 @@ class ScannerInputSessionTest {
     **
     *******************************************************************************/
    @Test
+   fun rawBytesReachTheSinkUnchangedAndStaleOwnersDeliverNothing() {
+      val fixture = Fixture()
+      val first = fixture.start()
+      first.idle()
+      val raw = ByteArray(256) { it.toByte() }
+      fixture.session.setActive(false)
+      fixture.session.setActive(true)
+      first.scan("stale", raw)
+      assertTrue(fixture.captures.isEmpty())
+      val second = fixture.devices.last()
+      second.idle()
+      second.scan("current", raw)
+      assertEquals("current", fixture.captures.single().barcode)
+      assertEquals(java.util.Base64.getEncoder().encodeToString(raw), fixture.captures.single().rawDataBase64)
+      assertTrue(fixture.captures.single().aimIdentifier == null)
+   }
+
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
    fun idleBeforeDataAlsoRearmsAfterAcknowledgment() {
       val fixture = Fixture()
       val device = fixture.start()
@@ -188,7 +210,7 @@ class ScannerInputSessionTest {
       device.idle()
       assertEquals(2, device.reads)
       // Deliver the first read's data while the second read is pending.
-      device.listener.scanned("001234567890", "QRCODE")
+      device.listener.scanned(ScannerCapture.of("001234567890", "QRCODE"))
       assertEquals(1, device.cancels)
       assertEquals(1, fixture.scans.size)
       device.idle()
@@ -261,7 +283,7 @@ class ScannerInputSessionTest {
       device.idle()
       device.pending = false
       device.idle()
-      device.listener.scanned("001234567890", "QRCODE")
+      device.listener.scanned(ScannerCapture.of("001234567890", "QRCODE"))
       device.listener.noData(false)
       device.idle()
       assertEquals(1, device.cancels)

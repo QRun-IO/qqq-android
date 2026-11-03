@@ -5,6 +5,7 @@ import com.kingsrook.qqq.frontend.android.core.controllers.ANDROID_CLIENT
 import com.kingsrook.qqq.frontend.android.core.controllers.MOBILE_SCANNERS_PATH
 import com.kingsrook.qqq.frontend.android.core.controllers.RequestOutcome
 import com.kingsrook.qqq.frontend.android.core.controllers.RequestOutcomeInterceptor
+import com.kingsrook.qqq.frontend.android.core.controllers.SameOriginInterceptor
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiException
 import java.io.IOException
@@ -53,7 +54,7 @@ internal class MobileSessionApi(
    onOutcome: (RequestOutcome) -> Unit = {},
 ) : MobileSessionTransport {
    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
-      .callTimeout(5, TimeUnit.SECONDS).addInterceptor(RequestOutcomeInterceptor(onOutcome)).build()
+      .callTimeout(5, TimeUnit.SECONDS).addInterceptor(RequestOutcomeInterceptor(onOutcome)).addInterceptor(SameOriginInterceptor()).build()
 
    /*******************************************************************************
     ** Send the current eligible session metadata and accept only the server's bounded lease policy.

@@ -1,4 +1,36 @@
 # TODO
+Latest November 3 checkpoint (current; supersedes the older entries below):
+
+- [x] Android `f72b90d` the signed application-code commit published in PR 10 (SSH read-back verified); Gitea CI 3480 succeeded (unit-test, device-test, package, secrets, gate); clean merge-tree with `main` b75fdac, nothing merged. Pull requests #8 and #10 remain open; merge and release not done. This update changes documentation only.
+- [x] Fresh disposable TC22 Echo ten-stage run: 109/109 semantic requests (simulated inputs/printing); installed APK `4AAB6951...AB850E` unchanged data.
+- [x] Fresh real Authentik desktop acceptance passes; native harness compiled, 8 launcher guards pass. [ ] On-device run awaits the temporary CA and PIN; no trust bypass.
+- [x] Server-side RC.21 gate PASS: 377 unique tests plus 15 real admin-browser E2E on public RC.21; the earlier MySQL timeouts did not recur. [ ] It is public core RC.21 with qualified private owner inputs, not a public/released cohort; the normal runtime core is not upgraded and Echo on RC.21 is not installed.
+
+- [x] Install final client over the normal TC22 with signature match/data preserved; existing sign-in/approval and Connected verified. Settings include portrait, location reporting and working wallpaper preview.
+- [x] Fresh 222 JVM tests, lint zero errors/warnings, all APK builds, 23 Node tests and 255-file standards gate; updated ten-stage native Echo acceptance passes with simulated scans/printing.
+- [x] Integrate and compile opt-in real Authentik Android acceptance; real-provider desktop acceptance rerun passes all six phases with strict TLS.
+- [ ] Run real native Authentik after temporary CA installation/device interaction. Confirm physical scanner/label count/fidelity, camera/GPS/projection/profile behavior. Complete shared artifact publication/hosted CI; signing remains last.
+
+Current checkpoint (November 2, copies adoption; supersedes older source/runtime notes below):
+
+- [x] Verify optional Copies per scan through the actual generic native UI: default 1, range 1–100, selected 3 retained across two scans/recreation, and Apps/Leave; ten stages, 116 documented requests. Normal TC22 setup shows 1 against the updated local server.
+- [x] Combined candidate gate: 222 JVM tests, lint zero errors/warnings, debug/E2E/test APK compilation and 15 Node tests. Normal installed APK remains D8109C61; newer feedback/profile/wallpaper/AIM code is not installed.
+- [ ] Physically confirm label quantity and barcode fidelity. Native Authentik and camera/GPS/projection qualification remain open while the operator is remote; temporary CA installation is unconfirmed.
+- [ ] Coordinate canonical Generation copies adoption and coherent publication/CI. Signing/distribution remains last.
+
+- [x] Implement negotiated mobile1.5 raw-byte transport with immutable capture, same-server capability gating and byte-identical failed-request retry;185 JVM tests, lint0errors/0warnings, debug/E2E builds and QA test compilation pass.
+- [ ] Qualify new raw-byte delivery on TC22 and complete actual AIM extraction/decoder-profile checks. Current source leaves AIM absent and does not change hardware configuration; full Echo fidelity is still open.
+- [x] Verify native `Origin` compatibility:174 JVM tests, lint0errors0warnings and APK build pass; normal TC22 login/approval/heartbeat/Echo setup/printer-media choices/Cancel-Leave pass against the strict local Echo host through8080->57832, preserving data.
+
+- [x] Verify generic INTEGER Document choice/dependency clearing on actual TC22:7 stages,112 semantic requests,99 focused/host tests and8 Node guards; simulated printing, normal data preserved.
+- [x] Connect the installed print client to the single local server and publish the actual Echo4x1 document through native QQQ processes.
+- [x] Resolve the printing agent's earlier 4x6 media report versus loaded 4x1 stock: the Printing owner aligned 101600 x 25400 micron/300 dpi media and the TC22 selected the real printer, fresh 4x1 media and published document; Next succeeded.
+- [ ] Complete one physical Code128 (QQQ-TEST-123456) scan, print and rescan on the TC22, then leading-zero QR. One separate synthetic HTTP Echo event reached the actual Windows spooler; physical paper and handheld print/rescan remain unconfirmed.
+- [ ] Qualify public coherent artifacts and primary Gitea CI; signing and distribution stay last by user decision. Core PR 1337 normal CI and publication are not established; do not repin default dependencies.
+
+- [x] Add metadata-driven Echo acknowledgment/manual-entry hints with old defaults; 167 JVM tests, strict compilation, lint zero errors/warnings and debug build pass.
+- [ ] Qualify native Echo scan/print-acceptance with independently decoded physical output (setup and Leave against the real owner adapters are verified; source tests are not physical printing evidence).
+- [x] Verify Query artwork, Dogfooding/Query links and licenses on the normal TC22 About screen using filtered accessibility data.
 
 - [x] Apply scoped copyright/import/header/formatter corrections, mechanical CI gate and Kotlin warnings-as-errors;163JVM plus46TC22 sample native cases pass. See [review](CODING-STANDARDS-REVIEW-2026-11-01.md) for the remaining formatter CI limitation.
 - [x] Add Query artwork, app version, Dogfooding/Query links and license access under Settings → About QQQ Mobile.
@@ -87,3 +119,13 @@ Offline queue/background synchronization is deliberately outside version one.
 - [x] Add and run real-server scanner-host E2E: login, pending enrollment, approval, native app/process selection, manual scan persistence and revoked-device denial. Use an isolated app ID and database.
 - [x] Run and verify native real-server E2E on pushes and pull requests; current7de hosted checks pass.
 - [ ] Complete the final operator walkthrough on TC22 after updating the preserved demo/runtime, including outage/reconnect and real camera capture.
+
+- [x] Implement named semantic process choices and qualify Echo native setup/two scans/rotation/Apps Leave onTC22 (169JVM,8guards,86documentedrequests; printing simulated).
+- [x] Real Echo host and owner adapters are composed and running in the single local server (see the Origin item above).
+- [ ] Print a physical label and rescan the exact value and type (tracked above).
+
+- [x] Clear scanner feedback on process reset; 57 mobileapp JVM tests, zero-warning scanner lint, debug build and 255-file standards pass. Hosted checks and PR10 → PR8 → main integration remain pending.
+
+# Scoped administrator viewing update — November 2
+
+- [x] Remove app-authored viewing stop controls, verify the existing native session-monitor flow and install on TC22 with app data preserved. Retain the visible indicator, Android consent/system stop controls, server leases and authorization.

@@ -16,6 +16,15 @@
          android:icon="@drawable/ic_scanner"
          android:label="QQQ Mobile" android:theme="@android:style/Theme.Material.Light.NoActionBar">
       <uses-library android:name="com.symbol.emdk" android:required="false" />
+      <meta-data android:name="android.content.APP_RESTRICTIONS" android:resource="@xml/app_restrictions" />
+      <!-- Optional live wallpaper; inactive until chosen in Android's wallpaper chooser. Only the system may bind it. -->
+      <service android:name=".QqqStatusWallpaperService" android:exported="true" android:label="@string/status_wallpaper_label"
+            android:permission="android.permission.BIND_WALLPAPER">
+         <intent-filter>
+            <action android:name="android.service.wallpaper.WallpaperService" />
+         </intent-filter>
+         <meta-data android:name="android.service.wallpaper" android:resource="@xml/status_wallpaper" />
+      </service>
       <service android:name=".DeviceScreenCaptureService" android:foregroundServiceType="mediaProjection" android:exported="false" />
       <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.photos"
             android:exported="false" android:grantUriPermissions="true">

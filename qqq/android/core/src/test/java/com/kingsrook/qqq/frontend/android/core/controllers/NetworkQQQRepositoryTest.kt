@@ -41,6 +41,37 @@ class NetworkQQQRepositoryTest {
    }
 
    /*******************************************************************************
+    ** Published `searchProcessPossibleValues`: JSON body with the parent values and FORM use case; the response is
+    ** `{options:[{id,label}]}` and the server omits `options` entirely when nothing matches.
+    *******************************************************************************/
+   @Test
+   fun processPossibleValuesUsesThePublishedJsonOperation() = runBlocking()
+   {
+      MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
+         server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("""{"options":[{"id":"4x6","label":"4 x 6 in"},{"id":7,"label":"Seven"}]}"""))
+         server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("{}"))
+         val origin = server.url("/").toString()
+         val repository = NetworkQQQRepository(origin)
+         repository.setEnvironment(Environment("test", origin))
+         val options = repository.processPossibleValues("echoPrint", "mediaId", mapOf("printerId" to "printer"), mapOf("echoRunId" to "run"))
+         assertEquals("/qqq/v1/version", server.takeRequest().path)
+         val request = server.takeRequest()
+         assertEquals("POST", request.method)
+         assertEquals("/qqq/v1/processes/echoPrint/possibleValues/mediaId", request.path)
+         assertTrue(request.getHeader("Content-Type")!!.startsWith("application/json"))
+         val body = org.json.JSONObject(request.body.readUtf8())
+         assertEquals("printer", body.getJSONObject("values").getString("printerId"))
+         assertEquals("run", body.getJSONObject("processValues").getString("echoRunId"))
+         assertEquals("form", body.getString("useCase"))
+         assertEquals(listOf("4x6", "7"), options.map { it.id.toString() })
+         assertTrue("A JSON integer id must stay an integer for INTEGER fields", options[1].id is Int)
+         assertEquals(listOf("4 x 6 in", "Seven"), options.map { it.label })
+         assertTrue(repository.processPossibleValues("echoPrint", "mediaId", emptyMap(), emptyMap()).isEmpty())
+      }
+   }
+
+   /*******************************************************************************
     **
     *******************************************************************************/
    @Test
@@ -106,6 +137,38 @@ class NetworkQQQRepositoryTest {
          assertEquals("sessionUUID=synthetic-session", logoutRequest.getHeader("Cookie"))
          repository.getMetaData("test", "1", "test", "1")
          assertNull(server.takeRequest().getHeader("Cookie"))
+      }
+   }
+
+   /*******************************************************************************
+    ** Cookie-bearing native mutations (session/process POSTs) carry the exact request origin, and a caller-supplied
+    ** additional header can neither add a different Origin nor remove the real one. Login (no cookie yet) carries it too.
+    *******************************************************************************/
+   @Test
+   fun cookieBearingPostsCarryTheExactRequestOriginEvenIfAdditionalHeadersTryToSetOne() = runBlocking()
+   {
+      MockWebServer().use { server ->
+         server.start()
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
+         server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("""{"type":"COMPLETE","processUUID":"process","nextStep":"result","values":{}}"""))
+         server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("{}"))
+         val origin = server.url("/").toString()
+         val repository = NetworkQQQRepository(origin, additionalHeaders = { mapOf("Origin" to "https://evil.example", "X-QQQ-Device-Id" to "test-device") })
+         repository.setEnvironment(Environment("test", origin))
+         repository.setSessionUUID("synthetic-session")
+         repository.processStep("edit", "process", "input", mapOf("a" to "b"), 1000)
+         repository.logout()
+         server.takeRequest()
+         // Forwarded debug servers may listen elsewhere (for example 8080): only the URL the client used matters.
+         val expected = "http://${server.hostName}:${server.port}"
+         listOf(server.takeRequest(), server.takeRequest()).forEach { request ->
+            assertEquals("POST", request.method)
+            assertEquals("sessionUUID=synthetic-session", request.getHeader("Cookie"))
+            assertEquals(expected, request.getHeader("Origin"))
+            assertEquals(1, request.headers.values("Origin").size)
+            assertEquals("http://" + request.getHeader("Host"), request.getHeader("Origin"))
+            assertEquals("test-device", request.getHeader("X-QQQ-Device-Id"))
+         }
       }
    }
 

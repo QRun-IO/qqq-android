@@ -109,7 +109,15 @@ class RecordFilesApiTest {
          val finalize = server.takeRequest()
          assertEquals(intent.requestId, finalize.getHeader("Idempotency-Key"))
          assertEquals(0L, finalize.bodySize)
-         assertEquals("GET", server.takeRequest().method)
+         val status = server.takeRequest()
+         assertEquals("GET", status.method)
+         // Every native record-file request (including the cookie-bearing mutations) presents its own exact origin.
+         val expectedOrigin = origin.trimEnd('/')
+         listOf(descriptor, capabilities, first, second, chunk, finalize, status).forEach {
+            assertEquals(expectedOrigin, it.getHeader("Origin"))
+            assertEquals(1, it.headers.values("Origin").size)
+         }
+         listOf(capabilities, first, second, chunk, finalize, status).forEach { assertEquals("sessionUUID=synthetic-session", it.getHeader("Cookie")) }
       }
    }
 

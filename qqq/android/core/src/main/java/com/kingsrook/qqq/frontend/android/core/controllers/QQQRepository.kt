@@ -124,6 +124,13 @@ interface QQQRepository {
    }
 
    /*******************************************************************************
+    ** Search a process field's server possible-value source (`searchProcessPossibleValues`) with the current form values
+    ** (`values`, used for dependsOn/filter inputs) and scalar process values, using the FORM use case.
+    *******************************************************************************/
+   suspend fun processPossibleValues(processName: String, fieldName: String, values: Map<String, Any?>, processValues: Map<String, Any?> = emptyMap()): List<com.kingsrook.qqq.frontend.android.core.model.QPossibleValue> =
+      throw UnsupportedOperationException("Remote possible values are unavailable")
+
+   /*******************************************************************************
     ** Poll the server-issued job within its process instance instead of inferring asynchronous completion.
     *******************************************************************************/
    suspend fun processJobStatus(processName: String, processUUID: String, jobUUID: String): ProcessStepResult

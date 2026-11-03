@@ -187,7 +187,6 @@ internal fun DeviceScreenSharingControl(sharing: DeviceScreenSharing, controller
    }
    if (sharing.active) {
       Text("Sharing this device screen, including other apps and notifications.")
-      TextButton(onClick = { controller.pauseViewing() }) { Text("Stop device screen sharing") }
    } else if (controller.supportsDeviceScreen) {
       val canNotify = remember(permissionRevision) {
          Build.VERSION.SDK_INT < 33 ||
@@ -201,7 +200,7 @@ internal fun DeviceScreenSharingControl(sharing: DeviceScreenSharing, controller
    }
    if (disclosure) AlertDialog(
       onDismissRequest = { disclosure = false }, title = { Text("Share this device screen?") },
-      text = { Text("An authorized administrator can see other apps and notifications while viewing this session. Android will ask for permission. Sharing stops if the viewer disconnects, you sign out, or this activity restarts. Use Stop sharing in the notification or Android's sharing indicator at any time.") },
+      text = { Text("An authorized administrator can see other apps and notifications while viewing this session. Android will ask for permission. Sharing stops if the viewer disconnects, you sign out, or this activity restarts. Android shows its own sharing indicator while this device screen is shared.") },
       dismissButton = { TextButton(onClick = { disclosure = false }) { Text("Cancel") } },
       confirmButton = {
          TextButton(onClick = {

@@ -165,6 +165,16 @@ interface QQQApiService {
    ): ProcessStepResult
 
    /*******************************************************************************
+    ** Published operation `searchProcessPossibleValues`: JSON body {values, processValues, useCase, searchTerm, ids}.
+    *******************************************************************************/
+   @POST(BASE_PATH + "processes/{processName}/possibleValues/{fieldName}")
+   suspend fun processPossibleValues(
+      @Path(value = "processName") processName: String,
+      @Path(value = "fieldName") fieldName: String,
+      @Body body: RequestBody
+   ): ResponseBody
+
+   /*******************************************************************************
     ** Cancel the identified server process explicitly instead of dropping only client navigation.
     *******************************************************************************/
    @POST(BASE_PATH + "processes/{processName}/{processUUID}/cancel")

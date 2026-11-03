@@ -1,0 +1,41 @@
+{
+  "profileId": "example-company",
+  "revision": 1,
+  "device": {
+    "model": "TC22",
+    "androidVersion": null,
+    "mxVersion": null,
+    "osBuild": null
+  },
+  "ehs": {
+    "docsVersion": "8.0",
+    "installedVersion": null
+  },
+  "qqq": {
+    "package": "io.qrun.mobile.scanner",
+    "activity": "io.qrun.mobile.scanner.ScannerActivity",
+    "label": "QQQ Mobile",
+    "endpoint": "https://qqq.example.invalid",
+    "orientation": null
+  },
+  "launcher": {
+    "title": "Company [serial_number]",
+    "titleBarLogo": "/enterprise/usr/company/logo.png",
+    "reuseLogoOnEhsScreens": true,
+    "wallpaper": "/enterprise/usr/company/wallpaper.png",
+    "wallpaperStretch": false,
+    "iconLabelTextColor": "#FFFFFFFF",
+    "iconLabelBackgroundColor": "#00FFFFFF",
+    "iconSize": null
+  },
+  "permittedApps": [
+    { "label": "QQQ Mobile", "package": "io.qrun.mobile.scanner", "activity": "io.qrun.mobile.scanner.ScannerActivity", "icon": null }
+  ],
+  "tools": [],
+  "restrictions": {
+    "systemSettingsRestricted": 1,
+    "recentAppsAccessDisabled": 1,
+    "recentAppsButtonDisabled": 1
+  },
+  "deploy": []
+}

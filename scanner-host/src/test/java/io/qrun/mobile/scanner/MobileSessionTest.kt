@@ -328,7 +328,16 @@ class MobileSessionTest {
          val screen = server.takeRequest()
          assertEquals("/qqq/v1/qbit/mobile-scanners/sessions/current/screen", screen.path)
          assertEquals(4, JSONObject(screen.body.readUtf8()).getLong("sequence"))
-         assertEquals("/qqq/v1/qbit/mobile-scanners/sessions/current/end", server.takeRequest().path)
+         val end = server.takeRequest()
+         assertEquals("/qqq/v1/qbit/mobile-scanners/sessions/current/end", end.path)
+         // Cookie-bearing native POSTs must present the exact origin of the URL used, like a browser.
+         val expectedOrigin = origin.trimEnd('/')
+         listOf(heartbeat, screen, end).forEach { request ->
+            assertEquals("POST", request.method)
+            assertEquals("sessionUUID=synthetic-session", request.getHeader("Cookie"))
+            assertEquals(expectedOrigin, request.getHeader("Origin"))
+            assertEquals(1, request.headers.values("Origin").size)
+         }
       }
    }
 

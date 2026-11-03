@@ -1,4 +1,86 @@
+## November 3 — verified widget-state reset fix
+
+`ProcessViewModel.reset()` now clears `widgetState` so last scanner feedback no longer carries into a new run. The regression proves ordinary step updates retain feedback and reset clears it. Root verified all 57 mobileapp JVM tests (zero failures/errors/skips), scanner lint (zero errors/warnings), debug APK assembly and the 255-file standards gate. Prior head `9cf789c` passed hosted CI3553 in 16m22s; this fix still needs its own hosted checks and normal PR10 → PR8 → main integration. The installed APK and manual acceptance are separate gates; signing/distribution remains deferred.
+
+## November 3 — current checkpoint (verified; supersedes all older entries below)
+
+- **Source:** `f72b90d08cf29d2785cef1d5c5e7eeaf75f9afd2` is the signed application-code commit published in PR 10, independently read back over SSH before this documentation update. Gitea CI 3480 **succeeded** on it (unit-test, device-test, package, secrets and gate; root read the UI). Root also verified a clean git merge-tree of `f72b90d` with actual `main` b75fdac and merged nothing. Pull requests #8 and #10 remain open; no 1.0 is released. This documentation update leaves runtime code unchanged from CI-passing `f72b90d`.
+- **Installed:** the updated normal APK `4AAB6951D3B0ABDDD4F5A8DC6790DCD84233EE08179B68DB108BF77909AB850E` is installed with the same signer and no data clear. Connected, Apps/Settings, portrait, location on and the brand-only system wallpaper preview were verified. No wallpaper or company profile was applied.
+- **Fresh verification:** 222 JVM tests, lint 0 errors/0 warnings (2 info), APK builds, 23 Node tests, 255-file source standards pass. A fresh disposable TC22 Echo ten-stage run passed 109/109 semantic requests (simulated inputs and printing).
+- **Authentik:** fresh real desktop acceptance passes (nonce rejection, A login, logout with old-cookie replay rejected, fresh B without clearing cookies, logout) against the same isolated TLS fixture. The opt-in native harness is integrated and compiled, and its 8 launcher guards pass; the on-device run still needs the temporary CA and PIN interaction. No trust bypass. The normal server on 57832 is unchanged and ready.
+- **Server side:** server `45f9cbd` is signed and pushed (Gitea PR 7); the public QQQ 4.1.0-RC.21 source update is prepared for the next signed commit. The final RC.21 gate passed: 377 unique tests (Generation 179, Printing bridge 16, scanner 53, demo 8, mobile Record Files 18, Echo 68, Echo demo 35), zero failures/errors/skips, Checkstyle PASS, plus 15 real admin-browser E2E on public RC.21; the earlier MySQL timeouts did not recur. This is public core RC.21 with qualified owner inputs (three private `pu507` libraries still resolve through the owner Printing POM), not a fully public or released cohort. The normal runtime core was not upgraded.
+- **Still open (not claimed):** Generation canonical owner integration and public reproducible owner inputs; primary source CI, merge and release; manual TC22 trigger, value/type, AIM, label count, rescan, photo, GPS, projection and profile checks (operator remote); native Authentik CA, PIN and callback; signing/distribution, explicitly last. The normal TC22 shows Echo setup, Copies 1, Connected.
+
+## November 3 — final client installed; Authentik harness integrated (earlier; superseded by the checkpoint above)
+
+The verified debug APK 4AAB6951D3B0ABDDD4F5A8DC6790DCD84233EE08179B68DB108BF77909AB850E is installed on the normal TC22 with the same signer and install -r. Existing sign-in, device approval and Connected status survived. Navigation, portrait setting, foreground-location toggle and the brand-only system wallpaper preview were verified; wallpaper was not applied. Feedback, managed configuration and AIM code are now installed, with physical trigger/fidelity still unqualified.
+
+Fresh verification passes 222 JVM tests, lint zero errors/warnings, debug/E2E/test APK builds, 23 Node tests and the 255-file source standard check. The updated disposable TC22 Echo suite passed all ten stages with every request matching semantic operations; simulated input/printing only. The actual Authentik desktop test passed again on November 3 with strict TLS: nonce rejection, operator A, company logout, old-cookie rejection and fresh operator B. The opt-in real Authentik Android harness is now in the repository and compiles; native execution awaits temporary CA installation/device interaction. No normal app/server trust change was made.
+
+Echo server source is signed and published at 45f9cbd in Gitea PR7. Generation copies now has an isolated canonical Git integration, with additive PostgreSQL migration verified on real PostgreSQL17. Shared source/dependency publication and hosted CI remain separate gates; no production 1.0 release or physical print claim. Earlier installed-APK/uncompiled-harness notes below are historical.
+
+## November 2 — Echo copies live and native acceptance complete
+
+Echo setup now exposes optional **Copies per scan**, default 1, range 1–100. The server pins it for the run and submits one job with that copy count for each scan. The normal TC22 is connected and left on the fresh setup screen showing 1. Its installed APK remains D8109C61E71660D2195337DA988F7F692CC4A0DBE95F61230930D6549CAB4D9B; no client upgrade was needed for this generic semantic field.
+
+Disposable TC22 Echo acceptance passed ten stages and 116/116 documented requests, including default 1, rejecting 0/101, selected 3 across two scans, recreation and Apps/Leave. Inputs and printing are simulated; physical label count is unconfirmed. The combined source passes 222 JVM tests, lint with zero errors/warnings, APK compilation and 15 Node tests. New scan-feedback, managed-profile/wallpaper and AIM source is not installed on the normal app.
+
+The existing local server on port 57832 now advertises mobile-scanners 1.5 and mobile-record-files 1.0, retaining the original database, approval, accounts and printer settings. Server/owner gates passed 377 unique tests across the qualified module runs. Generation copies changes remain in the isolated owner handoff, awaiting canonical adoption/publication. Physical trigger/print/rescan, camera/GPS/projection and native Authentik remain open; the operator is remote and temporary CA installation is unconfirmed. Signing/distribution stays last. Older checkpoints below are historical; see FINISH-1.0.md for the current ledger.
+
+## November 2 — administrator viewing controls
+
+Removed app-authored Stop viewing / Allow viewing, Stop device screen sharing and the custom notification Stop sharing action. The visible indicator, Android consent/system revocation, password/lifecycle guards, server authorization and lease expiry remain unchanged. The existing native regression verifies an informational non-clickable indicator with no stop/allow buttons, continued JPEG frames after resume, background frame clearing, administrator session termination and fresh login.
+
+Verification: 185 JVM tests (44 core, 56 mobileapp, 85 host), eight Node guard tests, lint zero errors/warnings (two existing informational hints), debug/QA/test APK builds, and the real TC22 session-monitor scenario passed; all 112 native requests matched published semantic operations. The disposable QA packages were removed. Whole-device Android consent was not rerun for this UI removal.
+
+Installed the verified debug APK D8109C61E71660D2195337DA988F7F692CC4A0DBE95F61230930D6549CAB4D9B on the normal TC22 with install -r and no data clear. The process restart required sign-in; restored the existing scanner account and verified Connected, the Echo catalog entry and existing approval. Local server57832 remains HTTP200 and the print service remains Running. This APK also contains the previously verified optional raw-scan metadata client, gated off against the unchanged installed mobile1.4 server. Existing unrelated source/test changes are preserved. No commits, publication or broader release work resumed for this scoped request.
+
+## November 2 — current checkpoint
+
+Source candidate: immutable `ScannerCapture` retains SDK raw bytes as canonical Base64 before the callback returns and routes them through the ordinary semantic process payload. New optional fields are sent only after same-server discovery advertises mobile-scanners >=1.5,<2; older servers still receive the five legacy keys. Barcode text and symbology remain unchanged, scan/capture string representations are redacted, and a failed-submit regression proves the entire event is resent unchanged. Verification passes 185 JVM tests (44 core, 56 mobileapp, 85 host), lint with zero errors/warnings (two existing informational hints), debug/E2E APK builds and QA Android-test compilation. New native tests and operator installation have not run. The SDK configuration is unchanged and AIM extraction is not implemented by this transport slice.
+
+Completed and verified:
+
+- Android source `fb3cc5d` is signed and published as Gitea PR 10. It passes 174 JVM tests (44 core, 55 mobileapp, 75 host), lint with zero errors and zero warnings, and the debug APK build.
+- The native `SameOriginInterceptor` fixes the cookie-bearing heartbeat that returned 403. The server's same-origin guard is not weakened.
+- The normal TC22 installation was updated without clearing data. Existing login and device approval, heartbeat, the real print client's printer, fresh 4x1 media and published document selection, and Cancel then Leave all work against the one local server.
+- That server is one QQQ demo on host port 57832. It runs Mobile Scanners/Echo, Collaboration/Record Files, Document Generation and Printing (API 1.10.0, mobile 1.4.0, printing 2.3.0). On this workstation, device port 8080 forwards to host port 57832. The original accounts, enrollment and approval are retained.
+- The Printing owner has aligned the loaded 4x1 stock (101600 x 25400 microns at 300 dpi) and updated the real media revision. A real Echo 4x1 barcode document is published. The TC22 selected the actual printer, the fresh 4x1 media and that document, and Next succeeded and shows Scanner ready and Connected.
+- The emulator is off because it stalls this workstation. Do not restart it automatically.
+
+Not yet done:
+
+- No physical Echo print or rescan has been proven. One separate synthetic HTTP Echo event reached the actual Windows spooler; physical paper and handheld print/rescan remain unconfirmed. One physical scan of QQQ-TEST-123456 has been requested from the user.
+- Still open for 1.0: physical Code128 and leading-zero QR scan, print and rescan; full provider, camera, GPS, projection and device qualification; public coherent artifacts; primary Gitea CI; and final signing and distribution. Signing is deliberately last, by the user's decision. The first demo working does not collapse these requirements, and nothing here claims release readiness.
+- Core native API merge continuation PR 1337 (a42f9e5) was reviewed with no actionable conflict regression and its 57 focused tests were verified. Normal CI and publication are not established, and default dependencies are not repinned.
+
+The entries below are historical. Where they describe the printer media report, the 4x1 document or the same-origin fix as pending, this checkpoint supersedes them.
+
+## November 2 — native cookie Origin compatibility verified on TC22
+
+The combined Echo Demo on57832 (reached through device port8080) returned200 for login, then403 for the cookie-bearing session heartbeat POST, because Android's native QQQ requests omitted `Origin`. The server's same-origin guard remains enforced. Core now has a small `SameOriginInterceptor`: it sets `Origin` from the actual request URL's canonical scheme/host/port only (default ports omitted, IPv6 bracketed, never credentials/input/headers) and is installed last so additional headers cannot override it. It is used by `NetworkQQQRepository` and the `DeviceApi`, `MobileSessionApi` and `RecordFilesApi` clients. Version discovery, presentation/logo fetches, OIDC/browser/token requests and redirect refusal are unchanged.
+
+All174 JVM tests passed (44core/55mobileapp/75host), with zero failures/errors/skips. Lint has zero errors/warnings and two existing informational hints; debug APK build passed. MockWebServer tests cover exact Origin plus cookie on real POSTs, canonicalization, override resistance and redirect non-forwarding. Session and record-file host tests assert the header on their actual requests.
+
+The verified APK (SHA256 `0B872005B2FA84F693E73CC49133F5C1C02F732A034AA0635A2B50682A61A98E`) was installed on the normal TC22 without clearing its data. Existing scanner login and device approval work against the actual combined server; heartbeat remains connected. Echo opens its three required choices, the approved printer and its reported media load, and Cancel -> Leave returns to the app normally. This directly qualifies setup/session/cancel against the strict host, not a physical print. The earlier112-request/two-synthetic-scan acceptance remains separate. (Superseded: the printing owner has since reported the 4x1 media and the 4x1 document is published; see the current checkpoint above. Physical printing is still unproven.) Emulator stays off.
+
+## November 1 — required Document choice verified on the real TC22
+
+Echo asks for printer, paper/label size and Document once; all subsequent scans use those server-pinned choices. Android production code is unchanged: the generic semantic INTEGER/PVS/dependency controls handle it. The updated separate E2E app passed all7 stages on the actual TC22 (select Document, clear stale choices on parent change, validate required fields, queue two scans, recreate without duplication, Apps/Leave/CLOSED). All112 requests matched published semantic operations. Disposable app/reverse/fixture cleanup passed, normal app/data preserved, emulator off. Printing and scanner inputs are simulated; physicalScannerQualified/physicalPrintingQualified remain false.
+
+Verification:99 focused/host JVM tests,8 Node guards, zero lint errors/warnings and both disposable APKs compiled; after a test-only fixed-footer click correction, the actual TC22 acceptance passed. Companion server source8da274e is signed/pushed with45 library and24 composed demo tests passing. Private live server53118 still has header fix101efc8 pending document-choice rollout; real printer pairing retry awaits the current Windows consent. Installed normal APK324227CC... remains sourcea2f0080, whose production code is identical to this test-only change. Full physical/provider/camera/GPS/projection/public artifact/signing gates remain open.
+## November 1 — Echo native semantic choices verified on TC22
+
+Claude implemented named process possible values using the actual published `searchProcessPossibleValues` JSON contract, dependent-field metadata, cancellation/error/retry and stale-response rejection. The unchanged Echo fixture now completes login, enrollment/approval, printer/media selection once, two accepted synthetic scans, rotation/recreation without duplicates, and Apps/Leave closing the run on the real TC22. All86observed requests matched published semantic operations. Disposable-package cleanup passed; normal package/data and real printers were preserved.
+
+Validation:169JVMtests,8Nodeguards,236-file source standards, zero lint errors/warnings and bothE2EAPKs pass. This is simulated printing, not EMDK or physical output qualification. The remaining immediate blocker is the real Generation/Printing adapter and template/host composition, followed by physical print/rescan. Normal installed APK remains625a275; normal server API1.9/mobile1.1. Production signing remains deferred.
 # Session state
+
+## Echo semantic presentation source checkpoint
+
+The optional extension 1.4 acknowledgmentLabel and manualEntryEnabled hints are published on feature/echo-scanner-presentation (draft PR9). Existing defaults remain Saved scan/manual enabled; Echo uses Print queued/manual disabled. Strict compilation, 167 JVM cases, lint zero errors/warnings and debug assembly pass. Hardware, lifecycle and receipt predicates are unchanged. The server companion passes 69 consumer cases plus two contract cases; the optional Echo module passes 15 strict QQQ/H2 tests.
+
+The normal TC22 remains the separately installed 625a275 build (APK AF13778A…3E9216), preserving sign-in/data. Its About screen was opened and Query artwork, both public links and licenses verified through filtered accessibility data. New Echo-native UI/actual owner adapters/physical printing remain unqualified; printing and document/scripting owners have acknowledged their implementation lanes. The running normal server remains API1.9/mobile1.1. Production signing/distribution stays the owner's final step.
 
 ## November 1 standards fixes and About update
 

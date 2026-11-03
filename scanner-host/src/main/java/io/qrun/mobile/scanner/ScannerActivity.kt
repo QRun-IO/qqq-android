@@ -1,9 +1,14 @@
 /* Copyright (c) 2026 QRunIO. SPDX-License-Identifier: Apache-2.0 */
 package io.qrun.mobile.scanner
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.graphics.Rect
+import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -74,6 +79,14 @@ class ScannerActivity : ComponentActivity() {
    private var focused by mutableStateOf(false)
    private var captureBounds by mutableStateOf<Rect?>(null)
    private val windowFocusObserver = android.view.ViewTreeObserver.OnWindowFocusChangeListener { focused = it }
+   private var managed by mutableStateOf(ManagedValues())
+   private var watchingManagedConfiguration = false
+   private val restrictionsReceiver = object : BroadcastReceiver() {
+      /*******************************************************************************
+       ** Reread administrator restrictions when the system reports a change while this host is visible.
+       *******************************************************************************/
+      override fun onReceive(context: Context, intent: Intent) = refreshManagedConfiguration()
+   }
 
    /*******************************************************************************
     ** Mark the host resumed so visible scanner ownership and foreground telemetry can be reevaluated.
@@ -82,13 +95,44 @@ class ScannerActivity : ComponentActivity() {
       super.onResume()
       resumed = true
       window.decorView.post { if (resumed) focused = window.decorView.hasWindowFocus() }
+      startWatchingManagedConfiguration()
    }
 
    /*******************************************************************************
     ** Withdraw foreground eligibility before Android pauses the activity and scanner input.
     *******************************************************************************/
    override fun onPause() {
-      resumed = false; super.onPause()
+      resumed = false; stopWatchingManagedConfiguration(); super.onPause()
+   }
+
+   /*******************************************************************************
+    ** Reread managed values (also covers changes missed while paused) and apply a changed orientation default.
+    *******************************************************************************/
+   private fun refreshManagedConfiguration() {
+      managed = readManagedValues(this)
+      val preferences = getSharedPreferences("host", MODE_PRIVATE)
+      val target = ManagedConfiguration.orientationToApply(managed.orientation, preferences.getString("managed_orientation_applied", null)) ?: return
+      preferences.edit().putString("managed_orientation_applied", target.name).apply()
+      target.select(this)
+   }
+
+   /*******************************************************************************
+    ** Observe restriction changes only while the host is resumed; the system broadcast is not exported to other apps.
+    *******************************************************************************/
+   private fun startWatchingManagedConfiguration() {
+      refreshManagedConfiguration()
+      if (watchingManagedConfiguration) return
+      ContextCompat.registerReceiver(this, restrictionsReceiver, IntentFilter(Intent.ACTION_APPLICATION_RESTRICTIONS_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+      watchingManagedConfiguration = true
+   }
+
+   /*******************************************************************************
+    ** Stop observing before the activity leaves the foreground.
+    *******************************************************************************/
+   private fun stopWatchingManagedConfiguration() {
+      if (!watchingManagedConfiguration) return
+      unregisterReceiver(restrictionsReceiver)
+      watchingManagedConfiguration = false
    }
 
    /*******************************************************************************
@@ -121,6 +165,7 @@ class ScannerActivity : ComponentActivity() {
    override fun onCreate(savedInstanceState: Bundle?) {
       super.onCreate(savedInstanceState)
       window.decorView.viewTreeObserver.addOnWindowFocusChangeListener(windowFocusObserver)
+      refreshManagedConfiguration()
       OrientationPolicy.read(this).apply(this)
       val preferences = getSharedPreferences("host", MODE_PRIVATE)
       setContent()
@@ -135,7 +180,7 @@ class ScannerActivity : ComponentActivity() {
                var server by remember { mutableStateOf(preferences.getString("server", null)) }
                val currentServer = server
                if (currentServer == null) {
-                  ServerForm { value -> preferences.edit().putString("server", value).apply(); server = value }
+                  ServerForm(managed.serverUrl) { value -> preferences.edit().putString("server", value).apply(); server = value }
                } else {
                   key(currentServer)
                   {
@@ -217,6 +262,16 @@ class ScannerActivity : ComponentActivity() {
          withFrameNanos { }
          renderedScreen = currentScreen
       }
+      // Display-only wallpaper status: approved name and sign-in state, never the session id. Cleared when this host leaves composition.
+      val signedIn = approved && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested
+      val serverHost = remember(server) { runCatching { URI(server).host }.getOrNull() }
+      LaunchedEffect(signedIn, resumed, qViewModel.sessionUserFullName, brand)
+      {
+         WallpaperStatus.store.setBrand(brand.displayName, brand.primaryColor)
+         if (signedIn) WallpaperStatus.store.signedIn(qViewModel.sessionUserFullName, serverHost, resumed)
+         else WallpaperStatus.store.signedOutIfSignedIn()
+      }
+      DisposableEffect(server) { onDispose { WallpaperStatus.store.clear() } }
       val sessionApi = remember(server, diagnostics) { MobileSessionApi(server, credentials::headers, compatibility, diagnostics::sessionRequest) }
       val deviceSharing = remember(server, qViewModel.sessionUUID) { DeviceScreenSharing(applicationContext) }
       val sessions = remember(sessionApi, qViewModel.sessionUUID)
@@ -259,6 +314,10 @@ class ScannerActivity : ComponentActivity() {
          LocalBusinessNavigationEnabled provides approved,
          LocalDeviceSettings provides {
             OrientationSetting(this@ScannerActivity)
+            WallpaperSetting(this@ScannerActivity)
+            ManagedServerNotice(server, managed.serverUrl) {
+               qViewModel.qNavigator.requestLeave("Change server and sign out?", "Change server", alwaysConfirm = true) { qViewModel.changeServerAction?.invoke() }
+            }
             DeviceScreenSharingControl(deviceSharing, sessions) {
                approved && qViewModel.isAuthenticated && !qViewModel.isLogoutRequested
             }
@@ -281,7 +340,10 @@ class ScannerActivity : ComponentActivity() {
          },
          LocalCustomWidgetRenderer provides { parameters, modifier, disabled ->
             if (parameters.widgetBlock.blockType == "SCANNER") {
-               ScannerWidget(parameters, modifier, disabled)
+               ScannerWidget(
+                  parameters, modifier, disabled,
+                  fidelityAvailable = { ScanFidelityCapability.available(server, compatibility.server, compatibility.verifiedVersion()) }
+               )
                true
             } else if (parameters.widgetBlock.blockType == "RECORD_FILES_CAPTURE") {
                RecordPhotoWidget(parameters, recordFiles, modifier, disabled)
@@ -311,12 +373,13 @@ internal fun normalizeServerUrl(input: String, allowHttp: Boolean): String {
  ** Initial server configuration is editable until the host connects.
  *******************************************************************************/
 @Composable
-private fun ServerForm(onConnect: (String) -> Unit) {
-   var url by remember { mutableStateOf(if (BuildConfig.DEBUG) "http://127.0.0.1:8080/" else "https://") }
+private fun ServerForm(managedUrl: String?, onConnect: (String) -> Unit) {
+   var url by remember(managedUrl) { mutableStateOf(managedUrl ?: if (BuildConfig.DEBUG) "http://127.0.0.1:8080/" else "https://") }
    var error by remember { mutableStateOf("") }
    Column(Modifier.imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp))
    {
       Text("Connect QQQ Mobile", style = MaterialTheme.typography.headlineMedium)
+      if (managedUrl != null) Text("Your administrator configured this server. Review it, then connect.")
       OutlinedTextField(url, { url = it }, label = { Text("QQQ server URL") }, singleLine = true)
       Button(onClick = {
          try {

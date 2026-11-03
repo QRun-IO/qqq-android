@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-   <!-- Isolated test application; the normal debug/release identities are untouched. -->
+   <!-- Isolated test application; the normal debug/release identities are untouched.
+        networkSecurityConfig supersedes usesCleartextTraffic on API 24+; the config itself keeps cleartext for
+        the 127.0.0.1 fixtures and adds user-CA trust for the host localhost only (see docs/REAL-AUTHENTIK-ACCEPTANCE.md). -->
    <application android:usesCleartextTraffic="true" android:label="QQQ Mobile E2E"
+      android:networkSecurityConfig="@xml/network_security_config"
       tools:replace="android:usesCleartextTraffic,android:label" />
 </manifest>

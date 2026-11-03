@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<restrictions xmlns:android="http://schemas.android.com/apk/res/android">
+   <restriction android:key="qqq_server_url" android:title="@string/restriction_server_url_title"
+         android:description="@string/restriction_server_url_description" android:restrictionType="string" />
+   <restriction android:key="qqq_orientation" android:title="@string/restriction_orientation_title"
+         android:description="@string/restriction_orientation_description" android:restrictionType="choice"
+         android:entries="@array/restriction_orientation_entries" android:entryValues="@array/restriction_orientation_values" />
+</restrictions>

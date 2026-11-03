@@ -230,9 +230,10 @@ class SemanticProcessTest {
     **
     *******************************************************************************/
    @Test
-   fun remotePossibleValuesAndUnknownInputTypesAreExplicitlyUnavailable() {
-      for (unsupportedField in listOf(field.copy(possibleValueSourceName = "remote"), field.copy(type = QFieldType.UNKNOWN)))
-         assertNotNull(SemanticProcess.unsupported(step.copy(formFields = listOf(unsupportedField)), emptyMap(), null, emptySet()))
+   fun unknownInputTypesAreExplicitlyUnavailableButNamedPossibleValueSourcesAreRendered() {
+      assertNotNull(SemanticProcess.unsupported(step.copy(formFields = listOf(field.copy(type = QFieldType.UNKNOWN))), emptyMap(), null, emptySet()))
+      // Printer/media style fields load their choices through the semantic possibleValues operation.
+      assertNull(SemanticProcess.unsupported(step.copy(formFields = listOf(field.copy(possibleValueSourceName = "remote"))), emptyMap(), null, emptySet()))
    }
 
    /*******************************************************************************

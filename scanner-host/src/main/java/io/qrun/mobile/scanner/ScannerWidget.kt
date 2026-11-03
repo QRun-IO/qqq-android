@@ -4,6 +4,7 @@ package io.qrun.mobile.scanner
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,6 +23,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalFocusManager
@@ -32,7 +34,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBlockParameters
-import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessAcknowledgment
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalProcessInputAllowed
 
 /*******************************************************************************
@@ -41,7 +42,8 @@ import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalProcessInputAllowed
 @Composable
 internal fun ScannerWidget(
    parameters: WidgetBlockParameters, modifier: Modifier, disabled: Boolean,
-   driverFactory: (Context) -> ScannerDriver? = ::createScannerDriver
+   driverFactory: (Context) -> ScannerDriver? = ::createScannerDriver,
+   fidelityAvailable: () -> Boolean = { false }
 ) {
    val context = LocalContext.current
    val view = LocalView.current
@@ -82,7 +84,8 @@ internal fun ScannerWidget(
    /*******************************************************************************
     ** Each new physical scan has an identity; retries are handled by ProcessViewModel.
     *******************************************************************************/
-   fun submit(barcode: String, symbology: String, source: String): Boolean {
+   fun submit(capture: ScannerCapture, source: String): Boolean {
+      val barcode = capture.barcode
       if (process == null) {
          notice = "This scanner control requires an active process."
          return false
@@ -96,12 +99,11 @@ internal fun ScannerWidget(
          return false
       }
       notice = "Sending scan…"
-      val event = ScanEvent(barcode, symbology, source)
+      val event = ScanEvent(capture, source)
+      process.widgetState[ScannerFeedback.STATE_KEY] = LastScan.of(event)
+      // Capability is read from cached verified discovery on the UI thread; it never triggers HTTP.
       process.runStep(
-         event.values(), ProcessAcknowledgment(
-            "acknowledgedEventId", event.eventId,
-            requiredValues = mapOf("scanSaved" to true), nonEmptyStringFields = setOf("scanId")
-         )
+         event.values(includeFidelity = fidelityAvailable()), ScannerFeedback.acknowledgment(event.eventId)
       )
       // runStep can reject local metadata/validation before accepting an event.
       // A synchronous test repository can also finish and acknowledge it immediately.
@@ -111,12 +113,12 @@ internal fun ScannerWidget(
       return accepted
    }
 
-   val currentSubmit by rememberUpdatedState<(String, String, String) -> Boolean>(::submit)
+   val currentSubmit by rememberUpdatedState<(ScannerCapture, String) -> Boolean>(::submit)
    val input = remember(context, process, driverFactory)
    {
       ScannerInputSession(
          { driverFactory(context) },
-         { barcode, symbology -> currentSubmit(barcode, symbology, HARDWARE_SCAN_SOURCE) },
+         { capture -> currentSubmit(capture, HARDWARE_SCAN_SOURCE) },
          { message, reconnect -> scannerStatus = message; canReconnect = reconnect },
          canAcceptInput = { currentInputReady() })
    }
@@ -140,22 +142,45 @@ internal fun ScannerWidget(
    {
       Text(parameters.widgetBlock.values["title"]?.toString() ?: "Scan a barcode")
       Text(parameters.widgetBlock.values["instructions"]?.toString() ?: "Press the handheld scan trigger. Wait for server confirmation before scanning again.")
+      val feedback = ScannerFeedback.derive(
+         process?.widgetState?.get(ScannerFeedback.STATE_KEY) as? LastScan, process?.pendingStepValues, parameters.values,
+         process?.waitingOnBackend == true, process?.cancelling == true
+      )
+      ScanFeedbackPanel(feedback)
       if (parameters.values["scanSaved"] == true && notice.isEmpty()) {
-         Text("Saved scan ${parameters.values["scanId"] ?: ""}")
+         Text("${scannerMetaData.acknowledgmentLabel} ${parameters.values["scanId"] ?: ""}")
       }
       if (notice.isNotEmpty()) Text(notice)
       if (scannerStatus.isNotEmpty()) Text(scannerStatus)
       if (canReconnect) Button(
          enabled = ready,
          onClick = { input.reconnect() }) { Text("Reconnect scanner") }
-      OutlinedTextField(
-         manual, { manual = it }, label = { Text(scannerMetaData.manualLabel) }, enabled = ready, singleLine = true,
-         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() })
-      )
-      Button(enabled = ready && manual.isNotEmpty(), onClick = {
-         focusManager.clearFocus(); keyboard?.hide()
-         if (submit(manual, "MANUAL", "manual")) manual = ""
-      }) { Text(scannerMetaData.submitLabel) }
+      if (scannerMetaData.manualEntryEnabled) {
+         OutlinedTextField(
+            manual, { manual = it }, label = { Text(scannerMetaData.manualLabel) }, enabled = ready, singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() })
+         )
+         Button(enabled = ready && manual.isNotEmpty(), onClick = {
+            focusManager.clearFocus(); keyboard?.hide()
+            if (submit(ScannerCapture.manual(manual), "manual")) manual = ""
+         }) { Text(scannerMetaData.submitLabel) }
+      }
    }
+}
+
+/*******************************************************************************
+ ** Shown for every SCANNER widget, including those with manual entry disabled. A read-only field never
+ ** requests focus or opens the keyboard, and the value is displayed exactly as received.
+ *******************************************************************************/
+@Composable
+internal fun ScanFeedbackPanel(feedback: ScanFeedback?) {
+   OutlinedTextField(
+      feedback?.barcode ?: "", {}, modifier = Modifier.fillMaxWidth().testTag("scanner-barcode"),
+      label = { Text("Barcode") }, readOnly = true, singleLine = true,
+      placeholder = { Text(ScannerFeedback.WAITING) },
+      supportingText = feedback?.let { { Text(it.details) } }
+   )
+   Text("Symbology: ${feedback?.symbology ?: "—"}", Modifier.testTag("scanner-symbology"))
+   Text(feedback?.status ?: ScannerFeedback.WAITING, Modifier.testTag("scanner-status"))
 }
