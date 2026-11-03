@@ -1,21 +1,34 @@
-# Current finish work — November 3
+# Finish ledger for 1.0 (current: November 3, 2026)
 
-Operator availability (November 3): physical handheld/printer checks are deferred until later today. Preserve the ready local demo; remote source/publication work can proceed independently. Printing owner confirms existing copies1–100 support. Generation owner adoption is still pending; all ten canonical paths match the handoff baseline.
+Nothing here is a 1.0 release. History is in SESSION-STATE.md.
 
-Echo Copies per scan is live in the normal local server57832. The optional field defaults to 1 and accepts 1–100; the selected quantity applies to each scan until Leave. The updated normal TC22 APK is installed with its data/sign-in/approval preserved; Connected and settings were verified. Original accounts, approval, database and printer configuration are retained. The emulator stays off and signing/distribution stays last by the user's decision.
+## Source published (not merged, not released)
 
-| Work | Verified state / remaining work |
-| --- | --- |
-| Copies per Echo scan | Implemented and live; server-pinned quantity, one job per scan and retry identity verified. Physical label count remains open. |
-| Semantic native Echo flow | Ten stages and 116/116 documented requests pass on the actual TC22 with simulated scanner inputs/printing: default 1, range rejection, selected 3 across two scans, recreation and Apps/Leave. |
-| Visible scan value/type/result | Installed in the verified normal APK; physical scan feedback awaits a trigger pull. |
-| Barcode fidelity/AIM | Server/renderer and candidate Android source tests pass; actual EMDK data/profile behavior and physical print/rescan remain unqualified. |
-| Company profile/wallpaper | Implementation installed; seven generator tests and system wallpaper preview pass. No company profile/wallpaper applied; managed deployment and lock-screen behavior await qualification. |
-| Record photos | Real Record Files/mobile integration and Echo photo flow are composed in the local server; authorization tests pass. Actual camera/gallery capture/upload remains open. |
-| Actual Authentik | Fresh real-provider desktop acceptance passes. Native harness is integrated/compiled; on-device callback still awaits temporary CA installation and device interaction. No trust bypass. |
-| GPS/whole-device viewing | Physical qualification remains open; required Android consent is retained. |
-| Publication | Generation copies handoff awaits canonical owner adoption; coherent public artifacts and primary Gitea CI remain open. Signing/distribution is explicitly last. |
+- Android `f72b90d08cf29d2785cef1d5c5e7eeaf75f9afd2`: signed application code published in PR 10 (read back over SSH before this documentation update). Gitea CI 3480 succeeded: unit-test, device-test, package, secrets, gate. A clean git merge-tree with `main` b75fdac was verified; nothing was merged. Pull requests #8 and #10 remain open. This documentation update leaves runtime code unchanged.
+- Server `c0e27b36fd16c00eaca3451af3df43f4deedada1`: signed and published in Gitea PR 7, including the verified QQQ 4.1.0-RC.21 dependency update and Record Files test fix.
+- Generation copies: signed `aac68907e67906aeef4e0cd687d28bc98b738f8c` on `feature/echo-generation-copies` (base PR 343 head `8f473fa`), 13 paths, 21/21 manifest match, real PostgreSQL 17 migration passes. Owner integration and publication are not acknowledged.
 
-Verification: 377 unique server/owner tests across qualified module runs (Generation179, Printing16, scanner53, base demo8, mobile Record Files18, Echo68, composed demo35); 222 Android JVM tests (44 core/56 mobile/122 host); lint zero errors/warnings with two informational hints; debug/E2E/test APK compilation; 23 Node tests (eight Echo runner guards/seven profile generator/eight Authentik launcher guards). Tests and local demonstration do not establish a production 1.0 release.
+## Implemented and installed (normal TC22 and local server 57832)
 
-The normal installed APK is 4AAB6951D3B0ABDDD4F5A8DC6790DCD84233EE08179B68DB108BF77909AB850E (November 3, same-signer update, no data clear). Local discovery now advertises UI API1.10, mobile-scanners1.5, printing2.3 and mobile-record-files1.0. Runtime pointer: C:/Users/james/.cache/qqq-local-all-qbits-current.txt. Qualified copies gate pointer: C:/Users/james/.cache/qqq-copies-gate-current.txt. Native proof: scanner-host/build/native-device-e2e/echo-proof.json. Generation's isolated ten-file handoff is C:/Users/james/.cache/qqq-generation-copies-handoff.md; canonical owner source is untouched and no acknowledgement is claimed.
+- APK `4AAB6951D3B0ABDDD4F5A8DC6790DCD84233EE08179B68DB108BF77909AB850E`: same signer, no data clear. Connected, Apps/Settings, portrait, location on and the brand-only wallpaper preview were verified. No wallpaper or company profile was applied. The device shows Echo setup, Copies 1.
+- Server on 57832: UI API 1.10, mobile-scanners 1.5, printing 2.3, mobile-record-files 1.0, with the original database, accounts, approval and printer. Echo Copies per scan (default 1, range 1-100, one job per scan). Its core is not upgraded to RC.21.
+
+## Tested
+
+- Android: 222 JVM tests, lint 0 errors/0 warnings (2 info), debug/E2E/test APK builds, 23 Node tests, 255-file standards.
+- Disposable TC22 Echo ten stages, 109/109 semantic requests; inputs and printing are simulated.
+- Server RC.21 gate PASS: 377 unique tests (Generation 179, Printing bridge 16, scanner 53, demo 8, mobile Record Files 18, Echo 68, Echo demo 35), zero failures/errors/skips, Checkstyle PASS, plus 15 real admin-browser E2E on public RC.21. Earlier MySQL timeouts did not recur. Evidence: `C:/Users/james/.cache/qqq-rc21-copies-gate-076d059d8d0641d9a85874ec64008def/verified-summary.json`.
+- Honest scope: this is public core RC.21 plus qualified owner inputs. The Printing-bridge tests still resolve three private `pu507` libraries through the owner Printing POM, and other owner qbits are private inputs. It is not a fully public or released cohort.
+- Real Authentik desktop acceptance passes with strict TLS (nonce, A, logout, fresh B). The native harness is compiled with 8 launcher guards passing.
+
+## Still open (none of these is claimed done)
+
+- Generation: canonical owner integration, then public reproducible inputs for the owner qbits and a coherent published cohort.
+- Source: primary CI on the final source, merge, review completion and release.
+- Manual on the TC22 (operator remote): physical trigger, scan value/type, AIM, label count, rescan, photo capture/upload, GPS, projection, company profile/wallpaper deployment.
+- Native Authentik on the device: temporary CA installation, PIN interaction and the real callback. No trust bypass.
+- Signing and distribution: explicitly last, by user decision.
+
+## Pointers
+
+Runtime `C:/Users/james/.cache/qqq-local-all-qbits-current.txt`; native proof `scanner-host/build/native-device-e2e/echo-proof.json`; Generation handoff `C:/Users/james/.cache/qqq-generation-copies-handoff.md`; Authentik `docs/REAL-AUTHENTIK-ACCEPTANCE.md`.

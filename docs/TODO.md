@@ -1,5 +1,10 @@
 # TODO
-Latest November 3 checkpoint:
+Latest November 3 checkpoint (current; supersedes the older entries below):
+
+- [x] Android `f72b90d` the signed application-code commit published in PR 10 (SSH read-back verified); Gitea CI 3480 succeeded (unit-test, device-test, package, secrets, gate); clean merge-tree with `main` b75fdac, nothing merged. Pull requests #8 and #10 remain open; merge and release not done. This update changes documentation only.
+- [x] Fresh disposable TC22 Echo ten-stage run: 109/109 semantic requests (simulated inputs/printing); installed APK `4AAB6951...AB850E` unchanged data.
+- [x] Fresh real Authentik desktop acceptance passes; native harness compiled, 8 launcher guards pass. [ ] On-device run awaits the temporary CA and PIN; no trust bypass.
+- [x] Server-side RC.21 gate PASS: 377 unique tests plus 15 real admin-browser E2E on public RC.21; the earlier MySQL timeouts did not recur. [ ] It is public core RC.21 with qualified private owner inputs, not a public/released cohort; the normal runtime core is not upgraded and Echo on RC.21 is not installed.
 
 - [x] Install final client over the normal TC22 with signature match/data preserved; existing sign-in/approval and Connected verified. Settings include portrait, location reporting and working wallpaper preview.
 - [x] Fresh 222 JVM tests, lint zero errors/warnings, all APK builds, 23 Node tests and 255-file standards gate; updated ten-stage native Echo acceptance passes with simulated scans/printing.
