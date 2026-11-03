@@ -42,7 +42,7 @@ The persistent footer shows **Checking**, **Connected**, or **Disconnected** wit
 
 ## Online-only behavior
 
-QQQ administrators can inspect session activity, end sessions, and request live viewing of the QQQ app from a session record. Viewing displays an indicator with **Stop viewing** on the handheld. Password/login screens and background apps cannot be mirrored. Foreground location reporting defaults on and can be disabled in Settings. It requires Android permission and enabled device location providers; scanning works without it. See [session behavior and limits](docs/UI-API.md#session-activity-and-screen-viewing).
+QQQ administrators can inspect session activity, end sessions, and request live viewing of the QQQ app from a session record. Viewing displays an informational indicator on the handheld; the app has no operator pause or stop control. Password/login screens and background apps cannot be mirrored. Optional whole-device sharing still requires Android consent and honors Android's system stop controls. Foreground location reporting defaults on and can be disabled in Settings. It requires Android permission and enabled device location providers; scanning works without it. See [session behavior and limits](docs/UI-API.md#session-activity-and-screen-viewing).
 
 Open **Settings → About QQQ Mobile** for the app version, Query mascot, [Dogfooding](https://www.qrun.io/dogfooding), [Query](https://www.qrun.io/query) and bundled open-source licenses. Public website links open in the external browser without adding session or device information.
 

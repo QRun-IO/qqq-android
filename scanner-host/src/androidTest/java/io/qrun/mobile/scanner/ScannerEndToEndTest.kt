@@ -13,10 +13,21 @@ import android.provider.MediaStore
 import android.util.Base64
 
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
@@ -132,12 +143,35 @@ class ScannerEndToEndTest {
       val finalDocument = documents.last()
       // Persisted setup column holding the chosen document id; confirm against the server fixture schema.
       val documentColumn = "templateId"
+      // Persisted setup column and process field for the optional Copies per scan integer. The Echo owner must expose
+      // both; the Printing service's own limit is 1..100, and this test does not hard-code any other bound.
+      val copiesColumn = "copies"
+      val selectedCopies = 3
+      fun assertCopiesPinned(row: JSONObject) {
+         val pinnedCopies = row.opt(copiesColumn)
+         assertTrue("Setup must pin Copies per scan as the true JSON integer $selectedCopies the operator chose (found: $pinnedCopies); " +
+            "the Echo fixture run table must expose an integer '$copiesColumn' column",
+            pinnedCopies is Number && pinnedCopies.toLong() == selectedCopies.toLong())
+      }
       fun assertSetupPinned(row: JSONObject) {
          assertTrue("Setup must pin the selected printer and media once", row.getString("state") == "OPEN" &&
             row.getString("printerRecordId") == "fixture-printer" && row.getString("mediaId") == "fixture-4x6")
          val persisted = row.opt(documentColumn)
          assertTrue("Setup must persist the chosen document as the same integer id the choices returned",
             persisted is Number && persisted.toLong() == (finalDocument.first as Number).toLong())
+         assertCopiesPinned(row)
+      }
+
+      /*******************************************************************************
+       ** The metadata-driven integer control: a text field labelled by the server's field label, found by its set-text action.
+       *******************************************************************************/
+      val copiesField = hasText("Copies per scan") and hasSetTextAction()
+      fun copiesValue(): String? = ui.onNode(copiesField).performScrollTo().fetchSemanticsNode().config.getOrNull(SemanticsProperties.EditableText)?.text
+      fun enterCopies(value: String) {
+         ui.onNode(copiesField).performScrollTo().performTextReplacement(value)
+         // Dismiss the keyboard as a person would, so later read-only scan-display assertions measure the app, not this input.
+         ui.activityRule.scenario.onActivity { WindowCompat.getInsetsController(it.window, it.window.decorView).hide(WindowInsetsCompat.Type.ime()) }
+         ui.waitForIdle()
       }
 
       /*******************************************************************************
@@ -158,6 +192,9 @@ class ScannerEndToEndTest {
       waitFor("Printer")
       waitFor("Paper or label size")
       waitFor("Document")
+      waitFor("Copies per scan")
+      assertEquals("Copies per scan must default to 1 from the server's field metadata", "1", copiesValue())
+      stage("echo-copies-defaulted")
       ui.onAllNodesWithText("Choose a value").onFirst().performScrollTo().performClick()
       waitFor("Simulated printer")
       ui.onNodeWithText("Simulated printer").performClick()
@@ -193,10 +230,33 @@ class ScannerEndToEndTest {
       waitFor(finalDocument.second)
       assertTrue("Only the reselected document may remain chosen", firstDocument == finalDocument || ui.onAllNodesWithText(firstDocument.second).fetchSemanticsNodes().isEmpty())
       stage("echo-stale-document-cleared")
+      assertEquals("Reselecting a controlling choice must not disturb the independent Copies per scan value", "1", copiesValue())
+      // The field's advertised bounds (Printing's 1..100) are enforced by the renderer before any run is created.
+      for ((invalid, message) in listOf("0" to "Copies per scan is below the allowed minimum.", "101" to "Copies per scan exceeds the allowed maximum.")) {
+         enterCopies(invalid)
+         ui.onNodeWithText("Next", substring = false).performClick()
+         waitFor(message)
+         assertTrue("Invalid Copies per scan must not start setup", ui.onAllNodesWithText("Scanner ready. Press the handheld trigger.").fetchSemanticsNodes().isEmpty() &&
+            rows("echoFixtureRun").none { it.getString("id") !in priorRuns && it.optString("printerRecordId").isNotBlank() })
+      }
+      enterCopies(selectedCopies.toString())
+      assertEquals("The chosen quantity must be held by the metadata-driven integer field", selectedCopies.toString(), copiesValue())
+      stage("echo-copies-selected")
       ui.onNodeWithText("Next", substring = false).performClick()
       waitFor("Scanner ready. Press the handheld trigger.")
       assertTrue("Echo must not offer manual barcode input", ui.onAllNodesWithText("Manual barcode").fetchSemanticsNodes().isEmpty())
       assertTrue("Echo must not offer manual submission", ui.onAllNodesWithText("Submit barcode").fetchSemanticsNodes().isEmpty())
+      // The scan display is read-only and present although Echo disables manual entry; nothing opens the keyboard.
+      fun assertScanDisplay(barcode: String?, symbology: String?, status: String) {
+         ui.onNodeWithTag("scanner-barcode").performScrollTo().assertIsDisplayed()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsActions.SetText))
+         if (barcode != null) ui.onNodeWithTag("scanner-barcode").assert(hasText(barcode))
+         ui.onNodeWithTag("scanner-symbology").assertTextEquals("Symbology: ${symbology ?: "—"}")
+         ui.onNodeWithTag("scanner-status").assertTextEquals(status)
+         assertTrue("Read-only scan display must not open the keyboard",
+            ViewCompat.getRootWindowInsets(ui.activity.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) != true)
+      }
+      assertScanDisplay(null, null, "Waiting for scan")
       val run = rows("echoFixtureRun").single { it.getString("id") !in priorRuns }
       val runId = run.getString("id")
       assertSetupPinned(run)
@@ -216,6 +276,7 @@ class ScannerEndToEndTest {
          val row = requireNotNull(accepted)
          receipt = row.getString("mobileScanId")
          waitFor("Print queued $receipt", substring = true)
+         assertScanDisplay(sample.first, sample.second, "Confirmed by server")
          assertTrue("Accepted Echo scans must preserve exact type and approved-device attribution",
             row.getString("symbology") == sample.second && row.getString("rendererSymbology") == (if (index == 0) "code128" else "qr") &&
                row.getString("scanSource") == "e2e-fixture" && row.getString("deviceId") == device.deviceId && row.getString("actorId") == "scanner")
@@ -230,10 +291,13 @@ class ScannerEndToEndTest {
       waitFor("Print queued $receipt", substring = true)
       ui.activityRule.scenario.recreate()
       waitFor("Print queued $receipt", substring = true)
+      assertScanDisplay("000-ECHO-QR", "QRCODE", "Confirmed by server")
       assertTrue("Recreation must retain scan phase without showing printer selection", ui.onAllNodesWithText("Choose a value").fetchSemanticsNodes().isEmpty())
       val acceptedRows = rows("echoScan").filter { it.optString("runId") == runId }
       assertTrue("Rotation/recreation must not accept another event", acceptedRows.size == 2 && acceptedRows.map { it.getString("eventId") }.toSet().size == 2 &&
          acceptedRows.map { it.getString("printJobId") }.toSet().size == 2)
+      assertSetupPinned(rows("echoFixtureRun").single { it.getString("id") == runId })
+      stage("echo-copies-persisted")
       stage("echo-recreation-stable")
       ui.onNodeWithTag("topBar.menuIcon").performClick()
       ui.onNodeWithTag("drawer.home").performClick()
@@ -242,6 +306,7 @@ class ScannerEndToEndTest {
       waitForTag("appHome.rowForApp:echo")
       waitForServer { rows("echoFixtureRun").single { it.getString("id") == runId }.getString("state") == "CLOSED" }
       assertTrue("Leaving must close this run without accepting extra print work", rows("echoScan").count { it.optString("runId") == runId } == 2)
+      assertCopiesPinned(rows("echoFixtureRun").single { it.getString("id") == runId })
       stage("echo-run-closed")
    }
 
@@ -477,9 +542,11 @@ class ScannerEndToEndTest {
          screenWidget()
          ui.onAllNodesWithText("Screen being viewed by an administrator").fetchSemanticsNodes().isNotEmpty()
       }
-      ui.onNodeWithText("Stop viewing").performClick()
-      waitFor("Screen viewing paused")
-      waitForServer { screenWidget().toString().contains("OPERATOR_PAUSED") && findImage(screenWidget()) == null }
+      // Scanner users have no in-app control to pause or disable administrator viewing.
+      assertTrue("No in-app Stop viewing control", ui.onAllNodesWithText("Stop viewing").fetchSemanticsNodes().isEmpty())
+      assertTrue("No in-app Allow viewing control", ui.onAllNodesWithText("Allow viewing").fetchSemanticsNodes().isEmpty())
+      ui.onNodeWithText("Screen being viewed by an administrator").assertHasNoClickAction()
+      waitForServer { findImage(screenWidget()).orEmpty().startsWith("data:image/jpeg;base64,") }
       val launch = processCall("mobileSessionEnd", "/init", JSONObject())
       val applied = processCall("mobileSessionEnd", "/${launch.getString("processUUID")}/step/input", JSONObject().put("sessionId", sessionId))
       if (applied.optString("nextStep") == "result") processCall("mobileSessionEnd", "/${launch.getString("processUUID")}/step/result", JSONObject())
@@ -707,11 +774,65 @@ class ScannerEndToEndTest {
       assertEquals("scanner", scans.single().getString("userId"))
       assertEquals("manual", scans.single().getString("scanSource"))
       assertTrue(scans.single().has("receivedAt"))
+
+      // Scanner-sourced fixture event with exact raw bytes (NUL, high bytes, embedded ]Q1) and an explicit AIM
+      // identifier, delivered through the disposable e2e driver. Text, type and bytes are fixed and non-sensitive.
+      val scannedBarcode = "000-NATIVE-RAW-0123"
+      val scannedSymbology = "LABEL-TYPE-QRCODE"
+      val rawBytes = byteArrayOf(0x00, 0xFF.toByte(), 0x80.toByte(), ']'.code.toByte(), 'Q'.code.toByte(), '1'.code.toByte(), 'A'.code.toByte(), 0x00, 0xFE.toByte())
+      // The same >=1.5 negotiation rule as production, read independently from public discovery of this scenario's server.
+      val fidelityNegotiated = mobileScannersAtLeast15()
+      fun scanRows() = jsonRequest("/qqq/v1/table/mobileScan/query", JSONObject()).getJSONArray("records")
+      val beforeScan = scanRows().length()
+      waitFor("Scanner ready. Press the handheld trigger.")
+      context.sendBroadcast(Intent("io.qrun.mobile.scanner.SCAN").setPackage(context.packageName)
+         .addCategory(Intent.CATEGORY_DEFAULT).putExtra("com.symbol.datawedge.data_string", scannedBarcode)
+         .putExtra("com.symbol.datawedge.label_type", scannedSymbology)
+         .putExtra("io.qrun.mobile.scanner.e2e.raw_data", rawBytes)
+         .putExtra("io.qrun.mobile.scanner.e2e.aim_identifier", "]Q1"))
+      var scanned: JSONObject? = null
+      waitForServer {
+         val rows = scanRows()
+         scanned = (0 until rows.length()).map { rows.getJSONObject(it).getJSONObject("values") }
+            .singleOrNull { it.optString("barcode") == scannedBarcode }
+         scanned != null
+      }
+      val persisted = requireNotNull(scanned)
+      // The acknowledgment names this event's id, so it cannot be the earlier manual acknowledgment.
+      waitFor("Saved scan ${persisted.getString("id")}", substring = true)
+      assertEquals("e2e-fixture", persisted.getString("scanSource"))
+      assertEquals(device.deviceId, persisted.getString("deviceId"))
+      assertEquals(scannedBarcode, persisted.getString("barcode"))
+      assertEquals(scannedSymbology, persisted.getString("symbology"))
+      if (fidelityNegotiated) {
+         assertTrue("Persisted raw bytes must equal the exact bytes sent, including NUL and high bytes",
+            rawBytes.contentEquals(Base64.decode(persisted.getString("rawDataBase64"), Base64.NO_WRAP)))
+         assertEquals("]Q1", persisted.getString("aimIdentifier"))
+      } else {
+         assertTrue("A server without scan fidelity must receive and persist legacy fields only",
+            persisted.isNull("rawDataBase64") && persisted.isNull("aimIdentifier"))
+      }
+      assertEquals("One scanner event must create exactly one durable scan", beforeScan + 1, scanRows().length())
+      stage(if (fidelityNegotiated) "native-raw-scan-persisted" else "native-legacy-scan-persisted")
+
+      val beforeRevoke = scanRows()
       runAdmin("mobileDeviceRevoke", device.deviceId)
       // The active heartbeat revokes the open UI as well as protected process submissions.
       waitFor("Log back in")
-      val afterRevoke = jsonRequest("/qqq/v1/table/mobileScan/query", JSONObject()).getJSONArray("records")
-      assertEquals("Revoked devices cannot save through an already-open process", records.length(), afterRevoke.length())
+      val afterRevoke = scanRows()
+      assertEquals("Revoked devices cannot save through an already-open process", beforeRevoke.length(), afterRevoke.length())
+   }
+
+   /*******************************************************************************
+    ** Public, credential-free discovery: mobile-scanners at its fixed path with version >=1.5.0 and <2.
+    *******************************************************************************/
+   private fun mobileScannersAtLeast15(): Boolean {
+      val discovery = executeJson(Request.Builder().url("$origin/qqq/v1/version").get().build())
+      val extensions = discovery.optJSONArray("extensions") ?: return false
+      val extension = (0 until extensions.length()).map { extensions.getJSONObject(it) }.singleOrNull { it.optString("name") == "mobile-scanners" } ?: return false
+      if (extension.optString("pathPrefix") != "/qbit/mobile-scanners") return false
+      val parts = Regex("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)").matchEntire(extension.optString("version"))?.groupValues ?: return false
+      return parts[1] == "1" && (parts[2].toIntOrNull() ?: return false) >= 5
    }
 
    /*******************************************************************************

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,17 +43,15 @@ private fun containsPasswordWidget(value: Any?): Boolean = when (value) {
 }
 
 /*******************************************************************************
- ** Keep the operator informed of active viewing and expose immediate pause/resume control.
+ ** Keep the operator informed of active or suspended viewing; this indicator is informational and offers no operator control.
  *******************************************************************************/
 @Composable
 internal fun ScreenViewingIndicator(controller: MobileSessionController) {
    if (controller.viewing || controller.operatorPaused) Surface(color = MaterialTheme.colorScheme.secondaryContainer)
    {
-      Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically)
+      Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically)
       {
          Text(if (controller.operatorPaused) "Screen viewing paused" else "Screen being viewed by an administrator", Modifier.weight(1f))
-         TextButton(onClick = { if (controller.operatorPaused) controller.allowViewing() else controller.pauseViewing() })
-         { Text(if (controller.operatorPaused) "Allow viewing" else "Stop viewing") }
       }
    }
 }

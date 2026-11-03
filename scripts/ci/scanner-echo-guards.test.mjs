@@ -37,6 +37,7 @@ test('Echo artifacts and error text contain no selected serial', () => {
 test('explicit simulated Echo descriptor is accepted', () => {
    assert.equal(validateEchoFixtureDescriptor(fixture).port, '49152');
    validateEchoFixtureContract(version, branding);
+   validateEchoFixtureContract({ ...version, extensions: [{ ...version.extensions[0], version: '1.5.0' }] }, branding);
 });
 
 /*******************************************************************************
@@ -75,6 +76,10 @@ test('wrong-purpose or incomplete credentials are refused', () => {
 test('contract and simulated branding must match the prepared cohort', () => {
    assert.throws(() => validateEchoFixtureContract({ ...version, apiVersion: '1.9.0' }, branding));
    assert.throws(() => validateEchoFixtureContract({ ...version, extensions: [{ ...version.extensions[0], version: '1.3.0' }] }, branding));
+   for (const unsupported of ['1.6.0', '1.5.1', '1.4.1', '2.0.0', '1.10.0', '1.5']) {
+      assert.throws(() => validateEchoFixtureContract({ ...version, extensions: [{ ...version.extensions[0], version: unsupported }] }, branding));
+   }
+   assert.throws(() => validateEchoFixtureContract({ ...version, extensions: [{ ...version.extensions[0], version: '1.5.0', pathPrefix: '/other' }] }, branding));
    assert.throws(() => validateEchoFixtureContract(version, { displayName: 'QQQ Mobile' }));
 });
 

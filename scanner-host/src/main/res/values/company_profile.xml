@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+   <string name="status_wallpaper_label">QQQ status wallpaper</string>
+   <string name="status_wallpaper_description">Company name on the lock screen. On the unlocked home screen it also shows the signed-in display name and the device IP address.</string>
+   <string name="restriction_server_url_title">QQQ server URL</string>
+   <string name="restriction_server_url_description">HTTPS origin only, for example https://qqq.example.com/. No credentials, path, query or fragment. A different connected server is never switched silently.</string>
+   <string name="restriction_orientation_title">Screen orientation</string>
+   <string name="restriction_orientation_description">Applied when this value changes; the operator may change it locally afterwards.</string>
+   <string-array name="restriction_orientation_entries">
+      <item>System default</item>
+      <item>Portrait</item>
+      <item>Landscape</item>
+      <item>Reverse portrait</item>
+      <item>Reverse landscape</item>
+   </string-array>
+   <string-array name="restriction_orientation_values">
+      <item>SYSTEM</item>
+      <item>PORTRAIT</item>
+      <item>LANDSCAPE</item>
+      <item>REVERSE_PORTRAIT</item>
+      <item>REVERSE_LANDSCAPE</item>
+   </string-array>
+</resources>

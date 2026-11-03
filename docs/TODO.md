@@ -1,4 +1,17 @@
 # TODO
+Latest November 3 checkpoint:
+
+- [x] Install final client over the normal TC22 with signature match/data preserved; existing sign-in/approval and Connected verified. Settings include portrait, location reporting and working wallpaper preview.
+- [x] Fresh 222 JVM tests, lint zero errors/warnings, all APK builds, 23 Node tests and 255-file standards gate; updated ten-stage native Echo acceptance passes with simulated scans/printing.
+- [x] Integrate and compile opt-in real Authentik Android acceptance; real-provider desktop acceptance rerun passes all six phases with strict TLS.
+- [ ] Run real native Authentik after temporary CA installation/device interaction. Confirm physical scanner/label count/fidelity, camera/GPS/projection/profile behavior. Complete shared artifact publication/hosted CI; signing remains last.
+
+Current checkpoint (November 2, copies adoption; supersedes older source/runtime notes below):
+
+- [x] Verify optional Copies per scan through the actual generic native UI: default 1, range 1–100, selected 3 retained across two scans/recreation, and Apps/Leave; ten stages, 116 documented requests. Normal TC22 setup shows 1 against the updated local server.
+- [x] Combined candidate gate: 222 JVM tests, lint zero errors/warnings, debug/E2E/test APK compilation and 15 Node tests. Normal installed APK remains D8109C61; newer feedback/profile/wallpaper/AIM code is not installed.
+- [ ] Physically confirm label quantity and barcode fidelity. Native Authentik and camera/GPS/projection qualification remain open while the operator is remote; temporary CA installation is unconfirmed.
+- [ ] Coordinate canonical Generation copies adoption and coherent publication/CI. Signing/distribution remains last.
 
 - [x] Implement negotiated mobile1.5 raw-byte transport with immutable capture, same-server capability gating and byte-identical failed-request retry;185 JVM tests, lint0errors/0warnings, debug/E2E builds and QA test compilation pass.
 - [ ] Qualify new raw-byte delivery on TC22 and complete actual AIM extraction/decoder-profile checks. Current source leaves AIM absent and does not change hardware configuration; full Echo fidelity is still open.
@@ -105,3 +118,7 @@ Offline queue/background synchronization is deliberately outside version one.
 - [x] Implement named semantic process choices and qualify Echo native setup/two scans/rotation/Apps Leave onTC22 (169JVM,8guards,86documentedrequests; printing simulated).
 - [x] Real Echo host and owner adapters are composed and running in the single local server (see the Origin item above).
 - [ ] Print a physical label and rescan the exact value and type (tracked above).
+
+# Scoped administrator viewing update — November 2
+
+- [x] Remove app-authored viewing stop controls, verify the existing native session-monitor flow and install on TC22 with app data preserved. Retain the visible indicator, Android consent/system stop controls, server leases and authorization.

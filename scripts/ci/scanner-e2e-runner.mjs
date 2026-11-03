@@ -30,9 +30,9 @@ export function validateEchoFixtureDescriptor(fixture) {
  *******************************************************************************/
 export function validateEchoFixtureContract(version, branding) {
    const extension = Array.isArray(version?.extensions) ? version.extensions.find(value => value.name === 'mobile-scanners') : null;
-   if (version?.apiVersion !== '1.10.0' || extension?.version !== '1.4.0' || extension.pathPrefix !== '/qbit/mobile-scanners' ||
+   if (version?.apiVersion !== '1.10.0' || !['1.4.0', '1.5.0'].includes(extension?.version) || extension.pathPrefix !== '/qbit/mobile-scanners' ||
          branding?.displayName !== 'Echo UI E2E — simulated printing') {
-      throw new Error('Echo requires the simulated Echo fixture with core UI API1.10 and mobile-scanners1.4.');
+      throw new Error('Echo requires the simulated Echo fixture with core UI API1.10 and mobile-scanners1.4 or 1.5.');
    }
 }
 
@@ -335,8 +335,9 @@ export async function runScannerE2e(options = {}) {
             await adbRun('shell', 'run-as', packageName, 'mkdir', '-p', 'shared_prefs');
             await run(adb, [...adbPrefix, 'shell', 'run-as', packageName, 'sh', '-c', "'cat > shared_prefs/host.xml'"],
                '<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map><boolean name="locationReportingEnabled" value="false" /><boolean name="locationPermissionRequested" value="true" /></map>');
-         } else if ((phase.name ?? phase.mode) === 'session-monitor' && packageName === 'io.qrun.mobile.scanner.e2e') {
+         } else if ((phase.name ?? phase.mode) === 'session-monitor') {
             // Preserve this scenario's real denied-location telemetry assertion without an OS dialog.
+            // Package selection already limits this to the disposable e2e or physical qa application.
             await adbRun('shell', 'pm', 'revoke', packageName, 'android.permission.ACCESS_FINE_LOCATION');
             await adbRun('shell', 'pm', 'revoke', packageName, 'android.permission.ACCESS_COARSE_LOCATION');
             await adbRun('shell', 'run-as', packageName, 'mkdir', '-p', 'shared_prefs');
@@ -360,7 +361,7 @@ export async function runScannerE2e(options = {}) {
          }
          reports.push({ scenario: phase.name ?? phase.mode, ...proxy.verify(!phase.expectedError, Boolean(phase.requireCancel), Boolean(phase.requireSession), Boolean(phase.requirePhotos)) });
          if (echo) {
-            const expectedStages = ['echo-document-selected', 'echo-stale-document-cleared', 'echo-setup-selected', 'echo-first-queued', 'echo-second-queued', 'echo-recreation-stable', 'echo-run-closed'];
+            const expectedStages = ['echo-copies-defaulted', 'echo-document-selected', 'echo-stale-document-cleared', 'echo-copies-selected', 'echo-setup-selected', 'echo-first-queued', 'echo-second-queued', 'echo-recreation-stable', 'echo-copies-persisted', 'echo-run-closed'];
             if (expectedStages.some(stage => !stages.has(stage))) throw new Error('Echo did not complete every setup/queue/recreation/cancellation stage.');
             await writeFile(join(echoEvidence, 'echo-proof.json'), JSON.stringify({ status: 'PASSED', fixtureType: 'echo-ui-e2e', simulatedPrinting: true,
                artifacts: echoArtifacts, completedStages: expectedStages, acceptedScans: 2, ...reports.at(-1), physicalScannerQualified: false, physicalPrintingQualified: false }, null, 2));

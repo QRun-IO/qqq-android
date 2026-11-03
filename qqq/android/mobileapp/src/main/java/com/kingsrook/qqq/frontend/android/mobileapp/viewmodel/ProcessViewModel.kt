@@ -69,6 +69,11 @@ open class ProcessViewModel : ViewModel() {
       private set
    var submissionError: String? by mutableStateOf(null)
       private set
+   /*******************************************************************************
+    ** Client-only widget state for this process instance. It survives step changes and recreation, is
+    ** replaced with the process, and is never submitted, saved, logged or shared between processes.
+    *******************************************************************************/
+   val widgetState = mutableStateMapOf<String, Any>()
    private var processComplete: Boolean by mutableStateOf(false)
    private var initializing = false
 

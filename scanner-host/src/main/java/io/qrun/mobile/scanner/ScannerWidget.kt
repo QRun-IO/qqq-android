@@ -4,6 +4,7 @@ package io.qrun.mobile.scanner
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,6 +23,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalFocusManager
@@ -32,7 +34,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.widgets.blocks.WidgetBlockParameters
-import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessAcknowledgment
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalProcessInputAllowed
 
 /*******************************************************************************
@@ -99,12 +100,10 @@ internal fun ScannerWidget(
       }
       notice = "Sending scan…"
       val event = ScanEvent(capture, source)
+      process.widgetState[ScannerFeedback.STATE_KEY] = LastScan.of(event)
       // Capability is read from cached verified discovery on the UI thread; it never triggers HTTP.
       process.runStep(
-         event.values(includeFidelity = fidelityAvailable()), ProcessAcknowledgment(
-            "acknowledgedEventId", event.eventId,
-            requiredValues = mapOf("scanSaved" to true), nonEmptyStringFields = setOf("scanId")
-         )
+         event.values(includeFidelity = fidelityAvailable()), ScannerFeedback.acknowledgment(event.eventId)
       )
       // runStep can reject local metadata/validation before accepting an event.
       // A synchronous test repository can also finish and acknowledge it immediately.
@@ -143,6 +142,11 @@ internal fun ScannerWidget(
    {
       Text(parameters.widgetBlock.values["title"]?.toString() ?: "Scan a barcode")
       Text(parameters.widgetBlock.values["instructions"]?.toString() ?: "Press the handheld scan trigger. Wait for server confirmation before scanning again.")
+      val feedback = ScannerFeedback.derive(
+         process?.widgetState?.get(ScannerFeedback.STATE_KEY) as? LastScan, process?.pendingStepValues, parameters.values,
+         process?.waitingOnBackend == true, process?.cancelling == true
+      )
+      ScanFeedbackPanel(feedback)
       if (parameters.values["scanSaved"] == true && notice.isEmpty()) {
          Text("${scannerMetaData.acknowledgmentLabel} ${parameters.values["scanId"] ?: ""}")
       }
@@ -163,4 +167,20 @@ internal fun ScannerWidget(
          }) { Text(scannerMetaData.submitLabel) }
       }
    }
+}
+
+/*******************************************************************************
+ ** Shown for every SCANNER widget, including those with manual entry disabled. A read-only field never
+ ** requests focus or opens the keyboard, and the value is displayed exactly as received.
+ *******************************************************************************/
+@Composable
+internal fun ScanFeedbackPanel(feedback: ScanFeedback?) {
+   OutlinedTextField(
+      feedback?.barcode ?: "", {}, modifier = Modifier.fillMaxWidth().testTag("scanner-barcode"),
+      label = { Text("Barcode") }, readOnly = true, singleLine = true,
+      placeholder = { Text(ScannerFeedback.WAITING) },
+      supportingText = feedback?.let { { Text(it.details) } }
+   )
+   Text("Symbology: ${feedback?.symbology ?: "—"}", Modifier.testTag("scanner-symbology"))
+   Text(feedback?.status ?: ScannerFeedback.WAITING, Modifier.testTag("scanner-status"))
 }

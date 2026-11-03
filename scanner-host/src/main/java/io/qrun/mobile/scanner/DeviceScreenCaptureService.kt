@@ -6,7 +6,6 @@ import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -81,9 +80,6 @@ class DeviceScreenCaptureService : Service() {
     ** Establish the visible sharing notification before accepting consent; never restart projection automatically.
     *******************************************************************************/
    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-      if (intent?.action == STOP) {
-         finishProjection(); return START_NOT_STICKY
-      }
       try {
          val manager = getSystemService(NotificationManager::class.java)
          manager.createNotificationChannel(NotificationChannel(CHANNEL, "Device screen sharing", NotificationManager.IMPORTANCE_LOW))
@@ -91,13 +87,9 @@ class DeviceScreenCaptureService : Service() {
             finishProjection()
             return START_NOT_STICKY
          }
-         val stop = PendingIntent.getService(
-            this, 0, Intent(this, DeviceScreenCaptureService::class.java).setAction(STOP),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-         )
          val notification = Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_scanner)
             .setContentTitle("QQQ device screen sharing").setContentText("Other apps and notifications may be visible to your administrator.")
-            .setOngoing(true).addAction(Notification.Action.Builder(null, "Stop sharing", stop).build()).build()
+            .setOngoing(true).build()
          if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
          else startForeground(NOTIFICATION_ID, notification)
          foregroundReady = true
@@ -340,11 +332,10 @@ class DeviceScreenCaptureService : Service() {
    }
 
    /*******************************************************************************
-    ** Keep notification and stop-action identifiers private to the nonexported projection service.
+    ** Keep notification identifiers private to the nonexported projection service.
     *******************************************************************************/
    private companion object {
       const val CHANNEL = "qqq-device-screen"
-      const val STOP = "io.qrun.mobile.scanner.STOP_DEVICE_SCREEN"
       const val NOTIFICATION_ID = 8716
    }
 }

@@ -8,6 +8,8 @@ import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 
 internal const val HARDWARE_SCAN_SOURCE = "e2e-fixture"
+internal const val E2E_RAW_DATA_EXTRA = "io.qrun.mobile.scanner.e2e.raw_data"
+internal const val E2E_AIM_IDENTIFIER_EXTRA = "io.qrun.mobile.scanner.e2e.aim_identifier"
 
 /*******************************************************************************
  ** Disposable E2E package only. No debug/release source set contains this ingress.
@@ -25,7 +27,10 @@ internal fun createScannerDriver(context: Context): ScannerDriver = object : Sca
          val data = intent.getStringExtra("com.symbol.datawedge.data_string") ?: return
          if (intent.getStringExtra("com.symbol.datawedge.decode_mode") == "multiple" || intent.hasExtra("com.symbol.datawedge.barcodes")) return
          pending = false
-         listener?.scanned(ScannerCapture.of(data, intent.getStringExtra("com.symbol.datawedge.label_type") ?: "UNKNOWN"))
+         // Test-only fixture metadata: exact bytes and an explicit AIM identifier, never derived from the text.
+         val raw = intent.getByteArrayExtra(E2E_RAW_DATA_EXTRA)
+         val aim = intent.getStringExtra(E2E_AIM_IDENTIFIER_EXTRA)
+         listener?.scanned(ScannerCapture.of(data, intent.getStringExtra("com.symbol.datawedge.label_type") ?: "UNKNOWN", raw, aim))
          listener?.idle()
       }
    }
