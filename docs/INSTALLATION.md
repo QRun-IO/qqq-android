@@ -1,6 +1,8 @@
 # Installing QQQ Mobile directly
 
-Use this for a small number of devices now. Move to MDM later (see [RELEASING](RELEASING.md)). Automated scanner-APK CI publication is pending; that is not a blocker to direct installation.
+Use this for the **production-signed** APK on a small number of devices. Move to MDM later (see [RELEASING](RELEASING.md)). Automated scanner-APK signing/publication is not configured; that is not a blocker to direct installation.
+
+This guide is not the local demo. The demo uses the development-signed debug APK, plain HTTP and `adb reverse` port forwarding to a workstation server; see [README](../README.md#installing-on-a-device). The two builds have different signers and cannot update each other.
 
 | Item | Value |
 | --- | --- |
@@ -11,7 +13,7 @@ Use this for a small number of devices now. Move to MDM later (see [RELEASING](R
 
 The same APK is used for every customer; branding comes from the server at runtime. Compare the SHA-256 before installing. The checksum shows the file is intact, not who signed it.
 
-This production-signed APK has not been tested on a physical device. Do not treat these steps as hardware-qualified until the first install is confirmed (below).
+This APK was installed and launched once on a fresh Zebra MC9400 (Android 13): install succeeded, the Connect screen appeared and the installed bytes matched the hash above. It has **not** been enrolled, scanned or navigated, because no HTTPS server was available, so these steps are not hardware-qualified until the first install is confirmed (below). That MC9400 now runs the development demo build instead.
 
 ## Before you start
 
@@ -63,7 +65,7 @@ For a later build signed by the same key with a higher versionCode, run the same
 
 ## Devices running the development-signed build
 
-The existing development-signed TC22 cannot be updated by this APK, because the signer differs. Android is expected to refuse the install. This is not a fault: do not uninstall the app or reset the device to get around it. Moving that device needs a planned one-time migration that includes re-enrollment.
+Devices running the development-signed demo build (the TC22, and the MC9400 in demo mode) cannot be updated by this APK, because the signer differs. Android is expected to refuse the install. This is not a fault: do not uninstall the app or reset the device to get around it. Moving that device needs a planned one-time migration that includes re-enrollment.
 
 ## References
 

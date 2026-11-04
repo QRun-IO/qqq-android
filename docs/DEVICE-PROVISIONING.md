@@ -1,6 +1,6 @@
 # Company provisioning for Zebra handhelds
 
-Research checked 2026-10-31. Target: Zebra TC22, Android 14, DataWedge 13.0.325, QQQ Mobile package `io.qrun.mobile.scanner`. This is a design recommendation, not an installed profile or a completed hardware qualification. No device configuration, enrollment, reset or runtime changes were made for this research. Production signing and distribution remain deferred.
+Research checked 2026-10-31. Target: Zebra TC22, Android 14, DataWedge 13.0.325, QQQ Mobile package `io.qrun.mobile.scanner`. This is a design recommendation, not an installed profile or a completed hardware qualification. No device configuration, enrollment, reset or runtime changes were made for this research. No company profile, EHS, OEMConfig or MDM configuration has been applied to or verified on any device, and no fleet rollout is claimed. The scanner application itself is current source; see [Implemented in the app](#implemented-in-the-app). The signed-APK/MDM channel is chosen but not rolled out ([RELEASING](RELEASING.md)).
 
 ## Recommended approach
 
@@ -71,14 +71,35 @@ These are design inputs, not a finalized XML schema or implemented managed-confi
 | Profile identity | Customer/profile ID, revision, target model/Android/MX range, rollout ring, rollback revision |
 | Device identity | Assigned short name, description, asset ID; explicitly map Android device name and QQQ device record |
 | Network/trust | Network-policy reference, certificate/credential delivery reference, proxy/DNS/time policy; no embedded passwords in repository fixtures |
-| Apps | Package IDs, approved version/channel, artifact reference/checksum, signing identity once decided, required companion activities |
+| Apps | Package IDs, approved version/channel, artifact reference/checksum, signing certificate fingerprint (see [RELEASING](RELEASING.md)), required companion activities |
 | Launcher | Title, logo/wallpaper asset references, ordered app list/folders, multi-app or kiosk policy, admin recovery reference |
 | Scanner | DataWedge profile association, expected intent/output contract, required decoders; preserve the verified QQQ scan transport |
-| App bootstrap | HTTPS QQQ server URL, tenant/branding discovery hints, supported configuration revision, optional orientation policy |
+| App bootstrap | HTTPS QQQ server URL (`qqq_server_url`) and optional orientation policy (`qqq_orientation`) are implemented; tenant/branding hints and a configuration revision are not |
 | Capabilities | Camera/location policy, diagnostics visibility, screen-sharing policy, required permission decisions; no blanket grants |
 | Operations | Update window, reporting/retention policy, support contact, rollback and recovery procedure references |
 
-QQQ can support Android managed app configurations without customer-specific builds, but the app must declare and consume the configuration schema. Source inspection found no RestrictionsManager/app-restrictions declaration or wallpaper component in the current scanner host. This is proposed work. Managed settings should supply bootstrap/policy only; business screens and processes remain on the versioned QQQ semantic API. Reconcile admin-managed values with user preferences explicitly. [Android managed configurations](https://developer.android.com/work/managed-configurations).
+Managed settings supply bootstrap/policy only; business screens and processes remain on the versioned QQQ semantic API. Admin-managed values are reconciled with user preferences explicitly (see below). [Android managed configurations](https://developer.android.com/work/managed-configurations).
+
+## Implemented in the app
+
+The scanner host source now includes the pieces below. They are implemented and unit-tested; none has been delivered through an EMM/MDM or StageNow profile on a device.
+
+**Managed configuration** ([`app_restrictions.xml`](../scanner-host/src/main/res/xml/app_restrictions.xml), declared in the manifest through `android.content.APP_RESTRICTIONS`; logic in [`ManagedConfiguration.kt`](../scanner-host/src/main/java/io/qrun/mobile/scanner/ManagedConfiguration.kt)). Exactly two keys:
+
+| Key | Type | Behavior |
+| --- | --- | --- |
+| `qqq_server_url` | string | Must be an HTTPS origin with no credentials, path, query or fragment, at most 2048 characters; HTTP is never accepted, even in debug builds. With no saved server it prefills the connect form. A different saved server is never switched silently: Settings offers "Use administrator's server", which runs the existing confirm, end-session and sign-out path. |
+| `qqq_orientation` | choice | One of `SYSTEM`, `PORTRAIT`, `LANDSCAPE`, `REVERSE_PORTRAIT`, `REVERSE_LANDSCAPE`. Applied as a default only when the managed value changes; a later local choice stands until the managed value changes again. |
+
+Invalid values are rejected, not defaulted, and only the key name is recorded. The keys must stay in step with the [company profile generator](../deployment/company-profile/) and [COMPANY-PROFILE](COMPANY-PROFILE.md).
+
+**Optional status wallpaper** ([`QqqStatusWallpaperService.kt`](../scanner-host/src/main/java/io/qrun/mobile/scanner/QqqStatusWallpaperService.kt), with a Settings entry and preview). A live wallpaper service bound only by the system (`BIND_WALLPAPER`). It is inactive until a person confirms it in Android's live-wallpaper chooser; nothing is applied silently and no wallpaper permission is requested. It paints the company name and, only on the unlocked home screen, the approved session display name, the current network addresses and a time; the lock screen, preview, screen-off and invisible states show brand only. The snapshot is in memory only and withdrawn when it ages out. EHS compatibility with this wallpaper is unproven. Verified on a TC22 only as the brand-only system preview; it was never applied there.
+
+## Current limits
+
+- Whether a given EMM/OEMConfig can deliver these two restriction keys, and the EHS/StageNow/MDM profiles themselves, are unverified.
+- A static company wallpaper plus the in-app status remains the recommended first step; the live wallpaper is optional.
+- Device-owner enrollment, kiosk mode and rollout remain explicit future actions.
 
 ## Safe qualification and rollout
 
@@ -86,4 +107,4 @@ QQQ can support Android managed app configurations without customer-specific bui
 2. Produce a versioned, customer-parameterized profile with no repository secrets. Review settings and exclusions before generating installable artifacts. Keep development debugging available on a development-only profile.
 3. Test on a spare TC22 first: network/trust, installation, app approval, scan delivery, camera uploads, location behavior, Home/Back/menu/logout and orientation. Check reboot and network-change behavior, plus management connectivity loss.
 4. Verify restrictions and recovery together: app allowlist, settings access, permission denial, policy update, rollback and retained data. Test the dynamic status option separately, including logout/remote revocation, stale state and lock-screen visibility.
-5. After signing/distribution decisions, qualify signed upgrades and management deployment in a small pilot ring. Expand only after documented acceptance. Device-owner enrollment/reset and production kiosk activation remain explicit rollout actions, not part of this research.
+5. With the signed-APK/MDM channel chosen, qualify signed upgrades and management deployment in a small pilot ring. Expand only after documented acceptance. Device-owner enrollment/reset and production kiosk activation remain explicit rollout actions, not part of this research.

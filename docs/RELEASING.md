@@ -1,6 +1,6 @@
 # Scanner APK release readiness
 
-Status (November 4, 2026): **a QRun-owned production signing key exists with a verified backup, and a locally signed, verified 1.0.0 (versionCode 2) APK exists. It has not been installed, qualified on a device, distributed or published.** The owner selected direct signed-APK / MDM distribution. The earlier deferral no longer applies. Current installed demo APKs use a development certificate and are not production releases. Manual TC22 acceptance was reported all-pass by the operator on November 4 (operator-reported, not independently verified) for the development-signed build; it does not qualify the production signer and is not requested again for that old build.
+Status (November 4, 2026): **a QRun-owned production signing key exists with a verified backup, and a locally signed, verified 1.0.0 (versionCode 2) APK exists. It was installed and launched once on a fresh MC9400, but it has not been qualified end to end, distributed or published, and no release exists.** The owner selected direct signed-APK / MDM distribution. Current local demo devices (TC22 and, by the user's later choice, the MC9400) run the development-signed debug APK (0.1.0, versionCode 1) against the local HTTP server; that is not a production release. Manual TC22 acceptance was reported all-pass by the operator on November 4 (operator report, no per-case artifacts) for the development-signed build; it does not qualify the production signer and is not requested again for that build.
 
 ## Decisions (made)
 
@@ -9,12 +9,12 @@ Status (November 4, 2026): **a QRun-owned production signing key exists with a v
 - **Certificate SHA-256:** `BDDB2D2F45A5925C643A83ABAF616C1EAB2387DC5CDA7B645A6F4C0D5B17A9FF`. This is the fingerprint every distributed APK must show.
 - **Storage and backup:** the keystore and its credentials are stored as a keystore Document (QQQ Mobile Android release keystore) and a Password item (QQQ Mobile Android release signing credentials) in the owner's Personal 1Password account, vault `QRun`. Recovery was verified on 2026-11-04: both items were recovered from the vault, the recovered file's SHA-256 matched, and the recovered keystore opened with a certificate matching the one above. Keys, passwords, item IDs and local private paths never belong in this repository.
 - **Signing path:** build an unsigned APK, then sign it in isolation with `apksigner`, so the key is not passed to the application build. The Gradle environment-variable signing below remains supported but is not the selected local path.
-- **CI:** no Infisical or CI activation. Only the shared CI/CD redesign, its workflows and supporting pipeline work (owned by the coordinator) are paused; no scanner-APK Gitea release workflow exists and none is being added here. Automated scanner-APK CI publication is pending and is not a blocker to direct installation.
-- **Direct install:** see the [installation guide](INSTALLATION.md). Independently authorized app documentation, local signing and manual distribution continue; already-authorized publication needs no new approval flow.
+- **CI:** no signing secrets or CI signing activation exist. Shared CI/CD redesign is owned elsewhere; no scanner-APK Gitea release workflow exists and none is being added here. Automated scanner-APK signing/publication is not configured and is not needed for direct installation or the local demo.
+- **Direct install:** see the [installation guide](INSTALLATION.md). Local signing and manual distribution do not depend on the shared CI work.
 
 ## What exists today
 
-- **Gitea CI (actual).** `.gitea/workflows/qrun-android-release.yaml` runs on push to `main` (and manual dispatch) and calls the central `KofTwentyTwo/platform-ci` Android workflow at `qrun-release-v1`. Central main run 3634 passed and published the SDK AARs. It is **not** a scanner-APK signing or release pipeline: it uses no scanner signing secrets and produces no production-signed scanner APK.
+- **Gitea CI (actual).** `.gitea/workflows/qrun-android-release.yaml` is in the repository, runs on push to `main` (and manual dispatch) and calls the central `KofTwentyTwo/platform-ci` Android workflow at `qrun-release-v1`. A central main run (3634) passed and published the SDK AARs. It is **not** a scanner-APK signing or release pipeline: it uses no scanner signing secrets and produces no production-signed scanner APK.
 - **Gradle signing (supported, not selected).** `scanner-host/build.gradle.kts` reads four environment variables: `SCANNER_KEYSTORE`, `SCANNER_STORE_PASSWORD`, `SCANNER_KEY_ALIAS`, `SCANNER_KEY_PASSWORD`.
   - All four set: the `release` build type is signed with them.
   - None set: `assembleRelease` produces an **unsigned** APK, which is what the isolated signing step consumes.
@@ -28,14 +28,16 @@ Status (November 4, 2026): **a QRun-owned production signing key exists with a v
 
 Version `1.0.0`, `versionCode` 2 was built unsigned (`lintRelease` and `assembleRelease`: 0 errors, 0 warnings, 2 information) from source matching protected `main` `0ae2101f082c241ca6a70462dc9ec3057aa6c906`; only documentation differs. It was then signed in isolation with `apksigner` on 2026-11-04 (16:22:05 UTC).
 
-**Signed artifact (local, complete):** `QQQ-Mobile-1.0.0.apk`, application ID `io.qrun.mobile.scanner`, SHA-256 `EE5AC896B8985AF6F11B2E883955925D6571A2913D74A4AACCDB564B79394D51`. Verification passed: signature schemes v2 and v3, exactly one signer whose certificate SHA-256 is `BDDB2D2F...5B17A9FF` (the fingerprint above), 16 KiB alignment, non-debuggable. The APK is not installed, published or production-qualified. The development-signed TC22 install and its data are untouched. The checksum shows integrity only, not signer correctness.
+**Signed artifact (local, complete):** `QQQ-Mobile-1.0.0.apk`, application ID `io.qrun.mobile.scanner`, SHA-256 `EE5AC896B8985AF6F11B2E883955925D6571A2913D74A4AACCDB564B79394D51`. Verification passed: signature schemes v2 and v3, exactly one signer whose certificate SHA-256 is `BDDB2D2F...5B17A9FF` (the fingerprint above), 16 KiB alignment, non-debuggable. The checksum shows integrity only, not signer correctness. The APK is not published or distributed and is kept outside this repository.
+
+**Device evidence (MC9400, November 4):** the signed APK was installed on a fresh MC9400 (Android 13, EMDK present), launched without a startup crash, showed the Connect screen, and its installed bytes read back with the exact hash above. It was not enrolled: release builds require HTTPS and the only server available was the local HTTP demo. The same key and signer are unchanged. The user then chose to run the MC9400 in demo mode like the TC22, so that fresh, unenrolled production install was replaced with the development debug APK and port forwarding to the local server. No signed-build enrollment, scan or navigation was tested. The TC22 and its data were untouched throughout.
 
 Remaining steps:
 
-1. Qualify the **actual production-signed APK** on a device: install, enrollment, scanner path ([Zebra scanning](ZEBRA-SCANNING.md)), Back/Apps navigation, and update over a prior production build. Use a planned device migration or a different device; do not use the operator's normal device implicitly.
-2. Provide an **HTTPS** server. Source release builds disallow cleartext; HTTP is limited to debug builds.
+1. Qualify the **actual production-signed APK** on a device: install, enrollment, scanner path ([Zebra scanning](ZEBRA-SCANNING.md)), Back/Apps navigation, and update over a prior production build. Use a planned device migration or a spare device; do not use a demo device implicitly, and note that moving a demo device to the signed build removes its development install and enrollment.
+2. Provide an **HTTPS** server. Source release builds disallow cleartext; HTTP is limited to debug builds. The local demo does not need HTTPS.
 3. Use the first direct installation to confirm the device flow, then distribute the same APK to the remaining devices. MDM can be introduced later.
-4. Automated Gitea scanner-APK release workflow and shared pipeline work are paused with the shared CI/CD redesign. This does not stop application release or manual distribution that is otherwise authorized; create no tags or releases through the paused pipeline until it resumes.
+4. Automated scanner-APK signing/release workflow is not configured and is separate from manual distribution; create no tags or releases without current authorization.
 
 ## Release requirements
 
@@ -47,8 +49,8 @@ Remaining steps:
 
 Android updates in place only when the signer matches and `versionCode` does not decrease. Losing this key, or its backup, means installed copies can no longer be updated in place; they would have to be uninstalled and reinstalled, which removes enrollment and session state. Keep the vault backup recoverable and re-verify it (hash, open, certificate comparison) after any change to it.
 
-The existing development-signed TC22 installation cannot be upgraded by the production key. Moving it requires an explicit migration: preserve its test evidence, plan re-enrollment, and never uninstall or reset the operator's device or application implicitly.
+Development-signed demo installations (TC22, and the MC9400 in demo mode) cannot be upgraded by the production key. Moving one requires an explicit migration: preserve its test evidence, plan re-enrollment, and never uninstall or reset a device or application implicitly. No update or key-rotation policy beyond keeping this one permanent signer is defined here.
 
 ## Not yet established
 
-Production-signed-APK device qualification, first distribution, an HTTPS production server, a Gitea scanner release workflow and secret handling (paused with the shared CI hold), and signing-key rotation planning. SDK publication is done and its completed audits are not reopened here. Other pending items are in [TODO](TODO.md).
+Production-signed-APK device qualification, first distribution, an HTTPS production server, an automated scanner release workflow and its secret handling, and key-rotation planning. SDK publication by the central workflow is done and its completed audits are not reopened here. Other pending items are in [TODO](TODO.md).
