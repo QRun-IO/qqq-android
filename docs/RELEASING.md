@@ -1,6 +1,6 @@
 # Scanner APK release readiness
 
-Status (November 4, 2026): **a QRun-owned production signing key exists with a verified backup, and a locally signed, verified 1.0.0 (versionCode 2) APK exists. It was installed and launched once on a fresh MC9400, but it has not been qualified end to end, distributed or published, and no release exists.** The owner selected direct signed-APK / MDM distribution. Current local demo devices (TC22 and, by the user's later choice, the MC9400) run the development-signed debug APK (0.1.0, versionCode 1) against the local HTTP server; that is not a production release. Manual TC22 acceptance was reported all-pass by the operator on November 4 (operator report, no per-case artifacts) for the development-signed build; it does not qualify the production signer and is not requested again for that build.
+Status (November 4, 2026): **a QRun-owned production signing key exists with a verified backup, and the signed 1.0.0 (versionCode 2) APK is published as a signed preview (Gitea prerelease, not a stable release): [scanner-v1.0.0](https://git.kof22.com/QRun-IO/qqq-android/releases/tag/scanner-v1.0.0), release ID 1361, tag on protected `main` `3eef6431ca39b6450cf764424d921a02b2afb9ab`. It was installed and launched once on a fresh MC9400, but production HTTPS enrollment, physical scanning and in-place update qualification are still pending.** The owner selected direct signed-APK / MDM distribution. Current local demo devices (TC22 and, by the user's later choice, the MC9400) run the development-signed debug APK (0.1.0, versionCode 1) against the local HTTP server; that is not a production release. Manual TC22 acceptance was reported all-pass by the operator on November 4 (operator report, no per-case artifacts) for the development-signed build; it does not qualify the production signer and is not requested again for that build.
 
 ## Decisions (made)
 
@@ -28,7 +28,9 @@ Status (November 4, 2026): **a QRun-owned production signing key exists with a v
 
 Version `1.0.0`, `versionCode` 2 was built unsigned (`lintRelease` and `assembleRelease`: 0 errors, 0 warnings, 2 information) from source matching protected `main` `0ae2101f082c241ca6a70462dc9ec3057aa6c906`; only documentation differs. It was then signed in isolation with `apksigner` on 2026-11-04 (16:22:05 UTC).
 
-**Signed artifact (local, complete):** `QQQ-Mobile-1.0.0.apk`, application ID `io.qrun.mobile.scanner`, SHA-256 `EE5AC896B8985AF6F11B2E883955925D6571A2913D74A4AACCDB564B79394D51`. Verification passed: signature schemes v2 and v3, exactly one signer whose certificate SHA-256 is `BDDB2D2F...5B17A9FF` (the fingerprint above), 16 KiB alignment, non-debuggable. The checksum shows integrity only, not signer correctness. The APK is not published or distributed and is kept outside this repository.
+**Signed artifact (local, complete):** `QQQ-Mobile-1.0.0.apk`, application ID `io.qrun.mobile.scanner`, SHA-256 `EE5AC896B8985AF6F11B2E883955925D6571A2913D74A4AACCDB564B79394D51`. Verification passed: signature schemes v2 and v3, exactly one signer whose certificate SHA-256 is `BDDB2D2F...5B17A9FF` (the fingerprint above), 16 KiB alignment, non-debuggable. The checksum shows integrity only, not signer correctness.
+
+**Published preview (2026-11-04):** release [scanner-v1.0.0](https://git.kof22.com/QRun-IO/qqq-android/releases/tag/scanner-v1.0.0) (Gitea ID 1361, prerelease, signed Git tag at `3eef6431`; the tag adds documentation only over app source `0ae2101f`) hosts exactly two assets: `QQQ-Mobile-1.0.0.apk` (14933499 bytes) and `SHA256SUMS` (88 bytes). Both were downloaded back and matched the same SHA-256. The forge requires sign-in to download. The local installation kit ZIP was **not** published and no bundle is hosted. Link the release page, not an individual asset URL. The APK is kept outside this repository.
 
 **Device evidence (MC9400, November 4):** the signed APK was installed on a fresh MC9400 (Android 13, EMDK present), launched without a startup crash, showed the Connect screen, and its installed bytes read back with the exact hash above. It was not enrolled: release builds require HTTPS and the only server available was the local HTTP demo. The same key and signer are unchanged. The user then chose to run the MC9400 in demo mode like the TC22, so that fresh, unenrolled production install was replaced with the development debug APK and port forwarding to the local server. No signed-build enrollment, scan or navigation was tested. The TC22 and its data were untouched throughout.
 
@@ -37,7 +39,7 @@ Remaining steps:
 1. Qualify the **actual production-signed APK** on a device: install, enrollment, scanner path ([Zebra scanning](ZEBRA-SCANNING.md)), Back/Apps navigation, and update over a prior production build. Use a planned device migration or a spare device; do not use a demo device implicitly, and note that moving a demo device to the signed build removes its development install and enrollment.
 2. Provide an **HTTPS** server. Source release builds disallow cleartext; HTTP is limited to debug builds. The local demo does not need HTTPS.
 3. Use the first direct installation to confirm the device flow, then distribute the same APK to the remaining devices. MDM can be introduced later.
-4. Automated scanner-APK signing/release workflow is not configured and is separate from manual distribution; create no tags or releases without current authorization.
+4. Automated scanner-APK signing/release workflow is not configured and is separate from manual distribution. The preview release exists; create no further tags or releases (including a stable promotion) without current authorization. A stable release needs the qualification in step 1.
 
 ## Release requirements
 
@@ -53,4 +55,4 @@ Development-signed demo installations (TC22, and the MC9400 in demo mode) cannot
 
 ## Not yet established
 
-Production-signed-APK device qualification, first distribution, an HTTPS production server, an automated scanner release workflow and its secret handling, and key-rotation planning. SDK publication by the central workflow is done and its completed audits are not reopened here. Other pending items are in [TODO](TODO.md).
+Production-signed-APK device qualification (the preview is published, but production HTTPS enrollment, scanning and in-place update are unqualified), stable-release promotion, an HTTPS production server, an automated scanner release workflow and its secret handling, and key-rotation planning. SDK publication by the central workflow is done and its completed audits are not reopened here. Other pending items are in [TODO](TODO.md).
