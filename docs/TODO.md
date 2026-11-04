@@ -1,4 +1,10 @@
 # TODO
+Current status (November 4):
+
+- [x] Rewrite [RELEASING.md](RELEASING.md) as concise Gitea-first signing/release readiness; legacy GitHub workflows marked historical. No keys, secrets, tags, releases, CI, build or source changed.
+- [ ] Owner decisions for production signing: distribution channel (direct/MDM vs Play with Play App Signing and a separate upload key), organization-owned key (existing or new; chosen before first release if the same signature is needed across channels), managed secret storage and backup owner, and where signed builds run (no Gitea scanner-release workflow exists yet).
+- [ ] Verify the actual signed APK (non-debuggable, fingerprint, increasing versionCode, update over prior build) on a device before rollout. The development-signed TC22 cannot upgrade in place to an unrelated key; never uninstall/reset it implicitly.
+
 Latest November 3 checkpoint (current; supersedes the older entries below):
 
 - [x] Android `f72b90d` the signed application-code commit published in PR 10 (SSH read-back verified); Gitea CI 3480 succeeded (unit-test, device-test, package, secrets, gate); clean merge-tree with `main` b75fdac, nothing merged. Pull requests #8 and #10 remain open; merge and release not done. This update changes documentation only.
