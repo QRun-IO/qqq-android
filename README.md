@@ -66,7 +66,7 @@ See [emulator testing](docs/EMULATOR.md) for a local interactive demo, synthetic
 
 The primary forge for source, reviews and checks is Gitea (`git.kof22.com/QRun-IO`); GitHub is a shadow/archive with no ordinary writes. The protected `main` branch on Gitea contains `.gitea/workflows/qrun-android-release.yaml`, which calls the shared `KofTwentyTwo/platform-ci` Android workflow (`android.yaml@qrun-release-v1`); that file is not in this feature working tree. Pull-request checks come from central Gitea policy, not from that release workflow. Legacy CircleCI and `.github` workflow files remain in the tree and are not all retired; the managed CircleCI profile still describes shared-library verification and its main-only Maven publication. Run the build commands above locally. See [emulator testing](docs/EMULATOR.md) for the isolated test package and contract checks, and [FINISH-1.0](docs/FINISH-1.0.md) for current progress.
 
-Scanner APK signing and distribution are deliberately deferred and no distribution channel is selected; the retained CircleCI lane keeps its existing library publication; the `.github` scanner release automation is a candidate only (see [releasing](docs/RELEASING.md)). See [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md).
+To install the locally signed scanner APK directly on a device, see the [installation guide](docs/INSTALLATION.md). Automated scanner-APK CI publication is pending; the retained CircleCI lane keeps its existing library publication; the `.github` scanner release automation is a candidate only (see [releasing](docs/RELEASING.md)). See [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md).
 
 ## Extension points
 

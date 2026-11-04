@@ -2,8 +2,11 @@
 Current status (November 4):
 
 - [x] Rewrite [RELEASING.md](RELEASING.md) as concise Gitea-first signing/release readiness; legacy GitHub workflows marked historical. No keys, secrets, tags, releases, CI, build or source changed.
-- [ ] Owner decisions for production signing: distribution channel (direct/MDM vs Play with Play App Signing and a separate upload key), organization-owned key (existing or new; chosen before first release if the same signature is needed across channels), managed secret storage and backup owner, and where signed builds run (no Gitea scanner-release workflow exists yet).
-- [ ] Verify the actual signed APK (non-debuggable, fingerprint, increasing versionCode, update over prior build) on a device before rollout. The development-signed TC22 cannot upgrade in place to an unrelated key; never uninstall/reset it implicitly.
+- [x] Production signing decisions made (November 4): signed APK/MDM; new QRun-owned key `qqq-mobile-release` (PKCS12 RSA 4096, certificate SHA-256 `BDDB2D2F...5B17A9FF`, valid through 2056-10-27); backup in the owner's Personal 1Password vault `QRun`, recovery verified 2026-11-04. No CI/Infisical activation; shared CI/CD redesign paused separately.
+- [x] Local signed artifact and verification complete (November 4): 1.0.0/versionCode 2 from main `0ae2101` (lint/assemble 0 errors, 0 warnings), signed in isolation; `QQQ-Mobile-1.0.0.apk` SHA-256 `EE5AC896...79394D51`, v2+v3 verify, single signer with the fingerprint above, 16 KiB alignment, non-debuggable. Not installed, published or production-qualified; TC22 development-signed install/data intact.
+- [x] Direct-install guide prepared ([INSTALLATION.md](INSTALLATION.md)) for a couple of devices; not deployed, and no physical test of the production APK is claimed yet. MDM follows later.
+- [ ] Qualify the actual production-signed APK on a planned migration or other device (install, enrollment, scanner path, navigation, update). The development-signed TC22 cannot upgrade in place to the new key; never uninstall/reset it implicitly. Requires an HTTPS server.
+- [ ] First direct installation and device qualification, then distribution to the remaining devices; MDM can follow later. Automated signing/publication pipeline work remains paused with the shared CI hold, independently of authorized manual distribution. Details in [RELEASING.md](RELEASING.md).
 
 Latest November 3 checkpoint (current; supersedes the older entries below):
 
