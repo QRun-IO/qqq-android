@@ -24,7 +24,7 @@ internal class SessionAcceptanceClient(
     *******************************************************************************/
    fun json(path: String, body: JSONObject, expectedStatus: Int = 200): JSONObject = execute(
       Request.Builder().url("$origin$path")
-         .header("Cookie", cookie).post(body.toString().toRequestBody("application/json".toMediaType())).build(), expectedStatus
+         .header("Cookie", cookie).header("Origin", origin).post(body.toString().toRequestBody("application/json".toMediaType())).build(), expectedStatus
    )
 
    /*******************************************************************************
@@ -32,7 +32,7 @@ internal class SessionAcceptanceClient(
     *******************************************************************************/
    fun process(name: String, suffix: String, values: JSONObject): JSONObject {
       var result = execute(
-         Request.Builder().url("$origin/qqq/v1/processes/$name$suffix").header("Cookie", cookie)
+         Request.Builder().url("$origin/qqq/v1/processes/$name$suffix").header("Cookie", cookie).header("Origin", origin)
             .post(
                MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("values", values.toString())
                   .addFormDataPart("stepTimeoutMillis", "10000").build()
@@ -77,7 +77,7 @@ internal class SessionAcceptanceClient(
     *******************************************************************************/
    fun logout() {
       client.newCall(
-         Request.Builder().url("$origin/qqq/v1/logout").header("Cookie", cookie)
+         Request.Builder().url("$origin/qqq/v1/logout").header("Cookie", cookie).header("Origin", origin)
             .post("{}".toRequestBody("application/json".toMediaType())).build()
       ).execute().use {
          assertTrue("Fixture admin logout must succeed", it.isSuccessful)

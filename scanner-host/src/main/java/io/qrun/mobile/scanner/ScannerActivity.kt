@@ -338,6 +338,10 @@ class ScannerActivity : ComponentActivity() {
                }
             }
          },
+         com.kingsrook.qqq.frontend.android.mobileapp.ui.records.LocalRecordAttachments provides { model, tableName, recordId, recordUi ->
+            RecordPhotoCapture(model, RecordPhotoTarget(tableName, recordId, "Record photos", null), recordFiles, recordUi = recordUi,
+               disabled = !com.kingsrook.qqq.frontend.android.mobileapp.ui.LocalProcessInputAllowed.current())
+         },
          LocalCustomWidgetRenderer provides { parameters, modifier, disabled ->
             if (parameters.widgetBlock.blockType == "SCANNER") {
                ScannerWidget(

@@ -15,6 +15,93 @@ import org.junit.Test
  ** Modern servers return HttpOnly session cookies; both credentials and redirects remain origin-scoped.
  *******************************************************************************/
 class NetworkQQQRepositoryTest {
+   @Test
+   fun searchAndCountKeepIdenticalPredicatesAndOpaqueParentKeys() = runBlocking() {
+      MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
+         server.enqueue(MockResponse().setBody("{\"count\":1}"))
+         server.enqueue(MockResponse().setBody("{\"records\":[]}"))
+         val origin = server.url("/").toString()
+         val repository = NetworkQQQRepository(origin)
+         repository.setEnvironment(Environment("test", origin))
+         val search = com.kingsrook.qqq.frontend.android.core.model.RecordSearch("a\"b", listOf("reference", "name"), mapOf("parent" to kotlinx.serialization.json.JsonPrimitive("0007")))
+         assertEquals(1L, repository.countRecords("items", search))
+         repository.searchRecords("items", "id", search, 25)
+         server.takeRequest()
+         val counted = server.takeRequest()
+         assertEquals("/qqq/v1/table/items/count", counted.path)
+         val expected = org.json.JSONObject(counted.body.readUtf8()).getJSONObject("filter")
+         val query = org.json.JSONObject(server.takeRequest().body.readUtf8()).getJSONObject("filter")
+         assertEquals(25, query.remove("skip"))
+         assertEquals(25, query.remove("limit"))
+         query.remove("orderBys")
+         assertTrue(expected.similar(query))
+         assertEquals("0007", expected.getJSONArray("criteria").getJSONObject(0).getJSONArray("values").getString(0))
+         assertEquals("OR", expected.getJSONArray("subFilters").getJSONObject(0).getString("booleanOperator"))
+      }
+   }
+
+   @Test
+   fun relatedQueriesAreBoundedAndCannotDropTheParentFilter() = runBlocking() {
+      MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
+         server.enqueue(MockResponse().setBody("""{"records":[]}"""))
+         val origin = server.url("/").toString()
+         val repository = NetworkQQQRepository(origin)
+         repository.setEnvironment(Environment("test", origin))
+         repository.queryRelatedRecords("lines", "id", mapOf("parent" to kotlinx.serialization.json.JsonPrimitive("0007")), 10, 10)
+         server.takeRequest()
+         val request = server.takeRequest()
+         assertEquals("/qqq/v1/table/lines/query", request.path)
+         val filter = org.json.JSONObject(request.body.readUtf8()).getJSONObject("filter")
+         assertEquals(10, filter.getInt("skip"))
+         assertEquals(10, filter.getInt("limit"))
+         assertEquals("AND", filter.getString("booleanOperator"))
+         val criteria = filter.getJSONArray("criteria").getJSONObject(0)
+         assertEquals("parent", criteria.getString("fieldName"))
+         assertEquals("EQUALS", criteria.getString("operator"))
+         assertEquals("0007", criteria.getJSONArray("values").getString(0))
+         assertTrue(runCatching { repository.queryRelatedRecords("lines", "id", emptyMap(), 0) }.isFailure)
+         assertTrue(runCatching { repository.queryRelatedRecords("lines", "id", mapOf("parent" to kotlinx.serialization.json.JsonNull), 0) }.isFailure)
+      }
+   }
+
+   /*******************************************************************************
+    ** Native browsing retains server identity, opaque ids, bounded paging and read-only routes.
+    *******************************************************************************/
+   @Test
+   fun recordBrowsingUsesSemanticRoutesAndPreservesIds() = runBlocking() {
+      MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody(VERSION_FIXTURE))
+         server.enqueue(MockResponse().setBody("""{"name":"items","label":"Items","primaryKeyField":"key","fields":{"key":{"name":"key","label":"Key","type":"STRING"}}}"""))
+         server.enqueue(MockResponse().setBody("""{"records":[{"tableName":"items","recordLabel":"Item","values":{"key":"0007","quantity":0},"displayValues":{"quantity":"Zero"}}]}"""))
+         server.enqueue(MockResponse().setBody("""{"record":{"tableName":"items","values":{"key":"0007"}}}"""))
+         val origin = server.url("/").toString()
+         val repository = NetworkQQQRepository(origin, additionalHeaders = { mapOf("X-QQQ-Device-Id" to "fixture-device") })
+         repository.setEnvironment(Environment("test", origin))
+         repository.setSessionUUID("fixture-session")
+         assertEquals("key", repository.getTableMetaData("items").primaryKeyField)
+         val records = repository.queryRecords("items", "key", 25, 25)
+         assertEquals("0007", records.single().id("key"))
+         assertEquals("Zero", records.single().display("quantity"))
+         assertEquals("0007", repository.getRecord("items", "0007").id("key"))
+         assertEquals("/qqq/v1/version", server.takeRequest().path)
+         assertEquals("/qqq/v1/metaData/table/items", server.takeRequest().path)
+         val query = server.takeRequest()
+         assertEquals("/qqq/v1/table/items/query", query.path)
+         assertEquals("fixture-device", query.getHeader("X-QQQ-Device-Id"))
+         assertEquals("sessionUUID=fixture-session", query.getHeader("Cookie"))
+         val filter = org.json.JSONObject(query.body.readUtf8()).getJSONObject("filter")
+         assertEquals(25, filter.getInt("skip"))
+         assertEquals(25, filter.getInt("limit"))
+         assertEquals("key", filter.getJSONArray("orderBys").getJSONObject(0).getString("fieldName"))
+         val get = server.takeRequest()
+         assertEquals("GET", get.method)
+         assertEquals("/qqq/v1/table/items/0007", get.path)
+         assertTrue(runCatching { repository.queryRecords("items", "key", 0, 1000) }.isFailure)
+      }
+   }
+
    /*******************************************************************************
     **
     *******************************************************************************/

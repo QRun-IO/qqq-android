@@ -246,7 +246,7 @@ internal class RecordFilesApi(
    /*******************************************************************************
     ** Cancellation closes transport; bounded JSON parsing cannot allocate an arbitrary server body.
     *******************************************************************************/
-   private suspend fun execute(session: String?, builder: Request.Builder): JSONObject = withContext(Dispatchers.IO)
+   private suspend fun send(session: String?, builder: Request.Builder): Response = withContext(Dispatchers.IO)
    {
       require(session?.isNotBlank() != false && compatibility.server == server)
       val extension = compatibility.verify().extensions.singleOrNull { it.name == "record-files" }
@@ -276,13 +276,35 @@ internal class RecordFilesApi(
             }
          })
       }
-      response.use {
+      response
+   }
+
+   private suspend fun execute(session: String?, builder: Request.Builder): JSONObject = withContext(Dispatchers.IO) {
+      send(session, builder).use {
          if (!it.isSuccessful) throw UiApiException.from(it)
          require(it.code == 200) { "Unexpected upload response status." }
          val source = it.body?.source() ?: error("Missing upload response.")
          source.request(262145)
          require(source.buffer.size <= 262144) { "Oversized upload response." }
          JSONObject(source.readUtf8())
+      }
+   }
+
+   /** Tracked owner delivery rechecks the parent and lifecycle. Never follow presigned or external URLs. */
+   suspend fun image(session: String, file: SavedRecordPhoto): ByteArray = withContext(Dispatchers.IO) {
+      require(file.lifecycle == "AVAILABLE" && file.mediaType in setOf("image/jpeg", "image/png", "image/webp"))
+      require(file.id.toLong() > 0 && file.size in 1..20L * 1024 * 1024)
+      val builder = Request.Builder().url(endpoint("/files/" + file.id + "/downloads/" + UUID.randomUUID()))
+         .header("X-Record-Files-Download", "1").get()
+      send(session, builder).use { response ->
+         if (!response.isSuccessful) throw UiApiException.from(response)
+         require(response.code == 200)
+         val source = response.body?.source() ?: error("Missing photo")
+         source.request(file.size + 1)
+         require(source.buffer.size == file.size) { "Invalid photo length" }
+         val bytes = source.readByteArray()
+         require(sha256(bytes) == file.sha256) { "Invalid photo checksum" }
+         bytes
       }
    }
 

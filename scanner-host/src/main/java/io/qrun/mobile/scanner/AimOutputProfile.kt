@@ -29,7 +29,7 @@ internal object AimOutputProfile {
 
    // AIM symbology character each known EMDK label must report; the modifier character is not checked here.
    private val FAMILY = mapOf(
-      "CODE128" to 'C', "CODE39" to 'A', "CODE93" to 'G', "I2OF5" to 'I', "QRCODE" to 'Q', "DATAMATRIX" to 'd',
+      "CODE128" to 'C', "EAN128" to 'C', "GS1_128" to 'C', "GS1-128" to 'C', "CODE39" to 'A', "CODE93" to 'G', "I2OF5" to 'I', "QRCODE" to 'Q', "DATAMATRIX" to 'd',
       "PDF417" to 'L', "AZTEC" to 'z', "EAN13" to 'E', "EAN8" to 'E', "UPCA" to 'E', "UPCE0" to 'E', "UPCE1" to 'E'
    )
 

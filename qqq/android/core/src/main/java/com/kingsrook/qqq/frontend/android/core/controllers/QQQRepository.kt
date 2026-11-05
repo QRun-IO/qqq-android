@@ -107,6 +107,27 @@ interface QQQRepository {
    suspend fun getProcessMetaData(processName: String): QProcessMetaData
 
    /*******************************************************************************
+    ** Read-only table navigation uses the core API and its normal permissions.
+    *******************************************************************************/
+   suspend fun getTableMetaData(tableName: String): com.kingsrook.qqq.frontend.android.core.model.metadata.QTableMetaData =
+      throw UnsupportedOperationException("Table browsing is unavailable")
+
+   suspend fun queryRecords(tableName: String, primaryKey: String, offset: Int, limit: Int = 25): List<com.kingsrook.qqq.frontend.android.core.model.RecordData> =
+      throw UnsupportedOperationException("Table browsing is unavailable")
+
+   suspend fun getRecord(tableName: String, recordId: String): com.kingsrook.qqq.frontend.android.core.model.RecordData =
+      throw UnsupportedOperationException("Record viewing is unavailable")
+
+   suspend fun searchRecords(tableName: String, primaryKey: String, search: com.kingsrook.qqq.frontend.android.core.model.RecordSearch, offset: Int, limit: Int = 25): List<com.kingsrook.qqq.frontend.android.core.model.RecordData> =
+      throw UnsupportedOperationException("Record search is unavailable")
+
+   suspend fun countRecords(tableName: String, search: com.kingsrook.qqq.frontend.android.core.model.RecordSearch): Long =
+      throw UnsupportedOperationException("Record counts are unavailable")
+
+   suspend fun queryRelatedRecords(tableName: String, primaryKey: String, matches: Map<String, kotlinx.serialization.json.JsonElement>, offset: Int, limit: Int = 10): List<com.kingsrook.qqq.frontend.android.core.model.RecordData> =
+      throw UnsupportedOperationException("Related records are unavailable")
+
+   /*******************************************************************************
     ** Start server-defined process execution with explicit values and record selection; return authoritative step state.
     *******************************************************************************/
    suspend fun processInit(processName: String, values: Map<String, Any?>, recordsParam: String? = null, recordIds: String? = null, filterJSON: String? = null, stepTimeoutMillis: Int? = 3000): ProcessStepResult

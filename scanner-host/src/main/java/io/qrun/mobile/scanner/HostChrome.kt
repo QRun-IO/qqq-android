@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,8 +44,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.svg.SvgDecoder
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
@@ -63,7 +60,6 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
    var brand by remember(server) { mutableStateOf(HostBrand()) }
    var logo by remember(server) { mutableStateOf<ByteArray?>(null) }
    var connection by remember(server) { mutableStateOf("Checking") }
-   var checkedAt by remember(server) { mutableStateOf("not checked") }
    var showDiagnostics by remember(server) { mutableStateOf(false) }
    val parentInputAllowed = LocalProcessInputAllowed.current
    val context = LocalContext.current
@@ -114,7 +110,6 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
             connection = "Checking"
             while (isActive) {
                connection = if (runtime.connected()) "Connected" else "Disconnected"
-               checkedAt = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
                withTimeoutOrNull(5000) { changed.receive() }
             }
          } finally {
@@ -139,6 +134,7 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
             {
                logo?.let { AsyncImage(model = it, imageLoader = imageLoader, contentDescription = "${brand.displayName} logo", modifier = Modifier.size(40.dp)) }
                Text(brand.displayName, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+               if (compatible) TextButton(onClick = { showDiagnostics = true }) { Text(connection, style = MaterialTheme.typography.labelMedium) }
                if (!compatible) TextButton(onClick = onChangeServer) { Text("Change server") }
             }
             Box(Modifier.weight(1f))
@@ -152,11 +148,6 @@ internal fun HostChrome(server: String, onChangeServer: () -> Unit, content: @Co
                   Text(compatibilityError ?: "Checking QQQ UI API compatibility…")
                   if (compatibilityError != null) Button(onClick = { attempt++ }) { Text("Retry compatibility check") }
                }
-            }
-            HorizontalDivider()
-            TextButton(onClick = { showDiagnostics = true }, modifier = Modifier.fillMaxWidth())
-            {
-               Text("$connection · $checkedAt · Diagnostics", color = MaterialTheme.colorScheme.onSurface)
             }
          }
       }
