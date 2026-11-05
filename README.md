@@ -59,7 +59,7 @@ See [emulator testing](docs/EMULATOR.md) for an emulator demo, synthetic scans a
 
 ### Signed APK (direct install / MDM)
 
-For real devices. Requires an **HTTPS** server URL and the production-signed APK built with the QRun-owned key. Follow the [installation guide](docs/INSTALLATION.md) and [release readiness](docs/RELEASING.md). A signed 1.0.0 (versionCode 2) APK is published as a [signed preview release](https://git.kof22.com/QRun-IO/qqq-android/releases/tag/scanner-v1.0.0) (prerelease, forge sign-in required). It was installed and launched on one MC9400, but production HTTPS enrollment, physical scanning and in-place update have not been qualified, so it is not a stable release. The development-signed and production-signed builds cannot update each other in place.
+Requires an **HTTPS** server URL and the production-signed APK built with the QRun-owned key. Follow the [installation guide](docs/INSTALLATION.md) and [release readiness](docs/RELEASING.md). The published download remains the [signed 1.0.0 preview](https://git.kof22.com/QRun-IO/qqq-android/releases/tag/scanner-v1.0.0) (prerelease, forge sign-in required). The signed 1.0.1 candidate has passed trusted-HTTPS enrollment, physical scanning, navigation and an in-place update on the MC9400, preserving login and enrollment. Its publication, native Authentik qualification and final dependency-cohort checks remain open. Development-signed installations require an explicit migration to the production signer.
 
 ## Build and test
 

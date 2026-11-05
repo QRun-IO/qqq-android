@@ -1,6 +1,18 @@
 # Scanner APK release readiness
 
-Status (November 4, 2026): **a QRun-owned production signing key exists with a verified backup, and the signed 1.0.0 (versionCode 2) APK is published as a signed preview (Gitea prerelease, not a stable release): [scanner-v1.0.0](https://git.kof22.com/QRun-IO/qqq-android/releases/tag/scanner-v1.0.0), release ID 1361, tag on protected `main` `3eef6431ca39b6450cf764424d921a02b2afb9ab`. It was installed and launched once on a fresh MC9400, but production HTTPS enrollment, physical scanning and in-place update qualification are still pending.** The owner selected direct signed-APK / MDM distribution. Current local demo devices (TC22 and, by the user's later choice, the MC9400) run the development-signed debug APK (0.1.0, versionCode 1) against the local HTTP server; that is not a production release. Manual TC22 acceptance was reported all-pass by the operator on November 4 (operator report, no per-case artifacts) for the development-signed build; it does not qualify the production signer and is not requested again for that build.
+## Current status (November 5, 2026)
+
+- **Published:** the only published release is still [scanner-v1.0.0](https://git.kof22.com/QRun-IO/qqq-android/releases/tag/scanner-v1.0.0), a **signed preview** (Gitea prerelease, not a stable release). It is unchanged.
+- **Candidate, not published:** QQQ Mobile **1.0.1 (versionCode 3)** is a signed candidate. Its release qualification is incomplete, and no tag or download link is available yet.
+- **Signer:** the candidate is signed with the existing permanent QRun key (certificate SHA-256 `BDDB2D2F45A5925C643A83ABAF616C1EAB2387DC5CDA7B645A6F4C0D5B17A9FF`). No new or replacement key was created; the existing recovery backup was verified earlier.
+- **Candidate APK:** SHA-256 `5124716B59CAD303717E7834FE64DDC1537E33A25C9AB75A6EA1ACF03AC2717F`, 15015419 bytes.
+- **Source:** Android PR 15 `ab6e44c`, merged as `c782aaaaba3f62422232436a9000af9d4b38fc82` with the same app-source tree. Installed APK bytes, signature, non-debuggable flag and 16 KiB alignment were verified. `lintRelease` reported 0 errors, 0 warnings and 5 informational findings; the release build passed.
+- **Distribution:** maintainers use the existing manual signing path for direct APK/MDM distribution. Automated signing CI is optional.
+- **Open:** see [Qualification status](#qualification-status) and [TODO](TODO.md).
+
+## Historical status (November 4, 2026, superseded where noted)
+
+Dated evidence below is preserved. As of November 4: a QRun-owned production signing key existed with a verified backup, and the signed 1.0.0 (versionCode 2) APK was published as a signed preview: [scanner-v1.0.0](https://git.kof22.com/QRun-IO/qqq-android/releases/tag/scanner-v1.0.0), release ID 1361, tag on protected `main` `3eef6431ca39b6450cf764424d921a02b2afb9ab`. It had been installed and launched once on a fresh MC9400; at that time enrollment, scanning and update were unqualified. *(Superseded November 5: the MC9400 was migrated to the signed build; see below. The statement that the MC9400 ran the development-signed debug APK is no longer current. The TC22 still runs its original development-signed installation.)* Manual TC22 acceptance was reported all-pass by the operator on November 4 (operator report, no per-case artifacts) for the development-signed build; it does not qualify the production signer and is not rerun.
 
 ## Decisions (made)
 
@@ -34,12 +46,26 @@ Version `1.0.0`, `versionCode` 2 was built unsigned (`lintRelease` and `assemble
 
 **Device evidence (MC9400, November 4):** the signed APK was installed on a fresh MC9400 (Android 13, EMDK present), launched without a startup crash, showed the Connect screen, and its installed bytes read back with the exact hash above. It was not enrolled: release builds require HTTPS and the only server available was the local HTTP demo. The same key and signer are unchanged. The user then chose to run the MC9400 in demo mode like the TC22, so that fresh, unenrolled production install was replaced with the development debug APK and port forwarding to the local server. No signed-build enrollment, scan or navigation was tested. The TC22 and its data were untouched throughout.
 
-Remaining steps:
+*(The November 4 MC9400 paragraph above is historical: the fresh install was later replaced by the migration recorded below.)*
 
-1. Qualify the **actual production-signed APK** on a device: install, enrollment, scanner path ([Zebra scanning](ZEBRA-SCANNING.md)), Back/Apps navigation, and update over a prior production build. Use a planned device migration or a spare device; do not use a demo device implicitly, and note that moving a demo device to the signed build removes its development install and enrollment.
-2. Provide an **HTTPS** server. Source release builds disallow cleartext; HTTP is limited to debug builds. The local demo does not need HTTPS.
-3. Use the first direct installation to confirm the device flow, then distribute the same APK to the remaining devices. MDM can be introduced later.
-4. Automated scanner-APK signing/release workflow is not configured and is separate from manual distribution. The preview release exists; create no further tags or releases (including a stable promotion) without current authorization. A stable release needs the qualification in step 1.
+## Qualification status
+
+Done (not to be repeated as unchecked work):
+
+- **MC9400 migration:** the user explicitly authorized it. Release 1.0.0 enrollment over trusted HTTPS passed, then an in-place 1.0.1 update preserved login and enrollment. Apps/ScanCapture navigation and EMDK Scanner-ready state were observed.
+- **Physical scan:** the operator confirmed a physical Saved scan. The backend verified CODE128, AIM identifier, raw bytes, user and device. The actual barcode differed from the requested literal.
+- **TC22:** the original development-signed installation and its data are retained. The accepted November 4 manual all-pass is not rerun.
+- **Server discovery:** against the real shared Authentik-backed server, UI API 1.10 discovery with strict nonce passed for both scanner and printing channels, extensions and callbacks.
+- **Photo policy (live):** a signed MC9400 gallery upload returned Saved photo with `AVAILABLE` status and exact parent, type, size and hash; the previous three photos were released normally. Updated native acceptance on the TC22 passed synthetic camera/gallery uploads, the captured photo's thumbnail and full preview, parent scoping, rotation and forced-logout cleanup. All requests passed the semantic API checks. The disposable app was removed and the normal app reopened. This does not establish camera-hardware or native-Authentik acceptance.
+- **Local network:** the local QQQ server remains on a PC and was reached over trusted HTTPS temporarily through a user-approved private Tailscale network. This is local qualification, not a customer production deployment. Customer instructions still require a customer HTTPS URL with a trusted certificate. TLS must not be weakened, and workstation hostnames, IPs, ports, device IDs, vault IDs, private file paths and passwords are not published.
+
+Open:
+
+1. **Native Authentik** login, logout and account switching with the actual production APK remain open, awaiting the MC wireless-debug endpoint. No native-Authentik PASS is claimed.
+2. **Printing:** the print nonce fix (PR 11, merged `abc3d0d`, 532 hosted tests passed) postdates the published print 1.1.1; the next installer remains with the active printing owner.
+3. Public compatible Core/Collab/document/files/scripting/bridges, the final public cohort gate, GS1 physical print/rescan, and full release-asset publication and distribution.
+4. Company profiles and wallpaper are tracked separately.
+5. Publish the 1.0.1 tag, release, APK, checksum and installation instructions after its remaining qualification. The published download remains the 1.0.0 signed preview; automated signing CI is optional.
 
 ## Release requirements
 
@@ -51,8 +77,8 @@ Remaining steps:
 
 Android updates in place only when the signer matches and `versionCode` does not decrease. Losing this key, or its backup, means installed copies can no longer be updated in place; they would have to be uninstalled and reinstalled, which removes enrollment and session state. Keep the vault backup recoverable and re-verify it (hash, open, certificate comparison) after any change to it.
 
-Development-signed demo installations (TC22, and the MC9400 in demo mode) cannot be upgraded by the production key. Moving one requires an explicit migration: preserve its test evidence, plan re-enrollment, and never uninstall or reset a device or application implicitly. No update or key-rotation policy beyond keeping this one permanent signer is defined here.
+Development-signed demo installations (the TC22) cannot be upgraded by the production key. Moving one requires an explicit migration: preserve its test evidence, plan re-enrollment, and never uninstall or reset a device or application implicitly. The MC9400 was migrated under explicit user authorization (see above). No update or key-rotation policy beyond keeping this one permanent signer is defined here.
 
 ## Not yet established
 
-Production-signed-APK device qualification (the preview is published, but production HTTPS enrollment, scanning and in-place update are unqualified), stable-release promotion, an HTTPS production server, an automated scanner release workflow and its secret handling, and key-rotation planning. SDK publication by the central workflow is done and its completed audits are not reopened here. Other pending items are in [TODO](TODO.md).
+Publication of the 1.0.1 candidate, native Authentik qualification with the production APK, a customer production HTTPS deployment, stable-release promotion, an automated scanner release workflow (optional) and its secret handling, and key-rotation planning. SDK publication by the central workflow is done and its completed audits are not reopened here. Other pending items are in [TODO](TODO.md).

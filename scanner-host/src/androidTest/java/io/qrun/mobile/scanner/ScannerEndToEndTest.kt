@@ -401,6 +401,14 @@ class ScannerEndToEndTest {
       val config = JSONObject(configFile.readText())
       configFile.delete()
       origin = config.getString("serverUrl").trimEnd('/')
+      // Explicit fixture expectations, not production host classification: the rich-records scenario (rich=true) runs
+      // against the configured EchoDemo host, which admits an approved device's captures immediately
+      // (Record Files quarantineCapturedFiles=false) and so expects AVAILABLE. The generic document/process photo
+      // fixtures (rich=false) expect QUARANTINED.
+      val echoHost = rich
+      val savedMessage = if (echoHost) "Saved photo." else "Saved photo. Awaiting server review."
+      val expectedLifecycle = if (echoHost) "AVAILABLE" else "QUARANTINED"
+      val expectedBadge = if (echoHost) "Available" else "Awaiting review"
       val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLUE) }
       val bytes = ByteArrayOutputStream().use { output -> bitmap.compress(Bitmap.CompressFormat.JPEG, 100, output); output.toByteArray() }
       bitmap.recycle()
@@ -513,7 +521,8 @@ class ScannerEndToEndTest {
          }
          waitFor("Take photo")
          ui.onNodeWithText("Take photo").performScrollTo().performClick()
-         waitFor("Saved photo. Awaiting server review.")
+         waitFor(savedMessage)
+         if (echoHost) ui.onNodeWithText("Saved photo. Awaiting server review.").assertDoesNotExist()
          assertEquals("Camera result must automatically upload without a second tap", 1, cameraCalls.get())
          assertTrue(directory.listFiles().orEmpty().none { it.name.startsWith("photo-") })
          val savedRows = jsonRequest("/qqq/v1/table/record_files_file/query", JSONObject()).getJSONArray("records")
@@ -523,7 +532,7 @@ class ScannerEndToEndTest {
          assertEquals(parentId, savedFile.getString("recordId"))
          assertEquals("CAPTURE", savedFile.getString("origin"))
          assertTrue(savedFile.getString("originDetail").endsWith("source CAMERA"))
-         assertEquals("QUARANTINED", savedFile.getString("lifecycle"))
+         assertEquals(expectedLifecycle, savedFile.getString("lifecycle"))
          assertEquals(bytes.size.toLong(), savedFile.getLong("sizeBytes"))
          assertTrue(savedFile.getLong("attachmentId") > 0)
          val associations = jsonRequest("/qqq/v1/table/record_files_collection_item/query", JSONObject()).getJSONArray("records")
@@ -536,13 +545,14 @@ class ScannerEndToEndTest {
          waitFor("Photo ready to upload.")
          assertEquals(1, galleryCalls.get())
          ui.onNodeWithText("Upload photo").performScrollTo().performClick()
-         waitFor("Saved photo. Awaiting server review.")
+         waitFor(savedMessage)
          val galleryRows = jsonRequest("/qqq/v1/table/record_files_file/query", JSONObject()).getJSONArray("records")
          val gallerySaved = (0 until galleryRows.length()).map { galleryRows.getJSONObject(it).getJSONObject("values") }
             .single { it.optString("deviceId") == device.deviceId && it.optString("originDetail").endsWith("source GALLERY") }
          assertEquals(parentTable, gallerySaved.getString("tableName"))
          assertEquals(parentId, gallerySaved.getString("recordId"))
          assertEquals(RecordFilesApi.sha256(bytes), gallerySaved.getString("sha256"))
+         assertEquals(expectedLifecycle, gallerySaved.getString("lifecycle"))
          assertTrue(gallerySaved.getLong("attachmentId") > 0)
          stage("native-photo-gallery-saved")
          if (fromRecord) {
@@ -551,8 +561,12 @@ class ScannerEndToEndTest {
             waitFor(if (rich) "3 photos" else "2 photos")
             if (rich) {
                ui.onNodeWithText("Preview example 27.jpg").assertDoesNotExist()
-               waitForTag("photo.image:256")
-               ui.onNodeWithText("Preview photo").performClick()
+               // Seeded, camera and gallery photos are all AVAILABLE, so scope thumbnail and Preview to the newly captured camera row.
+               val cameraRow = "record.photo:${savedFile.getString("id")}"
+               ui.onNodeWithTag("record.photos.list").performScrollToNode(hasTestTag(cameraRow))
+               val cameraThumbnail = hasTestTag("photo.image:256") and hasAnyAncestor(hasTestTag(cameraRow))
+               ui.waitUntil(timeoutMillis = 60_000) { runCatching { ui.onNode(cameraThumbnail).fetchSemanticsNode() }.isSuccess }
+               ui.onNode(hasText("Preview photo") and hasAnyAncestor(hasTestTag(cameraRow))).performClick()
                waitFor("Photo preview")
                waitForTag("photo.image:1600")
                ui.onNodeWithText("Close preview").performClick()
@@ -561,7 +575,7 @@ class ScannerEndToEndTest {
             listOf(savedFile, gallerySaved).forEach { file ->
                val row = "record.photo:${file.getString("id")}"
                ui.onNodeWithTag("record.photos.list").performScrollToNode(hasTestTag(row))
-               ui.onNode(hasText("Awaiting review") and hasAnyAncestor(hasTestTag(row))).assertIsDisplayed()
+               ui.onNode(hasText(expectedBadge) and hasAnyAncestor(hasTestTag(row))).assertIsDisplayed()
             }
             stage("native-photo-gallery-parent-scoped")
             ui.onNodeWithText("Actions", substring = false).performClick()
