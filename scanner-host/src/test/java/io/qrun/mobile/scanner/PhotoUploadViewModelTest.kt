@@ -61,6 +61,54 @@ class PhotoUploadViewModelTest {
    }
 
    /*******************************************************************************
+    ** A host that does not opt in (generic servers) commits QUARANTINED: the saved photo
+    ** is reported as awaiting server review, never as available.
+    *******************************************************************************/
+   @Test
+   fun quarantinedReceiptOnOtherHostsReportsAwaitingReview() = runTest()
+   {
+      val dispatcher = StandardTestDispatcher(testScheduler)
+      Dispatchers.setMain(dispatcher)
+      try {
+         val transport = FakeTransport().apply { lifecycle = "QUARANTINED" }
+         val model = PhotoUploadViewModel(transport, "session", target, files.newFolder(), dispatcher) { true }
+         advanceUntilIdle()
+         model.prepareCamera().writeBytes(original)
+         model.cameraResult(true)
+         advanceUntilIdle()
+         assertTrue(model.saved)
+         assertEquals("Saved photo. Awaiting server review.", model.message)
+      } finally {
+         Dispatchers.resetMain()
+      }
+   }
+
+   /*******************************************************************************
+    ** An Echo host that admits approved-device captures commits AVAILABLE: the same unchanged
+    ** receipt flow reports a plain saved photo, with the exact original still verified.
+    *******************************************************************************/
+   @Test
+   fun availableReceiptOnEchoHostReportsSavedWithoutReviewWait() = runTest()
+   {
+      val dispatcher = StandardTestDispatcher(testScheduler)
+      Dispatchers.setMain(dispatcher)
+      try {
+         val transport = FakeTransport().apply { lifecycle = "AVAILABLE" }
+         val model = PhotoUploadViewModel(transport, "session", target, files.newFolder(), dispatcher) { true }
+         advanceUntilIdle()
+         model.prepareCamera().writeBytes(original)
+         model.cameraResult(true)
+         advanceUntilIdle()
+         assertTrue(model.saved)
+         assertEquals("Saved photo.", model.message)
+         assertArrayEquals(original, transport.uploaded)
+         assertEquals("CAMERA", model.intent!!.origin)
+      } finally {
+         Dispatchers.resetMain()
+      }
+   }
+
+   /*******************************************************************************
     ** Clearing the process cancels in-flight transport before removing only the app-owned temporary original.
     *******************************************************************************/
    @Test
@@ -215,6 +263,7 @@ class PhotoUploadViewModelTest {
       var finalizes = 0
       var cancels = 0
       var statusCalls = 0
+      var lifecycle = "QUARANTINED"
       var loseCreate = false
       var loseFinalize = false
       var chunkGate: CompletableDeferred<Unit>? = null
@@ -282,7 +331,7 @@ class PhotoUploadViewModelTest {
                "items", JSONArray().put(
                   JSONObject()
                      .put("itemId", intent.itemId).put("position", 0).put("fileId", "file").put("versionId", 2).put("attachmentId", 3)
-                     .put("sha256", intent.sha256).put("sizeBytes", intent.size).put("lifecycleAtCommit", "QUARANTINED")
+                     .put("sha256", intent.sha256).put("sizeBytes", intent.size).put("lifecycleAtCommit", lifecycle)
                )
             ) else JSONObject.NULL
          return JSONObject().put("uploadId", id).put("state", state).put("receipt", receipt)
