@@ -137,9 +137,10 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
             }
             for (child in otherChildren) {
                val processViewModel: ProcessViewModel = viewModel(factory = ProcessViewModel.factory)
-               Tile(child.label, child.icon, generalSize, "appHome.rowFor${child.type}:" + child.name)
+               Tile(child.label, child.icon, generalSize, "appHome.rowFor${child.type.name.lowercase().replaceFirstChar { it.uppercase() }}:" + child.name)
                {
                   if (child.type == QAppNodeType.PROCESS) qNavigator?.navigateToProcess(child.name, child.label, processViewModel)
+                  else if (child.type == QAppNodeType.TABLE) qNavigator?.navigateToTable(child.name, child.label)
                   else {
                      notYetImplementedDialogTitle.value = child.label
                      notYetImplementedDialogBody.value = "This type of screen is unavailable in this client."
@@ -193,9 +194,7 @@ fun QAppHomeGridLayout(qInstance: QInstance, modifier: Modifier = Modifier, app:
                      {
                         Tile(table.label, table.icon, generalSize, "appHome.rowForTable:" + tableName)
                         {
-                           notYetImplementedDialogTitle.value = table.label
-                           notYetImplementedDialogBody.value = "Tables are not yet supported in this application frontend."
-                           isNotYetImplementedDialogOpen.value = true
+                           qNavigator?.navigateToTable(table.name, table.label)
                         }
                      }
                   }

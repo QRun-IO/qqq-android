@@ -121,6 +121,48 @@ class NetworkQQQRepository(private var baseUrl: String, @Volatile var requestObs
    }
 
    /*******************************************************************************
+    ** Bounded, stably ordered read-only pages retain normal session/device guards.
+    *******************************************************************************/
+   override suspend fun getTableMetaData(tableName: String) = qqqApiServiceMap[baseUrl]!!.getTableMetaData(tableName)
+
+   override suspend fun queryRecords(tableName: String, primaryKey: String, offset: Int, limit: Int): List<com.kingsrook.qqq.frontend.android.core.model.RecordData> {
+      require(offset >= 0 && limit in 1..100 && primaryKey.isNotBlank())
+      val filter = JSONObject().put("skip", offset).put("limit", limit)
+         .put("orderBys", org.json.JSONArray().put(JSONObject().put("fieldName", primaryKey).put("isAscending", true)))
+      val body = JSONObject().put("filter", filter).toString().toRequestBody("application/json".toMediaType())
+      return qqqApiServiceMap[baseUrl]!!.queryRecords(tableName, body).records
+   }
+
+   override suspend fun getRecord(tableName: String, recordId: String) = qqqApiServiceMap[baseUrl]!!.getRecord(tableName, recordId).record
+
+   override suspend fun searchRecords(tableName: String, primaryKey: String, search: com.kingsrook.qqq.frontend.android.core.model.RecordSearch, offset: Int, limit: Int): List<com.kingsrook.qqq.frontend.android.core.model.RecordData> {
+      require(offset >= 0 && limit in 1..100 && primaryKey.isNotBlank())
+      val filter = search.filter().put("skip", offset).put("limit", limit)
+         .put("orderBys", org.json.JSONArray().put(JSONObject().put("fieldName", primaryKey).put("isAscending", true)))
+      val body = JSONObject().put("filter", filter).toString().toRequestBody("application/json".toMediaType())
+      return qqqApiServiceMap[baseUrl]!!.queryRecords(tableName, body).records
+   }
+
+   override suspend fun countRecords(tableName: String, search: com.kingsrook.qqq.frontend.android.core.model.RecordSearch): Long {
+      val body = JSONObject().put("filter", search.filter()).toString().toRequestBody("application/json".toMediaType())
+      return qqqApiServiceMap[baseUrl]!!.countRecords(tableName, body).count.also { require(it >= 0) }
+   }
+
+   override suspend fun queryRelatedRecords(tableName: String, primaryKey: String, matches: Map<String, kotlinx.serialization.json.JsonElement>, offset: Int, limit: Int): List<com.kingsrook.qqq.frontend.android.core.model.RecordData> {
+      require(offset >= 0 && limit in 1..100 && primaryKey.isNotBlank() && matches.isNotEmpty())
+      val criteria = org.json.JSONArray()
+      matches.forEach { (field, value) ->
+         require(field.isNotBlank() && value is kotlinx.serialization.json.JsonPrimitive && value != kotlinx.serialization.json.JsonNull)
+         criteria.put(JSONObject().put("fieldName", field).put("operator", "EQUALS")
+            .put("values", org.json.JSONArray("[$value]")))
+      }
+      val filter = JSONObject().put("skip", offset).put("limit", limit).put("booleanOperator", "AND").put("criteria", criteria)
+         .put("orderBys", org.json.JSONArray().put(JSONObject().put("fieldName", primaryKey).put("isAscending", true)))
+      val body = JSONObject().put("filter", filter).toString().toRequestBody("application/json".toMediaType())
+      return qqqApiServiceMap[baseUrl]!!.queryRecords(tableName, body).records
+   }
+
+   /*******************************************************************************
     *******************************************************************************/
    override suspend fun getAuthenticationMetaData(): BaseAuthenticationMetaData {
       return qqqApiServiceMap[baseUrl]!!.getAuthenticationMetaData()

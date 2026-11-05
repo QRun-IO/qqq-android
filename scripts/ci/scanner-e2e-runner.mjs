@@ -72,14 +72,15 @@ export async function runScannerE2e(options = {}) {
    if (fixture) {
       const url = echo ? validateEchoFixtureDescriptor(fixture) : new URL(fixture.baseUrl);
       const purposeValid = deviceScreen ? fixture.purpose === 'device-screen-qa' && !['57832', '51631'].includes(url.port) :
-         echo || selectedScenario === 'photos' && fixture.processName === 'mobileRecordPhotos' && fixture.tableName === 'document' && String(fixture.recordId) === '1';
+         echo || selectedScenario === 'rich-records' && fixture.purpose === 'rich-records-e2e' && !['57832', '51631'].includes(url.port) ||
+         ['photos', 'record-photos'].includes(selectedScenario) && fixture.processName === 'mobileRecordPhotos' && fixture.tableName === 'document' && String(fixture.recordId) === '1';
       if (!physical || !purposeValid || url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port || url.username || url.password || url.search || url.hash || url.pathname !== '/' ||
             fixture.username !== 'scanner' || fixture.adminUsername !== 'admin' ||
             typeof fixture.password !== 'string' || fixture.password.length < 16 || typeof fixture.adminPassword !== 'string' || fixture.adminPassword.length < 16) {
          throw new Error('Physical acceptance requires its purpose-matched isolated loopback fixture and private credential file.');
       }
    }
-   if (selectedScenario === 'photos' && !fixture) throw new Error('The photos scenario requires an explicit isolated Record Files fixture.');
+   if (['photos', 'record-photos', 'rich-records'].includes(selectedScenario) && !fixture) throw new Error('The photos scenario requires an explicit isolated Record Files fixture.');
    const adbPrefix = serial ? ['-s', serial] : [];
    const physicalSession = physical && selectedScenario === 'session-monitor';
    const packageName = deviceScreen || physicalSession ? 'io.qrun.mobile.scanner.qa' : 'io.qrun.mobile.scanner.e2e';
@@ -138,7 +139,7 @@ export async function runScannerE2e(options = {}) {
       }
       const manufacturer = (await adbRun('shell', 'getprop', 'ro.product.manufacturer')).trim();
       const model = (await adbRun('shell', 'getprop', 'ro.product.model')).trim();
-      if (!/^zebra/i.test(manufacturer) || !/^TC22(?:$|[ _-])/i.test(model)) throw new Error('This physical acceptance entry point is limited to the approved Zebra TC22.');
+      if (!/^zebra/i.test(manufacturer) || !/^(?:TC22|MC9400)(?:$|[ _-])/i.test(model)) throw new Error('This physical acceptance entry point is limited to Zebra TC22 and MC9400.');
       const installed = (await adbRun('shell', 'pm', 'list', 'packages', '-u', packageName)).split(/\r?\n/).map(line => line.trim());
       if (installed.includes('package:' + packageName) || installed.includes('package:' + packageName + '.test')) {
          throw new Error('Disposable test packages already exist. Refusing to replace or clear an existing installation.');
@@ -164,7 +165,7 @@ export async function runScannerE2e(options = {}) {
       }
       console.log(`Native ${scenario} acceptance passed (local UI, no server).`);
    };
-   const allowedScenarios = [...(physical ? ['navigation', 'photos', 'device-screen', 'echo'] : []), ...Object.keys(localScenarios), 'pixel-copy', 'unsupported-api', 'missing-extension', 'missing-channel', 'compatible', 'additive', 'admin-forms', 'session-monitor'];
+   const allowedScenarios = [...(physical ? ['navigation', 'photos', 'record-photos', 'device-screen', 'echo', 'rich-records'] : []), ...Object.keys(localScenarios), 'pixel-copy', 'unsupported-api', 'missing-extension', 'missing-channel', 'compatible', 'additive', 'admin-forms', 'session-monitor'];
    if (selectedScenario && !allowedScenarios.includes(selectedScenario)) throw new Error('Unknown native E2E scenario.');
    if (Object.hasOwn(localScenarios, selectedScenario)) {
       const temporary = [];
@@ -324,6 +325,8 @@ export async function runScannerE2e(options = {}) {
          { mode: 'compatible', name: 'admin-forms', test: 'adminFormsApproveRevokeAndCancel', requireCancel: true },
          { mode: 'compatible', name: 'session-monitor', test: 'sessionActivityMirrorsActualScreenAndAdminEndForcesFreshLogin', requireSession: true },
          ...(fixture ? [{ mode: 'compatible', name: 'photos', test: 'cameraAutoUploadsAndPendingGallerySurvivesRotationThenCleansOnRemoteLogout', requirePhotos: true }] : []),
+         ...(fixture ? [{ mode: 'compatible', name: 'record-photos', test: 'recordDetailsCameraAndGalleryAttachToSelectedRecord', requirePhotos: true }] : []),
+         ...(fixture ? [{ mode: 'compatible', name: 'rich-records', test: 'richRecordsPageGroupNavigateAndAttachPhotos', requirePhotos: true }] : []),
          ...(echo ? [{ mode: 'compatible', name: 'echo', test: 'echoSelectsOnceQueuesTwoScansAndClosesOnAppsLeave', requireCancel: true }] : []),
       ]) {
          if (selectedScenario && selectedScenario !== (phase.name ?? phase.mode)) continue;
@@ -361,16 +364,22 @@ export async function runScannerE2e(options = {}) {
          }
          reports.push({ scenario: phase.name ?? phase.mode, ...proxy.verify(!phase.expectedError, Boolean(phase.requireCancel), Boolean(phase.requireSession), Boolean(phase.requirePhotos)) });
          if (echo) {
-            const expectedStages = ['echo-copies-defaulted', 'echo-document-selected', 'echo-stale-document-cleared', 'echo-copies-selected', 'echo-setup-selected', 'echo-first-queued', 'echo-second-queued', 'echo-recreation-stable', 'echo-copies-persisted', 'echo-run-closed'];
+            const expectedStages = ['echo-copies-defaulted', 'echo-document-selected', 'echo-stale-document-cleared', 'echo-copies-selected', 'echo-setup-selected', 'echo-first-queued', 'echo-second-queued', 'echo-gs1-queued', 'echo-record-browsed', 'echo-recreation-stable', 'echo-copies-persisted', 'echo-run-closed'];
             if (expectedStages.some(stage => !stages.has(stage))) throw new Error('Echo did not complete every setup/queue/recreation/cancellation stage.');
             await writeFile(join(echoEvidence, 'echo-proof.json'), JSON.stringify({ status: 'PASSED', fixtureType: 'echo-ui-e2e', simulatedPrinting: true,
-               artifacts: echoArtifacts, completedStages: expectedStages, acceptedScans: 2, ...reports.at(-1), physicalScannerQualified: false, physicalPrintingQualified: false }, null, 2));
+               artifacts: echoArtifacts, completedStages: expectedStages, acceptedScans: 3, ...reports.at(-1), physicalScannerQualified: false, physicalPrintingQualified: false }, null, 2));
          }
          console.log(`Native semantic E2E passed: ${phase.name ?? phase.mode}.`);
       }
       await writeFile(join(evidence, 'semantic-contract.json'), `${JSON.stringify(reports, null, 2)}\n`);
       console.log('All native requests in the selected scenarios matched the published semantic API.');
    } catch (error) {
+      if (physical && selectedScenario === 'rich-records' && installedByRun.has(packageName)) {
+         const screenshot = '/data/local/tmp/qqq-rich-records-failure.png';
+         await adbRun('shell', 'screencap', '-p', screenshot)
+            .then(() => adbRun('pull', screenshot, join(repository, 'scanner-host/build/native-device-e2e/rich-records-failure.png')))
+            .finally(() => adbRun('shell', 'rm', '-f', screenshot)).catch(() => {});
+      }
       if (echo && echoEvidence) await writeFile(join(echoEvidence, 'echo-proof.json'), JSON.stringify({
          status: 'FAILED', fixtureType: 'echo-ui-e2e', simulatedPrinting: true, artifacts: echoArtifacts, completedStages: [...stages],
       }, null, 2));

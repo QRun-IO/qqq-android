@@ -34,6 +34,8 @@ import com.kingsrook.qqq.frontend.android.core.model.metadata.QInstance
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.AppRoute
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.HomeRoute
 import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.ProcessRoute
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.TableRoute
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.horseshoe.RecordRoute
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.LoadState
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel
 import com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel
@@ -63,6 +65,9 @@ class QNavigator(initialController: NavHostController?, val qViewModel: QViewMod
    var leaveRequest: LeaveRequest? by mutableStateOf(null)
       private set
 
+   var recordWorkBlock: String? by mutableStateOf(null)
+   var blockedNavigationMessage: String? by mutableStateOf(null)
+
    /*******************************************************************************
     ** Dismiss confirmation only while cancellation is idle, preserving the in-flight process ownership decision.
     *******************************************************************************/
@@ -74,6 +79,7 @@ class QNavigator(initialController: NavHostController?, val qViewModel: QViewMod
     ** Apply the same guarded process-exit policy before every destination or sign-out action.
     *******************************************************************************/
    fun requestLeave(title: String, confirmLabel: String = "Leave process", alwaysConfirm: Boolean = false, action: () -> Unit) {
+      recordWorkBlock?.let { blockedNavigationMessage = it; return }
       if (leaveRequest != null || qViewModel.logoutInProgress) return
       val process = qViewModel.activeProcessViewModel
       if (alwaysConfirm || process != null && !process.getNoMoreSteps())
@@ -156,7 +162,9 @@ class QNavigator(initialController: NavHostController?, val qViewModel: QViewMod
       val instance = (qViewModel.qInstanceLoadState as? LoadState.Success<QInstance>)?.value
       val processName = if (entry.destination.hasRoute<ProcessRoute>()) entry.toRoute<ProcessRoute>().name else null
       val appName = if (entry.destination.hasRoute<AppRoute>()) entry.toRoute<AppRoute>().name else
-         if (entry.destination.hasRoute<ProcessRoute>()) entry.toRoute<ProcessRoute>().appName else null
+         if (entry.destination.hasRoute<ProcessRoute>()) entry.toRoute<ProcessRoute>().appName else
+         if (entry.destination.hasRoute<TableRoute>()) entry.toRoute<TableRoute>().appName else
+         if (entry.destination.hasRoute<RecordRoute>()) entry.toRoute<RecordRoute>().appName else null
       atHome = entry.destination.hasRoute<HomeRoute>()
       navDepth = if (atHome) 0 else 1
       currentAppName = if (atHome) null else appName
@@ -187,11 +195,23 @@ class QNavigator(initialController: NavHostController?, val qViewModel: QViewMod
    /*******************************************************************************
     *******************************************************************************/
    fun navigateToApp(name: String, label: String) {
-      if (currentAppName == name && qViewModel.activeProcessViewModel == null) return
+      if (currentAppName == name && navController?.currentDestination?.hasRoute<AppRoute>() == true) return
       requestLeave("Switch app?") {
          homeNow()
          navigateToRoute(AppRoute(name), label)
       }
+   }
+
+   /*******************************************************************************
+    ** Records use ordinary navigation, preserving any active work before leaving.
+    *******************************************************************************/
+   fun navigateToTable(name: String, label: String) = requestLeave("Open table?") {
+      navigateToRoute(TableRoute(name, currentAppName), label)
+   }
+
+   fun navigateToRecord(table: String, id: String, hasParent: Boolean = false) = requestLeave("Open record?") {
+      // Navigation titles feed session activity. Never place record values in telemetry.
+      navigateToRoute(RecordRoute(table, id, currentAppName, hasParent), "Record")
    }
 
    /*******************************************************************************

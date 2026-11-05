@@ -32,5 +32,36 @@ data class QTableMetaData(
    val label: String,
    val icon: QIcon? = null,
    val isHidden: Boolean = false,
+   val primaryKeyField: String? = null,
+   val fields: Map<String, QFieldMetaData> = emptyMap(),
+   val sections: List<QRecordSection>? = null,
+   val associations: List<QRecordAssociation>? = null,
+   val searchFields: List<String>? = null,
 ) {
 }
+
+@Serializable
+data class QRecordSection(
+   val name: String,
+   val label: String? = null,
+   val fieldNames: List<String>? = null,
+   val isHidden: Boolean = false,
+   val hidden: Boolean = false,
+)
+
+@Serializable
+data class QRecordAssociation(
+   val name: String,
+   val associatedTableName: String,
+   val join: QRecordJoin,
+)
+
+@Serializable
+data class QRecordJoin(
+   val leftTable: String,
+   val rightTable: String,
+   val joinOns: List<QRecordJoinOn> = emptyList(),
+)
+
+@Serializable
+data class QRecordJoinOn(val leftField: String, val rightField: String)

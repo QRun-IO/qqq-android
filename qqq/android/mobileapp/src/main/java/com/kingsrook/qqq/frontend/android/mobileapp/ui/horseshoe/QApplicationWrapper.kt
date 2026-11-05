@@ -99,6 +99,15 @@ fun QApplicationWrapper(qViewModel: QViewModel, modifier: Modifier = Modifier, q
                }
             }
 
+            composable<TableRoute>() { entry ->
+               val route: TableRoute = entry.toRoute()
+               com.kingsrook.qqq.frontend.android.mobileapp.ui.records.TableScreen(qViewModel, route.name)
+            }
+            composable<RecordRoute>() { entry ->
+               val route: RecordRoute = entry.toRoute()
+               com.kingsrook.qqq.frontend.android.mobileapp.ui.records.RecordScreen(qViewModel, route.tableName, route.recordId, route.hasParent)
+            }
+
          }
       }
    }
@@ -135,4 +144,10 @@ data class AppRoute(val name: String)
  *******************************************************************************/
 @Serializable
 data class ProcessRoute(val name: String, val appName: String? = null)
+
+@Serializable
+data class TableRoute(val name: String, val appName: String? = null)
+
+@Serializable
+data class RecordRoute(val tableName: String, val recordId: String, val appName: String? = null, val hasParent: Boolean = false)
 

@@ -165,6 +165,10 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
    LaunchedEffect(qViewModel.isAuthenticated, qViewModel.isLogoutRequested, businessReady)
    {
       if (!businessReady) topLevelAppState.closeNavDrawer()
+      if (!qViewModel.isAuthenticated || qViewModel.isLogoutRequested) {
+         qViewModel.qNavigator.recordWorkBlock = null
+         qViewModel.qNavigator.blockedNavigationMessage = null
+      }
       if (qViewModel.isLogoutRequested) {
          settingsOpen.value = false
          diagnosticsOpen.value = false
@@ -258,6 +262,11 @@ fun QMobileAppMain(qViewModel: QViewModel, title: String, splashImage: Painter? 
          title = { Text("Diagnostics") }, text = { Text("Server: ${qViewModel.environment.baseUrl}\nApplication version: ${QViewModel.applicationVersion}") },
          confirmButton = { TextButton(onClick = { diagnosticsOpen.value = false }) { Text("Close") } })
       LeaveProcessDialog(qViewModel)
+      qViewModel.qNavigator.blockedNavigationMessage?.let { message ->
+         AlertDialog(onDismissRequest = { qViewModel.qNavigator.blockedNavigationMessage = null },
+            title = { Text("Photo in progress") }, text = { Text(message) },
+            confirmButton = { TextButton(onClick = { qViewModel.qNavigator.blockedNavigationMessage = null }) { Text("Return to photo") } })
+      }
    }
 
 }

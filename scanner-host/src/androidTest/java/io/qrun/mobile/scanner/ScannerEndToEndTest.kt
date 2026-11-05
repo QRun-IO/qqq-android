@@ -16,6 +16,9 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
@@ -74,6 +77,44 @@ class ScannerEndToEndTest {
    private val client = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build()
    private lateinit var origin: String
    private lateinit var adminCookie: String
+   /*******************************************************************************
+    ** Explicitly prepare a disposable QA app for an operator's manual record/photo test.
+    ** Uses real sign-in and approval; does not alter the ordinary scanner application.
+    *******************************************************************************/
+   @Test
+   fun prepareManualRecordPhotoPreview() {
+      val context = InstrumentationRegistry.getInstrumentation().targetContext
+      check(context.packageName == "io.qrun.mobile.scanner.qa")
+      val configFile = File(context.filesDir, "manual-photo-preview.json")
+      val config = try { JSONObject(configFile.readText()) } finally { configFile.delete() }
+      check(config.optBoolean("manualPhotoPreview"))
+      origin = config.getString("serverUrl").trimEnd('/')
+      val endpoint = URI(origin)
+      check(endpoint.scheme == "http" && endpoint.host == "127.0.0.1" && endpoint.port in 1024..65535 &&
+         endpoint.port !in setOf(8080, 57832, 51631, 18081, 18086) && endpoint.path in setOf("", "/") &&
+         endpoint.userInfo == null && endpoint.query == null && endpoint.fragment == null)
+      waitFor("QQQ server URL")
+      ui.onNodeWithText("QQQ server URL").performTextReplacement("$origin/")
+      ui.onNodeWithText("Connect", substring = false).performClick()
+      waitFor("Username")
+      ui.onNodeWithText("Username").performTextReplacement("scanner")
+      ui.onNodeWithText("Password").performTextReplacement(config.getString("scannerPassword"))
+      ui.onNodeWithText("Password").performImeAction()
+      ui.onNode(hasText("Sign in") and hasClickAction()).performScrollTo().performClick()
+      waitFor("An administrator must approve this device before you can run mobile apps.")
+      val device = DeviceCredentials(context, "$origin/")
+      adminCookie = loginAdmin(config.getString("adminPassword"))
+      runAdmin("mobileDeviceApprove", device.deviceId)
+      ui.onNodeWithText("Check approval").performScrollTo().performClick()
+      waitForTag("appHome.rowForApp:mobileScanApp")
+      ui.onNodeWithTag("appHome.rowForApp:mobileScanApp").performClick()
+      waitForTag("appHome.rowForTable:document")
+      ui.onNodeWithTag("appHome.rowForTable:document").performClick()
+      waitForTag("records.row:1")
+      ui.onNodeWithTag("records.row:1").performClick()
+      waitFor("Take photo")
+      stage("manual-photo-preview-ready")
+   }
 
    /*******************************************************************************
     ** Exercise real Echo process/PVS persistence with explicitly simulated print acceptance.
@@ -263,11 +304,17 @@ class ScannerEndToEndTest {
       stage("echo-setup-selected")
 
       var receipt = ""
-      for ((index, sample) in listOf("001234567890" to "LABEL-TYPE-CODE128", "000-ECHO-QR" to "QRCODE").withIndex()) {
+      val gs1Payload = "01095011015300031120101421TEST000123"
+      for ((index, sample) in listOf("001234567890" to "LABEL-TYPE-CODE128", "000-ECHO-QR" to "QRCODE", gs1Payload to "EAN128").withIndex()) {
          waitFor("Scanner ready. Press the handheld trigger.")
          context.sendBroadcast(Intent("io.qrun.mobile.scanner.SCAN").setPackage(context.packageName)
             .addCategory(Intent.CATEGORY_DEFAULT).putExtra("com.symbol.datawedge.data_string", sample.first)
-            .putExtra("com.symbol.datawedge.label_type", sample.second))
+            .putExtra("com.symbol.datawedge.label_type", sample.second).apply {
+               if (sample.second == "EAN128") {
+                  putExtra("io.qrun.mobile.scanner.e2e.raw_data", sample.first.toByteArray(Charsets.US_ASCII))
+                  putExtra("io.qrun.mobile.scanner.e2e.aim_identifier", "]C1")
+               }
+            })
          var accepted: JSONObject? = null
          waitForServer {
             accepted = rows("echoScan").singleOrNull { it.optString("runId") == runId && it.optString("barcode") == sample.first && it.optString("state") == "QUEUED" }
@@ -278,24 +325,29 @@ class ScannerEndToEndTest {
          waitFor("Print queued $receipt", substring = true)
          assertScanDisplay(sample.first, sample.second, "Confirmed by server")
          assertTrue("Accepted Echo scans must preserve exact type and approved-device attribution",
-            row.getString("symbology") == sample.second && row.getString("rendererSymbology") == (if (index == 0) "code128" else "qr") &&
+            row.getString("symbology") == sample.second && row.getString("rendererSymbology") == listOf("code128", "qr", "gs1-128")[index] &&
                row.getString("scanSource") == "e2e-fixture" && row.getString("deviceId") == device.deviceId && row.getString("actorId") == "scanner")
          assertTrue("Only a synthetic accepted job may acknowledge this fixture scan",
             row.getString("id") == receipt && row.getString("printJobId") == "fixture-job-$receipt" && row.getString("eventId").isNotBlank())
          assertTrue("Each event must create exactly one accepted Echo scan", rows("echoScan").count { it.optString("runId") == runId } == index + 1)
          assertSetupPinned(rows("echoFixtureRun").single { it.getString("id") == runId })
-         stage(if (index == 0) "echo-first-queued" else "echo-second-queued")
+         if (index == 2) {
+            assertEquals("]C1", row.getString("aimIdentifier"))
+            assertEquals("[01]09501101530003[11]201014[21]TEST000123", row.getString("rendererValue"))
+            assertEquals("(01)09501101530003(11)201014(21)TEST000123", row.getString("humanReadable"))
+         }
+         stage(listOf("echo-first-queued", "echo-second-queued", "echo-gs1-queued")[index])
       }
 
       ui.activityRule.scenario.onActivity { OrientationPolicy.LANDSCAPE.select(it) }
       waitFor("Print queued $receipt", substring = true)
       ui.activityRule.scenario.recreate()
       waitFor("Print queued $receipt", substring = true)
-      assertScanDisplay("000-ECHO-QR", "QRCODE", "Confirmed by server")
+      assertScanDisplay(gs1Payload, "EAN128", "Confirmed by server")
       assertTrue("Recreation must retain scan phase without showing printer selection", ui.onAllNodesWithText("Choose a value").fetchSemanticsNodes().isEmpty())
       val acceptedRows = rows("echoScan").filter { it.optString("runId") == runId }
-      assertTrue("Rotation/recreation must not accept another event", acceptedRows.size == 2 && acceptedRows.map { it.getString("eventId") }.toSet().size == 2 &&
-         acceptedRows.map { it.getString("printJobId") }.toSet().size == 2)
+      assertTrue("Rotation/recreation must not accept another event", acceptedRows.size == 3 && acceptedRows.map { it.getString("eventId") }.toSet().size == 3 &&
+         acceptedRows.map { it.getString("printJobId") }.toSet().size == 3)
       assertSetupPinned(rows("echoFixtureRun").single { it.getString("id") == runId })
       stage("echo-copies-persisted")
       stage("echo-recreation-stable")
@@ -305,9 +357,17 @@ class ScannerEndToEndTest {
       ui.onNodeWithText("Leave process", substring = false).performClick()
       waitForTag("appHome.rowForApp:echo")
       waitForServer { rows("echoFixtureRun").single { it.getString("id") == runId }.getString("state") == "CLOSED" }
-      assertTrue("Leaving must close this run without accepting extra print work", rows("echoScan").count { it.optString("runId") == runId } == 2)
+      assertTrue("Leaving must close this run without accepting extra print work", rows("echoScan").count { it.optString("runId") == runId } == 3)
       assertCopiesPinned(rows("echoFixtureRun").single { it.getString("id") == runId })
       stage("echo-run-closed")
+      ui.onNodeWithTag("appHome.rowForApp:echo").performClick()
+      waitForTag("appHome.rowForTable:echoScan")
+      ui.onNodeWithTag("appHome.rowForTable:echoScan").performClick()
+      waitForTag("records.row:$receipt")
+      ui.onNodeWithTag("records.row:$receipt").performClick()
+      waitForTag("record.details")
+      ui.onNodeWithText("(01)09501101530003(11)201014(21)TEST000123").performScrollTo().assertIsDisplayed()
+      stage("echo-record-browsed")
    }
 
    /*******************************************************************************
@@ -315,6 +375,25 @@ class ScannerEndToEndTest {
     *******************************************************************************/
    @Test
    fun cameraAutoUploadsAndPendingGallerySurvivesRotationThenCleansOnRemoteLogout() {
+      exercisePhotoCapture(false)
+   }
+
+   /*******************************************************************************
+    ** Record browsing selects the parent, and the same upload/lifecycle contract still applies.
+    *******************************************************************************/
+   @Test
+   fun recordDetailsCameraAndGalleryAttachToSelectedRecord() {
+      exercisePhotoCapture(true)
+   }
+
+   @Test
+   fun richRecordsPageGroupNavigateAndAttachPhotos() {
+      exercisePhotoCapture(fromRecord = true, rich = true)
+   }
+
+   private fun exercisePhotoCapture(fromRecord: Boolean, rich: Boolean = false) {
+      val parentTable = if (rich) "testOrder" else "document"
+      val parentId = if (rich) "26" else "1"
       val instrumentation = InstrumentationRegistry.getInstrumentation()
       val context = instrumentation.targetContext
       check(context.packageName == "io.qrun.mobile.scanner.e2e")
@@ -364,10 +443,74 @@ class ScannerEndToEndTest {
          adminCookie = loginAdmin(config.getString("adminPassword"))
          runAdmin("mobileDeviceApprove", device.deviceId)
          ui.onNodeWithText("Check approval").performScrollTo().performClick()
-         waitForTag("appHome.rowForApp:mobileScanApp")
-         ui.onNodeWithTag("appHome.rowForApp:mobileScanApp").performClick()
-         waitForTag("appHome.rowForProcess:mobileRecordPhotos")
-         ui.onNodeWithTag("appHome.rowForProcess:mobileRecordPhotos").performClick()
+         val app = if (rich) "mobileTestData" else "mobileScanApp"
+         waitForTag("appHome.rowForApp:$app")
+         // Accessible activation avoids a system floating control covering a tile on physical devices.
+         ui.onNodeWithTag("appHome.rowForApp:$app").performScrollTo().assertIsDisplayed()
+            .performSemanticsAction(SemanticsActions.OnClick) { it() }
+         if (fromRecord) {
+            waitForTag("appHome.rowForTable:$parentTable")
+            ui.onNodeWithTag("appHome.rowForTable:$parentTable").performScrollTo().assertIsDisplayed()
+               .performSemanticsAction(SemanticsActions.OnClick) { it() }
+            waitForTag("records.row:1")
+            if (rich) {
+               ui.onNodeWithText("Next").performClick()
+               waitForTag("records.row:26")
+               ui.onNodeWithTag("records.row:1").assertDoesNotExist()
+            }
+            ui.onNodeWithTag("records.row:$parentId").performClick()
+            waitForTag("record.details")
+            if (rich) {
+               ui.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+               waitForTag("records.row:26")
+               ui.onNodeWithText("26–50 of 1000").assertIsDisplayed()
+               ui.onNodeWithTag("records.row:1").assertDoesNotExist()
+               ui.onNodeWithTag("records.search").performTextReplacement("TEST-000026")
+               ui.waitForIdle()
+               waitFor("1–1 of 1")
+               ui.onNodeWithTag("records.row:26").performClick()
+               waitForTag("record.details")
+               ui.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+               waitFor("1–1 of 1")
+               ui.onNodeWithTag("records.search").assertTextContains("TEST-000026")
+               ui.onNodeWithText("Clear", substring = false).performClick()
+               waitFor("1–25 of 1000")
+               ui.onNodeWithText("Filter", substring = false).performClick()
+               waitFor("Filter records")
+               ui.onNodeWithTag("records.filter.value").performTextReplacement("TEST-000026")
+               ui.onNodeWithText("Apply filter").performClick()
+               waitFor("1–1 of 1")
+               ui.onNodeWithTag("records.row:26").performClick()
+               waitForTag("record.details")
+               listOf("Order overview", "Customer", "Shipping", "Amounts", "Warehouse", "Notes and audit").forEach {
+                  ui.onNodeWithText("Sections (6)").performClick()
+                  ui.onNodeWithText(it, substring = false).performClick()
+                  ui.onNodeWithTag("record.section:$it").performScrollTo().assertIsDisplayed()
+               }
+               ui.onNodeWithText("Items", substring = false).performClick()
+               waitForTag("record.related.row:testOrderItem:301")
+               ui.onNodeWithText("1–10 of 12").assertIsDisplayed()
+               ui.onNodeWithTag("record.related.row:testOrderItem:1").assertDoesNotExist()
+               ui.onNodeWithText("Next", substring = false).performClick()
+               waitForTag("record.related.row:testOrderItem:311")
+               ui.onNodeWithTag("record.related.row:testOrderItem:311").performClick()
+               waitForTag("record.section:Pricing and handling")
+               ui.onNodeWithText("Back to parent record").performClick()
+               waitForTag("record.related.row:testOrderItem:311")
+               ui.onNodeWithText("History", substring = false).performClick()
+               waitForTag("record.related.row:testOrderEvent:76")
+               ui.onNodeWithText("1–3 of 3").assertIsDisplayed()
+               stage("rich-records-grouped-related-paged")
+               stage("rich-records-search-filter-back-preserved")
+            }
+            ui.onNodeWithText("Take photo").assertDoesNotExist()
+            ui.onNodeWithText("Actions", substring = false).performClick()
+            waitFor("Add photo")
+            ui.onNodeWithText("Add photo", substring = false).performClick()
+         } else {
+            waitForTag("appHome.rowForProcess:mobileRecordPhotos")
+            ui.onNodeWithTag("appHome.rowForProcess:mobileRecordPhotos").performClick()
+         }
          waitFor("Take photo")
          ui.onNodeWithText("Take photo").performScrollTo().performClick()
          waitFor("Saved photo. Awaiting server review.")
@@ -376,8 +519,8 @@ class ScannerEndToEndTest {
          val savedRows = jsonRequest("/qqq/v1/table/record_files_file/query", JSONObject()).getJSONArray("records")
          val savedFile = (0 until savedRows.length()).map { savedRows.getJSONObject(it).getJSONObject("values") }
             .single { it.optString("deviceId") == device.deviceId && it.optString("sha256") == RecordFilesApi.sha256(bytes) }
-         assertEquals("document", savedFile.getString("tableName"))
-         assertEquals("1", savedFile.getString("recordId"))
+         assertEquals(parentTable, savedFile.getString("tableName"))
+         assertEquals(parentId, savedFile.getString("recordId"))
          assertEquals("CAPTURE", savedFile.getString("origin"))
          assertTrue(savedFile.getString("originDetail").endsWith("source CAMERA"))
          assertEquals("QUARANTINED", savedFile.getString("lifecycle"))
@@ -386,12 +529,47 @@ class ScannerEndToEndTest {
          val associations = jsonRequest("/qqq/v1/table/record_files_collection_item/query", JSONObject()).getJSONArray("records")
          // Collection storage is one-based; the upload manifest/receipt positions are zero-based.
          assertTrue((0 until associations.length()).map { associations.getJSONObject(it).getJSONObject("values") }
-            .any { it.optString("fileId") == savedFile.getString("id") && it.optString("tableName") == "document" && it.optString("recordId") == "1" && it.optInt("position") == 1 })
+            .any { it.optString("fileId") == savedFile.getString("id") && it.optString("tableName") == parentTable && it.optString("recordId") == parentId && it.optInt("position") == 1 })
          stage("native-photo-camera-saved")
 
          ui.onNodeWithText("Choose photo").performScrollTo().performClick()
          waitFor("Photo ready to upload.")
          assertEquals(1, galleryCalls.get())
+         ui.onNodeWithText("Upload photo").performScrollTo().performClick()
+         waitFor("Saved photo. Awaiting server review.")
+         val galleryRows = jsonRequest("/qqq/v1/table/record_files_file/query", JSONObject()).getJSONArray("records")
+         val gallerySaved = (0 until galleryRows.length()).map { galleryRows.getJSONObject(it).getJSONObject("values") }
+            .single { it.optString("deviceId") == device.deviceId && it.optString("originDetail").endsWith("source GALLERY") }
+         assertEquals(parentTable, gallerySaved.getString("tableName"))
+         assertEquals(parentId, gallerySaved.getString("recordId"))
+         assertEquals(RecordFilesApi.sha256(bytes), gallerySaved.getString("sha256"))
+         assertTrue(gallerySaved.getLong("attachmentId") > 0)
+         stage("native-photo-gallery-saved")
+         if (fromRecord) {
+            ui.onNodeWithText("Done", substring = false).performClick()
+            ui.onNodeWithText("Photos", substring = false).performClick()
+            waitFor(if (rich) "3 photos" else "2 photos")
+            if (rich) {
+               ui.onNodeWithText("Preview example 27.jpg").assertDoesNotExist()
+               waitForTag("photo.image:256")
+               ui.onNodeWithText("Preview photo").performClick()
+               waitFor("Photo preview")
+               waitForTag("photo.image:1600")
+               ui.onNodeWithText("Close preview").performClick()
+               stage("native-photo-approved-preview")
+            } else ui.onNodeWithText("Preview photo").assertDoesNotExist()
+            listOf(savedFile, gallerySaved).forEach { file ->
+               val row = "record.photo:${file.getString("id")}"
+               ui.onNodeWithTag("record.photos.list").performScrollToNode(hasTestTag(row))
+               ui.onNode(hasText("Awaiting review") and hasAnyAncestor(hasTestTag(row))).assertIsDisplayed()
+            }
+            stage("native-photo-gallery-parent-scoped")
+            ui.onNodeWithText("Actions", substring = false).performClick()
+            ui.onNodeWithText("Add photo", substring = false).performClick()
+         }
+         ui.onNodeWithText("Choose photo").performScrollTo().performClick()
+         waitFor("Photo ready to upload.")
+         assertEquals(2, galleryCalls.get())
          val pending = directory.listFiles().orEmpty().single { it.name.startsWith("photo-") }
          assertTrue(bytes.contentEquals(pending.readBytes()))
          ui.activityRule.scenario.onActivity { OrientationPolicy.LANDSCAPE.select(it) }
@@ -399,10 +577,18 @@ class ScannerEndToEndTest {
          ui.activityRule.scenario.recreate()
          waitFor("Photo ready to upload.")
          assertTrue("Rotation retains the same private original", pending.exists())
-         ui.onNodeWithTag("topBar.menuIcon").performClick()
-         ui.onNodeWithTag("drawer.home").performClick()
-         ui.onNodeWithText("Leave process", substring = false).assertIsNotEnabled()
-         ui.onNodeWithText("Stay").performClick()
+         if (fromRecord) {
+            ui.onNodeWithText("Done", substring = false).assertIsNotEnabled()
+            ui.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+             waitFor("Photo in progress")
+             ui.onNodeWithText("Return to photo").performClick()
+            waitFor("Photo ready to upload.")
+         } else {
+            ui.onNodeWithTag("topBar.menuIcon").performClick()
+            ui.onNodeWithTag("drawer.home").performClick()
+            ui.onNodeWithText("Leave process", substring = false).assertIsNotEnabled()
+            ui.onNodeWithText("Stay").performClick()
+         }
          stage("native-photo-rotation-preserved")
 
          var sessionId = ""

@@ -20,6 +20,33 @@ import org.junit.Test
  ** Verify discovery, immutable request replay and exact persistence receipts without a device.
  *******************************************************************************/
 class RecordFilesApiTest {
+   @Test
+   fun previewsUseTrackedSameOriginDeliveryAndVerifyBytes() = runBlocking() {
+      MockWebServer().use { server ->
+         server.enqueue(MockResponse().setBody(version(true)))
+         server.enqueue(MockResponse().setBody("""{"version":"1.0.0","blockType":"RECORD_FILES_CAPTURE","widgetType":"composite"}"""))
+         server.enqueue(MockResponse().setBody("""{"canUpload":false}"""))
+         val origin = server.url("/").toString()
+         val api = RecordFilesApi(origin, { mapOf("X-QQQ-Device-Token" to "synthetic") }, UiApiCompatibility(origin))
+         api.capabilities("synthetic-session", target)
+         repeat(3) { server.takeRequest() }
+         val file = SavedRecordPhoto("12", "test.jpg", "image/jpeg", bytes.size.toLong(), RecordFilesApi.sha256(bytes), "AVAILABLE")
+         server.enqueue(MockResponse().setBody(okio.Buffer().write(bytes)))
+         assertArrayEquals(bytes, api.image("synthetic-session", file))
+         val request = server.takeRequest()
+         assertTrue(request.path!!.startsWith("/qqq/v1/qbit/record-files/files/12/downloads/"))
+         assertEquals("1", request.getHeader("X-Record-Files-Download"))
+         assertEquals("android/qqq-mobile", request.getHeader("X-QQQ-Client"))
+         assertEquals("synthetic", request.getHeader("X-QQQ-Device-Token"))
+         assertTrue(runCatching { api.image("synthetic-session", file.copy(lifecycle = "QUARANTINED")) }.isFailure)
+         server.enqueue(MockResponse().setBody(okio.Buffer().write(byteArrayOf(4, 5, 6))))
+         assertTrue(runCatching { api.image("synthetic-session", file) }.isFailure)
+         server.takeRequest()
+         server.enqueue(MockResponse().setBody(okio.Buffer().write(byteArrayOf(1, 2, 3, 4))))
+         assertTrue(runCatching { api.image("synthetic-session", file) }.isFailure)
+      }
+   }
+
    private val target = RecordPhotoTarget("document", "opaque/key", "Photos", null)
    private val bytes = byteArrayOf(1, 2, 3)
 

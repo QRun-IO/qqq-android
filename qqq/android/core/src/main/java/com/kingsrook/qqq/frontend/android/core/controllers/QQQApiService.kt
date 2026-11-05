@@ -135,6 +135,21 @@ interface QQQApiService {
    suspend fun getProcessMetaData(@Path(value = "processName") processName: String): QProcessMetaData
 
    /*******************************************************************************
+    ** Registered table metadata/query/get operations; no alternative record API.
+    *******************************************************************************/
+   @GET(BASE_PATH + "metaData/table/{tableName}")
+   suspend fun getTableMetaData(@Path("tableName") tableName: String): com.kingsrook.qqq.frontend.android.core.model.metadata.QTableMetaData
+
+   @POST(BASE_PATH + "table/{tableName}/query")
+   suspend fun queryRecords(@Path("tableName") tableName: String, @Body body: RequestBody): com.kingsrook.qqq.frontend.android.core.model.RecordQueryResponse
+
+   @POST(BASE_PATH + "table/{tableName}/count")
+   suspend fun countRecords(@Path("tableName") tableName: String, @Body body: RequestBody): com.kingsrook.qqq.frontend.android.core.model.RecordCountResponse
+
+   @GET(BASE_PATH + "table/{tableName}/{recordId}")
+   suspend fun getRecord(@Path("tableName") tableName: String, @Path("recordId") recordId: String): com.kingsrook.qqq.frontend.android.core.model.RecordGetResponse
+
+   /*******************************************************************************
     ** Start process execution with explicit record selection and values, returning authoritative server step state.
     *******************************************************************************/
    @POST(BASE_PATH + "processes/{processName}/init")

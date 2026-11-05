@@ -7,6 +7,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.kingsrook.qqq.frontend.android.mobileapp.ui.records.RecordAttachmentUi
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -42,16 +46,29 @@ internal fun RecordPhotoWidget(parameters: WidgetBlockParameters, api: RecordFil
       Text("This photo control has unsupported metadata or no active process.", modifier.padding(16.dp))
       return
    }
+   RecordPhotoCapture(host, target, api, modifier, disabled, parameters.widgetBlock.blockId, process)
+}
+
+/*******************************************************************************
+ ** Record details and process widgets share the same capability-gated upload implementation.
+ *******************************************************************************/
+@Composable
+internal fun RecordPhotoCapture(
+   host: com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.QViewModel,
+   target: RecordPhotoTarget, api: RecordFilesApi, modifier: Modifier = Modifier, disabled: Boolean = false,
+   blockId: String = "record-photos",
+   process: com.kingsrook.qqq.frontend.android.mobileapp.viewmodel.ProcessViewModel? = null,
+   recordUi: RecordAttachmentUi? = null,
+) {
    val context = LocalContext.current
    val application = context.applicationContext
    val session = host.sessionUUID
-   val processId = process.processUUID ?: return
+   val processId = if (process == null) "record" else process.processUUID ?: return
    val processOwner = LocalViewModelStoreOwner.current as? NavBackStackEntry
    if (processOwner == null) {
-      Text("Photo capture requires a process navigation scope.", modifier.padding(16.dp))
+      Text("Photo capture requires a record or process navigation scope.", modifier.padding(16.dp))
       return
    }
-   val blockId = parameters.widgetBlock.blockId
    val key = "photo:$session:$processId:$blockId:${target.tableName.length}:${target.tableName}:${target.recordId}"
    val factory = remember(key, api)
    {
@@ -63,14 +80,18 @@ internal fun RecordPhotoWidget(parameters: WidgetBlockParameters, api: RecordFil
             @Suppress("UNCHECKED_CAST")
             return PhotoUploadViewModel(api, session, target, File(application.cacheDir, "record-photos")) {
                host.sessionUUID == session && host.isAuthenticated && !host.isLogoutRequested && host.activeProcessViewModel === process
+                  && processOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.CREATED)
             } as T
          }
       }
    }
    val upload: PhotoUploadViewModel = viewModel(viewModelStoreOwner = processOwner, key = key, factory = factory)
    val owner = LocalLifecycleOwner.current
+   fun setWork(message: String?) {
+      if (process != null) process.setClientWork(key, message) else host.qNavigator.recordWorkBlock = message
+   }
    SideEffect {
-      process.setClientWork(key, if (upload.pending || upload.busy) "Finish, retry/check, or discard the pending photo before leaving or continuing." else null)
+      setWork(if (upload.pending || upload.busy) "Finish, retry/check, or discard the pending photo before leaving or continuing." else null)
    }
    DisposableEffect(owner, upload)
    {
@@ -79,7 +100,9 @@ internal fun RecordPhotoWidget(parameters: WidgetBlockParameters, api: RecordFil
       onDispose {
          owner.lifecycle.removeObserver(observer)
          upload.pause()
-         if (!upload.pending) process.setClientWork(key, null)
+         // A disposed configuration must not clear the retained upload's navigation guard.
+         // Authentication teardown clears record work separately in the host.
+         if (!upload.pending) setWork(null)
       }
    }
    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success -> upload.cameraResult(success) }
@@ -89,9 +112,13 @@ internal fun RecordPhotoWidget(parameters: WidgetBlockParameters, api: RecordFil
          upload.galleryResult(media) { application.contentResolver.openInputStream(uri) }
       }
    }
-   Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp))
+   SideEffect { recordUi?.available?.invoke(upload.limits != null) }
+   if (recordUi?.photosVisible == true) SavedRecordPhotos(host, target, api, upload.saved)
+   val controls: @Composable () -> Unit = {
+   Column((if (recordUi == null) modifier else modifier.verticalScroll(rememberScrollState())).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp))
    {
-      Text(target.title ?: "Record photos", style = MaterialTheme.typography.titleMedium)
+      if (recordUi == null) Text(target.title ?: "Record photos", style = MaterialTheme.typography.titleMedium)
+      if (recordUi != null) Text(recordUi.recordLabel, style = MaterialTheme.typography.labelLarge)
       target.instructions?.let { Text(it) }
       when {
          upload.checking -> Text("Checking photo permissions…")
@@ -105,7 +132,7 @@ internal fun RecordPhotoWidget(parameters: WidgetBlockParameters, api: RecordFil
             if ("image/jpeg" in upload.limits!!.mediaTypes)
                Button(enabled = available, onClick = {
                   val file = upload.prepareCamera()
-                  process.setClientWork(key, "Return from the camera and finish or discard the photo before leaving.")
+                  setWork("Return from the camera and finish or discard the photo before leaving.")
                   val uri = FileProvider.getUriForFile(context, context.packageName + ".photos", file)
                   try {
                      camera.launch(uri)
@@ -123,6 +150,13 @@ internal fun RecordPhotoWidget(parameters: WidgetBlockParameters, api: RecordFil
       }
       if (upload.busy) Text("Working on photo…")
       if (upload.message.isNotBlank()) Text(upload.message)
-      if (upload.pending) Text("This app uploads while open and connected. Keep this process open until the server confirms the photo.")
+      if (upload.pending) Text("This app uploads while open and connected. Keep this screen open until the server confirms the photo.")
    }
+   }
+   if (recordUi == null) controls()
+   else if (recordUi.captureVisible) AlertDialog(
+      onDismissRequest = { if (!upload.pending && !upload.busy) recordUi.closeCapture() },
+      title = { Text("Add photo") }, text = controls,
+      confirmButton = { TextButton(enabled = !upload.pending && !upload.busy, onClick = recordUi.closeCapture) { Text("Done") } }
+   )
 }
