@@ -1,6 +1,6 @@
 # Current status
 
-As of 2026-11-04. Scope: the scanner host and the local Echo workflow only. This is the authoritative current view; earlier rolling notes are historical and kept in [docs/history](history/README.md). Nothing here claims a finished or released 1.0. Checklist: [TODO](TODO.md). Ledger: [FINISH-1.0](FINISH-1.0.md).
+As of 2026-11-04. Scope: the scanner host and the local Echo workflow only. This is the authoritative current view; earlier rolling notes are historical and kept in [docs/history](history/README.md). Nothing here claims a stable or fully qualified 1.0; a signed preview is published. Checklist: [TODO](TODO.md). Ledger: [FINISH-1.0](FINISH-1.0.md).
 
 ## Source
 
@@ -25,8 +25,8 @@ As of 2026-11-04. Scope: the scanner host and the local Echo workflow only. This
 
 - Direct signed-APK / MDM distribution was chosen. A QRun-owned key exists (alias `qqq-mobile-release`, certificate SHA-256 `BDDB2D2F45A5925C643A83ABAF616C1EAB2387DC5CDA7B645A6F4C0D5B17A9FF`) with a verified backup. Key, passwords and vault details are not in this repository.
 - Signed `QQQ-Mobile-1.0.0.apk` (versionCode 2, SHA-256 `EE5AC896B8985AF6F11B2E883955925D6571A2913D74A4AACCDB564B79394D51`) exists locally, built from `main` application source: lint 0 errors/0 warnings, v2/v3 signature with the exact certificate, alignment and non-debuggable verified.
-- It is **not** published, tagged or distributed, and no production release exists. No automatic signing CI is configured. The signed artifact is kept outside the repository.
-- Production qualification needs an HTTPS server and a full device pass of the signed build ([RELEASING](RELEASING.md), [INSTALLATION](INSTALLATION.md)). The local demo does not need HTTPS; release builds reject HTTP.
+- It is published as a **signed preview**: Gitea prerelease [scanner-v1.0.0](https://git.kof22.com/QRun-IO/qqq-android/releases/tag/scanner-v1.0.0) (ID 1361, signed tag on protected `main` `3eef6431ca39b6450cf764424d921a02b2afb9ab`; app source matches `0ae2101f`, the tag adds documentation only). Hosted assets are the APK (14933499 bytes) and `SHA256SUMS` (88 bytes), both downloaded back and matching the hash above. The local installation kit ZIP was not published. Forge sign-in is required. This is not a stable release. No automatic signing CI is configured, and SDK CI publication is a separate path.
+- Production qualification (still pending) needs an HTTPS server and a full device pass of the signed build ([RELEASING](RELEASING.md), [INSTALLATION](INSTALLATION.md)). The local demo does not need HTTPS; release builds reject HTTP.
 
 ## Open (not claimed)
 

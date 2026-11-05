@@ -6,12 +6,14 @@ This guide is not the local demo. The demo uses the development-signed debug APK
 
 | Item | Value |
 | --- | --- |
-| File | `QQQ-Mobile-1.0.0.apk` (locally signed) |
+| Source | [Signed preview release scanner-v1.0.0](https://git.kof22.com/QRun-IO/qqq-android/releases/tag/scanner-v1.0.0) (prerelease; forge sign-in required) |
+| File | `QQQ-Mobile-1.0.0.apk`, with `SHA256SUMS` on the same release page |
 | Application ID | `io.qrun.mobile.scanner` |
 | Version | 1.0.0, versionCode 2 |
 | APK SHA-256 | `EE5AC896B8985AF6F11B2E883955925D6571A2913D74A4AACCDB564B79394D51` |
+| Signing certificate SHA-256 | `BDDB2D2F45A5925C643A83ABAF616C1EAB2387DC5CDA7B645A6F4C0D5B17A9FF` |
 
-The same APK is used for every customer; branding comes from the server at runtime. Compare the SHA-256 before installing. The checksum shows the file is intact, not who signed it.
+The same APK is used for every customer; branding comes from the server at runtime. Download the APK and `SHA256SUMS` from the release page and compare the SHA-256 before installing, then verify the signing certificate matches the value above. The checksum shows the file is intact, not who signed it. This is a preview, not a stable release. Only the APK and `SHA256SUMS` are hosted; there is no hosted install kit.
 
 This APK was installed and launched once on a fresh Zebra MC9400 (Android 13): install succeeded, the Connect screen appeared and the installed bytes matched the hash above. It has **not** been enrolled, scanned or navigated, because no HTTPS server was available, so these steps are not hardware-qualified until the first install is confirmed (below). That MC9400 now runs the development demo build instead.
 
@@ -23,7 +25,7 @@ This APK was installed and launched once on a fresh Zebra MC9400 (Android 13): i
 
 ## Install: copy the file (recommended)
 
-1. Copy `QQQ-Mobile-1.0.0.apk` to the device's **Downloads** folder.
+1. Copy the verified `QQQ-Mobile-1.0.0.apk` to the device's **Downloads** folder.
 2. Open **Files**, go to Downloads, and tap the APK.
 3. If Android asks, allow that Files app to install apps, then continue. You can turn the permission off again afterward.
 

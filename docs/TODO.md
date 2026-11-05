@@ -21,7 +21,8 @@ As of 2026-11-04, scanner host and local Echo scope only. Narrative: [SESSION-ST
 - [x] Signed-APK/MDM channel chosen; QRun-owned key created with verified backup; signed 1.0.0 (versionCode 2) built and verified locally.
 - [x] Direct-install guide written ([INSTALLATION](INSTALLATION.md)).
 - [ ] Qualify the production-signed APK on a device against an HTTPS server (enrollment, scanner path, navigation, update).
-- [ ] First distribution to the remaining devices; MDM later. No tag or release exists.
+- [x] Signed preview published: Gitea prerelease `scanner-v1.0.0` (APK and `SHA256SUMS` only; local install kit not hosted).
+- [ ] Distribution to the remaining devices after qualification; MDM later. Promotion to a stable release needs the qualification above.
 - [ ] Automatic signing/publication pipeline: not configured; owned by the shared CI design, not needed for manual distribution.
 - [ ] Actual on-device Authentik callback (unverified; no separate evidence).
 
