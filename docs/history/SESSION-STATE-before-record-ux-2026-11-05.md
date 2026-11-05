@@ -10,7 +10,7 @@ At the user's request, the existing TC22 app was updated in place to the local r
 
 # Current status
 
-As of 2026-11-05. Scope: the scanner host and the local Echo workflow only. This is the authoritative current view; earlier rolling notes are historical and kept in [docs/history](../README.md). Nothing here claims a stable or fully qualified 1.0; a signed preview is published. Checklist: [TODO](../TODO.md). Ledger: [FINISH-1.0](FINISH-1.0.md).
+As of 2026-11-05. Scope: the scanner host and the local Echo workflow only. This is the authoritative current view; earlier rolling notes are historical and kept in [docs/history](README.md). Nothing here claims a stable or fully qualified 1.0; a signed preview is published. Checklist: [TODO](../TODO.md). Ledger: [FINISH-1.0](../FINISH-1.0.md).
 
 ## Local feature verification
 

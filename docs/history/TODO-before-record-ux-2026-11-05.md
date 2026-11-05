@@ -2,7 +2,7 @@ Historical checkpoint before the November 5 record UX update. Current state is i
 
 # Checklist
 
-As of 2026-11-04, scanner host and local Echo scope only. Narrative: [SESSION-STATE](../SESSION-STATE.md). Completed and superseded items are kept in [docs/history](../README.md).
+As of 2026-11-04, scanner host and local Echo scope only. Narrative: [SESSION-STATE](../SESSION-STATE.md). Completed and superseded items are kept in [docs/history](README.md).
 
 ## Active feature delivery
 
