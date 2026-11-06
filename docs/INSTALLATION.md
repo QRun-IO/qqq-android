@@ -4,7 +4,7 @@ Use this for the **production-signed** APK on a small number of devices. Move to
 
 This guide is not the local demo. The demo uses the development-signed debug APK, plain HTTP and `adb reverse` port forwarding to a workstation server; see [README](../README.md#installing-on-a-device). The two builds have different signers and cannot update each other.
 
-**Current release status (November 5, 2026):** the only published release is the signed preview 1.0.0 below. A signed **1.0.1 (versionCode 3) candidate** exists but is **not published and has no download link**; this guide does not point to one. Use the table below for what is actually hosted. When 1.0.1 is published, use the file, checksum and link given by the release owner, and verify the same signer.
+**Current release status (November 5, 2026):** the only published release is the signed preview 1.0.0 below. A signed **1.0.1 (versionCode 3) candidate** exists but is **not published and has no download link**; this guide does not point to one. Use the table below for what is actually hosted. It is superseded by the planned **1.0.2 (versionCode 4)** candidate (not yet built; see [RELEASING](RELEASING.md#next-candidate-102-versioncode-4)). When a newer version is published, use the file, checksum and link given by the release owner, and verify the same signer.
 
 | Candidate (not published) | Value |
 | --- | --- |
