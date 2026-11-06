@@ -31,4 +31,9 @@ data class ManageSessionResponse(
    val uuid: String? = null,
    val values: MapOfStringAny = emptyMap(),
 ) {
+   /*******************************************************************************
+    ** Display name from the optional values.user object; absent, non-object or blank names yield null.
+    *******************************************************************************/
+   val userName: String?
+      get() = ((values["user"] as? Map<*, *>)?.get("name") as? String)?.takeIf { it.isNotBlank() }
 }
