@@ -8,7 +8,22 @@
 - **Candidate APK:** SHA-256 `5124716B59CAD303717E7834FE64DDC1537E33A25C9AB75A6EA1ACF03AC2717F`, 15015419 bytes.
 - **Source:** Android PR 15 `ab6e44c`, merged as `c782aaaaba3f62422232436a9000af9d4b38fc82` with the same app-source tree. Installed APK bytes, signature, non-debuggable flag and 16 KiB alignment were verified. `lintRelease` reported 0 errors, 0 warnings and 5 informational findings; the release build passed.
 - **Distribution:** maintainers use the existing manual signing path for direct APK/MDM distribution. Automated signing CI is optional.
+- **Next candidate:** **1.0.2 (versionCode 4)** is prepared but not built; see [Next candidate](#next-candidate-102-versioncode-4).
 - **Open:** see [Qualification status](#qualification-status) and [TODO](TODO.md).
+
+## Next candidate: 1.0.2 (versionCode 4)
+
+Prepared on 2026-11-06 on branch `release/scanner-1.0.2` (Android PRs 17 and 18 merged locally plus these notes). **Nothing is built, signed, tagged, installed or published for 1.0.2.** The signed 1.0.1 candidate stays unpublished and is superseded; 1.0.2 updates it in place with the same signer and a higher `versionCode`.
+
+Changes since 1.0.1 (details in [CHANGELOG](../CHANGELOG.md#102-versioncode-4-candidate)): company sign-out now completes (the device-session end ran before the provider logout, so no `nativeLogoutData` came back and the browser never opened on the MC9400); the user name is shown after browser sign-in; app/OS version are reported on every heartbeat (effective with mobile-scanners server 1.6.0).
+
+Build only after PRs 17 and 18 are merged to `main` and this branch has been rebased onto that `main`, from the exact merged commit, with no `SCANNER_*` signing variables set:
+
+```
+./gradlew --no-daemon --console=plain :scanner-host:lintRelease :scanner-host:assembleRelease -PscannerVersionName=1.0.2 -PscannerVersionCode=4
+```
+
+Then sign `scanner-host/build/outputs/apk/release/scanner-host-release-unsigned.apk` in isolation with `apksigner` using the existing permanent key (certificate SHA-256 `BDDB2D2F...5B17A9FF`), verify v2+v3 with exactly one signer, 16 KiB alignment, `versionCode='4' versionName='1.0.2'` and non-debuggable, and write `QQQ-Mobile-1.0.2.apk`, `SHA256SUMS`, `signature-verification.txt`, `apk-metadata.txt` and `release-receipt.json` next to each other as for 1.0.1. Record the resulting hashes here, in [INSTALLATION](INSTALLATION.md) and in [SESSION-STATE](SESSION-STATE.md) before any tag or release.
 
 ## Historical status (November 4, 2026, superseded where noted)
 
@@ -65,7 +80,7 @@ Open:
 2. **Printing:** the print nonce fix (PR 11, merged `abc3d0d`, 532 hosted tests passed) postdates the published print 1.1.1; the next installer remains with the active printing owner.
 3. Public compatible Core/Collab/document/files/scripting/bridges, the final public cohort gate, GS1 physical print/rescan, and full release-asset publication and distribution.
 4. Company profiles and wallpaper are tracked separately.
-5. Publish the 1.0.1 tag, release, APK, checksum and installation instructions after its remaining qualification. The published download remains the 1.0.0 signed preview; automated signing CI is optional.
+5. Build, sign and publish 1.0.2 (versionCode 4) in place of the unpublished 1.0.1 candidate after PRs 17 and 18 merge (see [Next candidate](#next-candidate-102-versioncode-4)), with its checksum and installation instructions after remaining qualification. The published download remains the 1.0.0 signed preview; automated signing CI is optional.
 
 ## Release requirements
 
