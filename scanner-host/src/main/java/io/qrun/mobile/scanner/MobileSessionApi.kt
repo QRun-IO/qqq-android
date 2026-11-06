@@ -8,6 +8,7 @@ import com.kingsrook.qqq.frontend.android.core.controllers.RequestOutcomeInterce
 import com.kingsrook.qqq.frontend.android.core.controllers.SameOriginInterceptor
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiCompatibility
 import com.kingsrook.qqq.frontend.android.core.controllers.UiApiException
+import android.os.Build
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -52,7 +53,15 @@ internal class MobileSessionApi(
    private val headers: () -> Map<String, String>,
    private val compatibility: UiApiCompatibility,
    onOutcome: (RequestOutcome) -> Unit = {},
+   private val deviceInfo: Map<String, String?> = installedVersions(),
 ) : MobileSessionTransport {
+   companion object {
+      /*******************************************************************************
+       ** The same software versions enrollment reported, so an in-place update refreshes the device record and later scan receipts.
+       *******************************************************************************/
+      fun installedVersions(): Map<String, String?> = mapOf("osVersion" to Build.VERSION.RELEASE, "appVersion" to BuildConfig.VERSION_NAME)
+   }
+
    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
       .callTimeout(5, TimeUnit.SECONDS).addInterceptor(RequestOutcomeInterceptor(onOutcome)).addInterceptor(SameOriginInterceptor()).build()
 
@@ -65,6 +74,8 @@ internal class MobileSessionApi(
       val json = JSONObject().put("foreground", state.foreground).put("screenAvailable", state.available)
          .put("locationStatus", locationStatus)
       if (state.captureMode != CaptureMode.APP_CONTENT) json.put("captureMode", state.captureMode.name)
+      // Omitted versions leave the enrolled values unchanged on the server (mobile-scanners 1.6); blank ones are never sent.
+      deviceInfo.forEach { (name, value) -> if (!value.isNullOrBlank()) json.put(name, value.take(200)) }
       state.location.fix?.takeIf { locationAvailable }?.let { fix ->
          json.put(
             "location", JSONObject().put("latitude", fix.latitude).put("longitude", fix.longitude)

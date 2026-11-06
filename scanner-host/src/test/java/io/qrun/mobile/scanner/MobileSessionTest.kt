@@ -311,7 +311,10 @@ class MobileSessionTest {
          server.enqueue(MockResponse().setResponseCode(204))
          server.enqueue(MockResponse().setBody("{}"))
          val origin = server.url("/").toString()
-         val api = MobileSessionApi(origin, { mapOf("X-QQQ-Device-Token" to "synthetic-token") }, UiApiCompatibility(origin, true))
+         val api = MobileSessionApi(
+            origin, { mapOf("X-QQQ-Device-Token" to "synthetic-token") }, UiApiCompatibility(origin, true),
+            deviceInfo = mapOf("osVersion" to "14", "appVersion" to "1.0.1", "manufacturer" to null, "model" to " ")
+         )
          api.heartbeat("synthetic-session", ready())
          api.screen("synthetic-session", "lease-one", 4, frame)
          api.end("synthetic-session", "SIGN_OUT")
@@ -324,7 +327,10 @@ class MobileSessionTest {
          val body = JSONObject(heartbeat.body.readUtf8())
          assertTrue(body.getBoolean("screenAvailable"))
          assertEquals("count", body.getString("processName"))
-         listOf("user", "deviceId", "barcode", "sessionUUID", "password", "values").forEach { assertFalse(body.has(it)) }
+         // Installed versions ride on every heartbeat so an in-place update refreshes the device record; blank/null ones are omitted.
+         assertEquals("14", body.getString("osVersion"))
+         assertEquals("1.0.1", body.getString("appVersion"))
+         listOf("user", "deviceId", "barcode", "sessionUUID", "password", "values", "manufacturer", "model").forEach { assertFalse(body.has(it)) }
          val screen = server.takeRequest()
          assertEquals("/qqq/v1/qbit/mobile-scanners/sessions/current/screen", screen.path)
          assertEquals(4, JSONObject(screen.body.readUtf8()).getLong("sequence"))
