@@ -583,7 +583,22 @@ open class QViewModel(
    fun logOut(): Job = performLogout()
 
    /*******************************************************************************
+    ** Host session resources end in a bounded, best-effort step; core logout and local clearing never depend on it.
+    *******************************************************************************/
+   private suspend fun endHostSession() {
+      try {
+         kotlinx.coroutines.withTimeoutOrNull(3000) { beforeLogout() }
+      } catch (exception: kotlinx.coroutines.CancellationException) {
+         throw exception
+      } catch (exception: Exception) { /* Core logout and local clearing still run. */
+      }
+   }
+
+   /*******************************************************************************
     ** Optional provider material is captured only by the initiating coroutine, never by ViewModel state.
+    ** Ordinary logout ends host resources first. Provider logout runs first instead: it both returns the
+    ** transient hint and ends the QQQ session, and a host session end (such as the scanner device-session end,
+    ** which itself runs the core logout server-side) would otherwise remove that session before the hint is read.
     *******************************************************************************/
    private fun performLogout(providerLogout: (suspend () -> Unit)? = null): Job {
       logoutJob?.takeIf {
@@ -606,16 +621,15 @@ open class QViewModel(
          var serverConfirmed = false
          try {
             settingsMutex.withLock { settingsRepository.setSessionUUID(""); settingsRepository.setSessionUserFullName("") }
+            if (providerLogout == null) endHostSession()
             try {
-               kotlinx.coroutines.withTimeoutOrNull(3000) { beforeLogout() }
-            } catch (exception: kotlinx.coroutines.CancellationException) {
-               throw exception
-            } catch (exception: Exception) { /* Core logout and local clearing still run. */
+               serverConfirmed = kotlinx.coroutines.withTimeoutOrNull(3000) {
+                  if (providerLogout == null) qqqRepository.logout() else providerLogout()
+                  true
+               } ?: false
+            } finally {
+               if (providerLogout != null) endHostSession()
             }
-            serverConfirmed = kotlinx.coroutines.withTimeoutOrNull(3000) {
-               if (providerLogout == null) qqqRepository.logout() else providerLogout()
-               true
-            } ?: false
          } catch (exception: kotlinx.coroutines.CancellationException) {
             throw exception
          } catch (exception: Exception) { /* Local sign-out still completes when the network is unavailable. */
@@ -672,7 +686,8 @@ open class QViewModel(
          binding.login.server == environment.baseUrl && isLogoutRequested
 
    /*******************************************************************************
-    ** Local invalidation finishes before the browser sees the optional transient hint.
+    ** Local invalidation finishes before the browser sees the optional transient hint: the provider logout
+    ** request runs inside performLogout, whose completion clears local state before this returns.
     *******************************************************************************/
    suspend fun logOutWithProvider(generation: Long, binding: OAuth2LogoutBinding): NativeLogoutData? {
       if (!isCurrentCompanyLogout(generation, binding) || companyLogoutPhase != OAuth2LogoutPhase.PREPARING) return null
@@ -846,6 +861,7 @@ open class QViewModel(
             if (!isCurrentOAuth2Login(generation, binding)) return@launch
             sessionUUID = requireNotNull(newSession)
             qqqRepository.setSessionUUID(sessionUUID)
+            response.userName?.let { doSetSessionUserFullName(it) }
             manageSessionLoadState = LoadState.Success(response)
             logInSuccessful()
             adopted = true
