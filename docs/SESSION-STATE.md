@@ -2,6 +2,10 @@
 
 As of **2026-11-05**. Scope: scanner host and maintained local Echo workflow. [TODO](TODO.md) tracks remaining work; [history](history/README.md) preserves earlier evidence. This is not a final-release or full-qualification claim. See [Release facts](#release-facts-2026-11-05) below.
 
+## Open fix (2026-11-06, uncommitted branch `fix/refresh-device-versions`)
+
+- After the MC9400 in-place 1.0.0 to 1.0.1 update, scan receipts still reported `appVersion` 1.0.0: the host only sent `osVersion`/`appVersion` at enrollment and the server never refreshed them. `MobileSessionApi` now sends both on every heartbeat (`MobileSessionTest.networkPayloadUsesSemanticRoutesAndCarriesOnlyScreenMetadata` covers the payload); the matching server change is mobile-scanners 1.6 on the same-named server branch. Older servers ignore the keys; the installed 1.0.1 APK does not include this change.
+
 ## Release facts (2026-11-05)
 
 - **Published:** still `scanner-v1.0.0`, a signed preview. Signed candidate **1.0.1 (versionCode 3)** is **not published**, has no tag and no download link, and is not production-complete. Signer: existing permanent QRun key (certificate SHA-256 `BDDB2D2F...5B17A9FF`); no new key. APK SHA-256 `5124716B59CAD303717E7834FE64DDC1537E33A25C9AB75A6EA1ACF03AC2717F`, 15015419 bytes. Details: [RELEASING](RELEASING.md).
