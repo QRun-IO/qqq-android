@@ -6,7 +6,7 @@ Open work only, as of **2026-11-05**. Current evidence: [SESSION-STATE](SESSION-
 
 - [ ] Qualify actual GS1 label media and physical printed-label rescan. Synthetic capture/render evidence does not close this check.
 - [ ] Verify actual production-APK native Authentik login, logout and account switching; awaiting the MC wireless-debug endpoint. Real-server discovery (UI API 1.10, strict nonce, scanner and printing channels) is already verified; no native-Authentik PASS is claimed.
-- [ ] Publish signed candidate 1.0.1 (versionCode 3, APK SHA-256 `5124716B...AC2717F`, same permanent signer), checksum and installation instructions after remaining qualification. The published release is still the 1.0.0 signed preview.
+- [ ] After Android PRs 17 and 18 merge, rebase `release/scanner-1.0.2`, then build, sign (same permanent signer) and publish 1.0.2 (versionCode 4) with checksum and installation instructions after remaining qualification; see [RELEASING](RELEASING.md#next-candidate-102-versioncode-4). The signed 1.0.1 (versionCode 3) candidate is superseded and stays unpublished. The published release is still the 1.0.0 signed preview.
 - [ ] Publish and distribute full release assets to remaining devices; validate MDM/company profile and wallpaper separately. A customer deployment needs a customer HTTPS URL with a trusted certificate.
 - [ ] Printing: the next installer remains with the active printing owner (print nonce fix PR 11 postdates published print 1.1.1).
 - [ ] Optional, non-blocking: automatic APK signing CI. Direct APK release does not depend on it.
